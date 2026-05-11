@@ -2,17 +2,19 @@ import streamlit as st
 import pandas as pd
 import os
 
+# CONFIGURACIÓN
 st.set_page_config(page_title="Occidente 360", layout="wide")
 st.markdown("<h1 style='text-align: center; color: #2c3e50;'>📱 OCCIDENTE 360</h1>", unsafe_allow_html=True)
 
-# Ruta de tu Drive (asegúrate de que el nombre de la carpeta sea exacto)
-RUTA = '/content/drive/My Drive/Occidente360/'
-
 def cargar_datos():
-    archivos = [f for f in os.listdir(RUTA) if 'Conversion' in f and f.endswith('.xlsx')]
+    # Buscamos cualquier archivo que tenga 'Conversion' en el nombre dentro de GitHub
+    archivos = [f for f in os.listdir('.') if 'Conversion' in f and f.endswith('.xlsx')]
+    
     if archivos:
+        # Tomamos el archivo más reciente de la lista
         f_conv = sorted(archivos)[-1]
-        df = pd.read_excel(RUTA + f_conv)
+        df = pd.read_excel(f_conv)
+        # Limpieza básica
         df = df[~df['Tienda'].astype(str).str.contains('3004|3015|Total')].copy()
         df['Conv%'] = df['Conv. Año Actual'].apply(lambda x: x*100 if x < 1 else x)
         df['Uds_Tkt'] = df['Ticket prom. Actual']
@@ -22,22 +24,20 @@ def cargar_datos():
 df, file_name = cargar_datos()
 
 if df is not None:
-    meta = 10.9
-    v, r = df[df['Conv%'] >= meta].shape[0], df[df['Conv%'] < meta].shape[0]
+    meta_objetivo = 10.9
+    en_meta = df[df['Conv%'] >= meta_objetivo].shape[0]
+    bajo_meta = df[df['Conv%'] < meta_objetivo].shape[0]
     
-    col1, col2 = st.columns(2)
-    col1.metric("🟢 EN META", f"{v} Tiendas")
-    col2.metric("🔴 BAJO META", f"{r} Tiendas")
+    c1, c2 = st.columns(2)
+    c1.metric("🟢 EN META", f"{en_meta} Tiendas")
+    c2.metric("🔴 BAJO META", f"{bajo_meta} Tiendas")
     
     st.markdown("---")
-    st.subheader("🏆 TOP 20 - RANKING DE CONVERSIÓN")
+    st.subheader(f"🏆 RANKING DE CONVERSIÓN")
+    st.write(f"Archivo analizado: {file_name}")
     
-    top_20 = df[['Tienda', 'Conv%', 'Uds_Tkt']].sort_values('Conv%', ascending=False).head(20)
-    
-    def style_row(val):
-        return 'background-color: #d4edda' if val >= meta else 'background-color: #f8d7da'
-    
-    st.table(top_20.style.format({'Conv%': '{:.2f}%', 'Uds_Tkt': '{:.2f}'})
-             .applymap(style_row, subset=['Conv%']))
+    # Mostrar tabla con colores
+    st.dataframe(df[['Tienda', 'Conv%', 'Uds_Tkt']].sort_values('Conv%', ascending=False))
 else:
-    st.error("⚠️ Sube el archivo Excel a la carpeta 'Occidente360' en tu Drive.")
+    st.error("⚠️ No encontré el archivo de Excel. Asegúrate de haberlo subido a GitHub con el nombre 'Conversion...'")
+   
