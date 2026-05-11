@@ -35,37 +35,46 @@ def buscar_archivo(palabra_clave):
 archivo_conv = buscar_archivo('Conversion')
 archivo_ventas = buscar_archivo('Ventas')
 
-# Crear pestañas con mejor diseño
-tab1, tab2 = st.tabs(["📊 DESEMPEÑO CONVERSIÓN", "💰 RANKING DE VENTAS"])
+tab1, tab2 = st.tabs(["📊 DESEMPEÑO COMERCIAL", "💰 RANKING DE VENTAS"])
 
 with tab1:
     if archivo_conv:
         df_c = pd.read_excel(archivo_conv)
-        # Limpieza de administrativos (3004, 3015)
+        # Limpieza de administrativos
         df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
         
-        # Identificar columna de conversión (buscamos 'Conv' y 'Actual')
-        col_conv_real = next((c for c in df_c.columns if 'Conv' in c and 'Actual' in c), df_c.columns[1])
-        df_c['Conv%'] = df_c[col_conv_real].apply(lambda x: x*100 if x < 1 else x)
+        # Identificar columnas: Conversión y Ticket Promedio
+        col_conv_real = next((c for c in df_c.columns if 'Conv' in c and 'Actual' in c), None)
+        col_tkt_real = next((c for c in df_c.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
         
-        # Métricas de Semáforo
-        meta = 10.9
-        en_meta = df_c[df_c['Conv%'] >= meta].shape[0]
-        bajo_meta = df_c[df_c['Conv%'] < meta].shape[0]
-        
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Tiendas en Meta", f"{en_meta}", "Target: 10.9%")
-        m2.metric("Bajo la Meta", f"{bajo_meta}", f"-{bajo_meta}", delta_color="inverse")
-        m3.metric("Promedio Zona", f"{df_c['Conv%'].mean():.2f}%")
+        if col_conv_real and col_tkt_real:
+            df_c['Conv%'] = df_c[col_conv_real].apply(lambda x: x*100 if x < 1 else x)
+            df_c['Ticket_Prom'] = df_c[col_tkt_real]
+            
+            # Métricas superiores
+            meta_conv = 10.9
+            meta_tkt = 1.29
+            prom_zona_conv = df_c['Conv%'].mean()
+            prom_zona_tkt = df_c['Ticket_Prom'].mean()
+            
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Promedio Conversión", f"{prom_zona_conv:.2f}%", f"Meta: {meta_conv}%")
+            m2.metric("Promedio Ticket", f"{prom_zona_tkt:.2f}", f"Meta: {meta_tkt}")
+            m3.metric("Tiendas Analizadas", f"{len(df_c)}")
 
-        st.markdown("---")
-        st.subheader("🏆 TOP 20 - EFICIENCIA EN TIENDA")
-        
-        # Mostrar tabla estilizada
-        top_c = df_c[['Tienda', 'Conv%']].sort_values('Conv%', ascending=False).head(20)
-        st.table(top_c.style.format({'Conv%': '{:.2f}%'}))
+            st.markdown("---")
+            st.subheader("🏆 RANKING OPERATIVO (TOP 20)")
+            
+            # Tabla con los dos decimales solicitados
+            ranking = df_c[['Tienda', 'Conv%', 'Ticket_Prom']].sort_values('Conv%', ascending=False).head(20)
+            st.table(ranking.style.format({
+                'Conv%': '{:.2f}%',
+                'Ticket_Prom': '{:.2f}'
+            }))
+        else:
+            st.error("❌ No encontré las columnas de 'Conversión' o 'Ticket Promedio' en el Excel.")
     else:
-        st.warning("⚠️ Esperando archivo de 'Conversión' en GitHub...")
+        st.warning("⚠️ Sube el archivo de 'Conversión' a GitHub.")
 
 with tab2:
     if archivo_ventas:
@@ -77,10 +86,7 @@ with tab2:
             st.subheader("💵 RANKING DE VENTAS ($) - TOP 20")
             top_v = df_v[[col_t, col_v]].sort_values(col_v, ascending=False).head(20)
             st.table(top_v.style.format({col_v: '${:,.2f}'}))
-        else:
-            st.error("❌ No se detectaron las columnas de Ventas/Importe.")
     else:
         st.info("ℹ️ Sube un reporte con la palabra 'Ventas' para activar esta sección.")
 
-# --- PIE DE PÁGINA ---
 st.markdown("<br><p style='text-align: center; color: gray;'>Gestión Estratégica Occidente | LAE José Estrada</p>", unsafe_allow_html=True)
