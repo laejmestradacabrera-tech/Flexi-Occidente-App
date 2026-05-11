@@ -2,59 +2,85 @@ import streamlit as st
 import pandas as pd
 import os
 
-st.set_page_config(page_title="Occidente 360", layout="wide")
-st.markdown("<h1 style='text-align: center; color: #2c3e50;'>📱 OCCIDENTE 360</h1>", unsafe_allow_html=True)
+# --- CONFIGURACIÓN DE PÁGINA ---
+st.set_page_config(page_title="Monitor Comercial Occidente", layout="wide")
 
-def cargar_datos():
-    # Buscamos el archivo Excel
-    archivos = [f for f in os.listdir('.') if f.endswith('.xlsx')]
-    if archivos:
-        f_conv = sorted(archivos)[-1]
-        df = pd.read_excel(f_conv)
+# --- ESTILO PERSONALIZADO (ROJO FLEXI) ---
+st.markdown("""
+    <style>
+    .main-title {
+        text-align: center;
+        color: #E30613;
+        font-size: 45px;
+        font-weight: bold;
+        border-bottom: 3px solid #E30613;
+        padding-bottom: 10px;
+        margin-bottom: 25px;
+    }
+    .stMetric {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid #dee2e6;
+    }
+    </style>
+    <h1 class="main-title">🔴 MONITOR COMERCIAL OCCIDENTE</h1>
+    """, unsafe_allow_html=True)
+
+def buscar_archivo(palabra_clave):
+    archivos = [f for f in os.listdir('.') if palabra_clave.lower() in f.lower() and f.endswith('.xlsx')]
+    return sorted(archivos)[-1] if archivos else None
+
+# --- LÓGICA DE CARGA DE DATOS ---
+archivo_conv = buscar_archivo('Conversion')
+archivo_ventas = buscar_archivo('Ventas')
+
+# Crear pestañas con mejor diseño
+tab1, tab2 = st.tabs(["📊 DESEMPEÑO CONVERSIÓN", "💰 RANKING DE VENTAS"])
+
+with tab1:
+    if archivo_conv:
+        df_c = pd.read_excel(archivo_conv)
+        # Limpieza de administrativos (3004, 3015)
+        df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
         
-        # Intentamos detectar las columnas correctas sin importar mayúsculas/minúsculas
-        df.columns = [c.strip() for c in df.columns] # Limpiamos espacios
+        # Identificar columna de conversión (buscamos 'Conv' y 'Actual')
+        col_conv_real = next((c for c in df_c.columns if 'Conv' in c and 'Actual' in c), df_c.columns[1])
+        df_c['Conv%'] = df_c[col_conv_real].apply(lambda x: x*100 if x < 1 else x)
         
-        # Buscamos la columna de Tienda y de Conversión
-        col_tienda = next((c for c in df.columns if 'Tienda' in c or 'TIENDA' in c), None)
-        col_conv = next((c for c in df.columns if 'Conv' in c and 'Actual' in c), None)
-        col_tkt = next((c for c in df.columns if 'Ticket' in c or 'Uds' in c), None)
+        # Métricas de Semáforo
+        meta = 10.9
+        en_meta = df_c[df_c['Conv%'] >= meta].shape[0]
+        bajo_meta = df_c[df_c['Conv%'] < meta].shape[0]
+        
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Tiendas en Meta", f"{en_meta}", "Target: 10.9%")
+        m2.metric("Bajo la Meta", f"{bajo_meta}", f"-{bajo_meta}", delta_color="inverse")
+        m3.metric("Promedio Zona", f"{df_c['Conv%'].mean():.2f}%")
 
-        if col_tienda and col_conv:
-            # Limpiamos filas vacías o de totales
-            df = df[df[col_tienda].notna()]
-            df = df[~df[col_tienda].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)].copy()
-            
-            # Ajustamos el porcentaje
-            df['Conv_Mostrar'] = df[col_conv].apply(lambda x: x*100 if x < 1 else x)
-            return df, f_conv, col_tienda, 'Conv_Mostrar', col_tkt
-            
-    return None, None, None, None, None
+        st.markdown("---")
+        st.subheader("🏆 TOP 20 - EFICIENCIA EN TIENDA")
+        
+        # Mostrar tabla estilizada
+        top_c = df_c[['Tienda', 'Conv%']].sort_values('Conv%', ascending=False).head(20)
+        st.table(top_c.style.format({'Conv%': '{:.2f}%'}))
+    else:
+        st.warning("⚠️ Esperando archivo de 'Conversión' en GitHub...")
 
-df, file_name, c_tienda, c_conv, c_tkt = cargar_datos()
+with tab2:
+    if archivo_ventas:
+        df_v = pd.read_excel(archivo_ventas)
+        col_v = next((c for c in df_v.columns if 'Venta' in c or 'Importe' in c), None)
+        col_t = next((c for c in df_v.columns if 'Tienda' in c), None)
+        
+        if col_v and col_t:
+            st.subheader("💵 RANKING DE VENTAS ($) - TOP 20")
+            top_v = df_v[[col_t, col_v]].sort_values(col_v, ascending=False).head(20)
+            st.table(top_v.style.format({col_v: '${:,.2f}'}))
+        else:
+            st.error("❌ No se detectaron las columnas de Ventas/Importe.")
+    else:
+        st.info("ℹ️ Sube un reporte con la palabra 'Ventas' para activar esta sección.")
 
-if df is not None:
-    st.success(f"✅ Archivo detectado: {file_name}")
-    
-    # Métricas principales
-    meta = 10.9
-    en_meta = df[df[c_conv] >= meta].shape[0]
-    bajo_meta = df[df[c_conv] < meta].shape[0]
-    
-    col1, col2 = st.columns(2)
-    col1.metric("🟢 EN META", f"{en_meta} Tiendas")
-    col2.metric("🔴 BAJO META", f"{bajo_meta} Tiendas")
-    
-    st.markdown("---")
-    st.subheader("🏆 TOP 20 - RANKING DE CONVERSIÓN")
-    
-    # Creamos el ranking
-    columnas_top = [c_tienda, c_conv]
-    if c_tkt: columnas_top.append(c_tkt)
-    
-    top_20 = df[columnas_top].sort_values(c_conv, ascending=False).head(20)
-    
-    # Mostramos la tabla
-    st.table(top_20.style.format({c_conv: '{:.2f}%'}))
-else:
-    st.warning("⚠️ El archivo se cargó, pero no encuentro las columnas de 'Tienda' o 'Conversión'. Revisa que el Excel tenga esos títulos.")
+# --- PIE DE PÁGINA ---
+st.markdown("<br><p style='text-align: center; color: gray;'>Gestión Estratégica Occidente | LAE José Estrada</p>", unsafe_allow_html=True)
