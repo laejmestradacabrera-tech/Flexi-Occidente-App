@@ -5,7 +5,7 @@ import os
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Monitor Comercial Occidente", layout="wide")
 
-# --- ESTILO PERSONALIZADO (ROJO FLEXI) ---
+# --- ESTILO PERSONALIZADO (ROJO FLEXI Y TABLA LIMPIA) ---
 st.markdown("""
     <style>
     .main-title {
@@ -17,12 +17,9 @@ st.markdown("""
         padding-bottom: 10px;
         margin-bottom: 25px;
     }
-    .stMetric {
-        background-color: #f8f9fa;
-        padding: 15px;
-        border-radius: 10px;
-        border: 1px solid #dee2e6;
-    }
+    /* Eliminar la numeración de la izquierda en las tablas */
+    thead tr th:first-child {display:none}
+    tbody th {display:none}
     </style>
     <h1 class="main-title">🔴 MONITOR COMERCIAL OCCIDENTE</h1>
     """, unsafe_allow_html=True)
@@ -33,9 +30,8 @@ def buscar_archivo(palabra_clave):
 
 # --- LÓGICA DE CARGA DE DATOS ---
 archivo_conv = buscar_archivo('Conversion')
-archivo_ventas = buscar_archivo('Ventas')
 
-tab1, tab2 = st.tabs(["📊 DESEMPEÑO COMERCIAL", "💰 RANKING DE VENTAS"])
+tab1, tab2 = st.tabs(["📊 DESEMPEÑO DE TIENDAS", "💰 RANKING DE VENTAS"])
 
 with tab1:
     if archivo_conv:
@@ -43,7 +39,8 @@ with tab1:
         # Limpieza de administrativos
         df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
         
-        # Identificar columnas: Conversión y Ticket Promedio
+        # Identificar columnas
+        col_tienda = next((c for c in df_c.columns if 'Tienda' in c or 'TIENDA' in c), df_c.columns[0])
         col_conv_real = next((c for c in df_c.columns if 'Conv' in c and 'Actual' in c), None)
         col_tkt_real = next((c for c in df_c.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
         
@@ -51,42 +48,48 @@ with tab1:
             df_c['Conv%'] = df_c[col_conv_real].apply(lambda x: x*100 if x < 1 else x)
             df_c['Ticket_Prom'] = df_c[col_tkt_real]
             
-            # Métricas superiores
+            # Definición de Metas
             meta_conv = 10.9
             meta_tkt = 1.29
-            prom_zona_conv = df_c['Conv%'].mean()
-            prom_zona_tkt = df_c['Ticket_Prom'].mean()
             
+            # Marcamos quiénes cumplen ambos para poder ordenarlos arriba
+            df_c['Excelencia'] = (df_c['Conv%'] >= meta_conv) & (df_c['Ticket_Prom'] >= meta_tkt)
+            
+            # Métricas superiores
             m1, m2, m3 = st.columns(3)
-            m1.metric("Promedio Conversión", f"{prom_zona_conv:.2f}%", f"Meta: {meta_conv}%")
-            m2.metric("Promedio Ticket", f"{prom_zona_tkt:.2f}", f"Meta: {meta_tkt}")
-            m3.metric("Tiendas Analizadas", f"{len(df_c)}")
+            m1.metric("Promedio Zona Conv.", f"{df_c['Conv%'].mean():.2f}%")
+            m2.metric("Promedio Zona Tkt.", f"{df_c['Ticket_Prom'].mean():.2f}")
+            m3.metric("Tiendas en Excelencia", f"{df_c['Excelencia'].sum()}")
 
             st.markdown("---")
-            st.subheader("🏆 RANKING OPERATIVO (TOP 20)")
+            st.subheader(f"🏆 RANKING OPERATIVO (Ordenado por cumplimiento)")
             
-            # Tabla con los dos decimales solicitados
-            ranking = df_c[['Tienda', 'Conv%', 'Ticket_Prom']].sort_values('Conv%', ascending=False).head(20)
-            st.table(ranking.style.format({
+            # Ordenamos: primero las de excelencia, y dentro de eso, por mayor conversión
+            ranking = df_c[[col_tienda, 'Conv%', 'Ticket_Prom', 'Excelencia']].sort_values(
+                by=['Excelencia', 'Conv%'], 
+                ascending=[False, False]
+            )
+            
+            # Función para resaltar las filas que cumplen la meta (Opcional visual)
+            def resaltar_excelencia(s):
+                return ['background-color: #d4edda' if s.Excelencia else '' for _ in s]
+
+            # Mostramos la tabla filtrando la columna auxiliar 'Excelencia' para que no se vea
+            tabla_final = ranking.drop(columns=['Excelencia'])
+            
+            st.table(tabla_final.style.format({
                 'Conv%': '{:.2f}%',
                 'Ticket_Prom': '{:.2f}'
             }))
+            
+            st.caption(f"Nota: Las tiendas al principio de la lista cumplen con la Doble Meta (Conv ≥ {meta_conv}% y Tkt ≥ {meta_tkt})")
+            
         else:
-            st.error("❌ No encontré las columnas de 'Conversión' o 'Ticket Promedio' en el Excel.")
+            st.error("❌ No se detectaron las columnas de datos correctamente.")
     else:
-        st.warning("⚠️ Sube el archivo de 'Conversión' a GitHub.")
+        st.warning("⚠️ Esperando archivo de 'Conversión'...")
 
 with tab2:
-    if archivo_ventas:
-        df_v = pd.read_excel(archivo_ventas)
-        col_v = next((c for c in df_v.columns if 'Venta' in c or 'Importe' in c), None)
-        col_t = next((c for c in df_v.columns if 'Tienda' in c), None)
-        
-        if col_v and col_t:
-            st.subheader("💵 RANKING DE VENTAS ($) - TOP 20")
-            top_v = df_v[[col_t, col_v]].sort_values(col_v, ascending=False).head(20)
-            st.table(top_v.style.format({col_v: '${:,.2f}'}))
-    else:
-        st.info("ℹ️ Sube un reporte con la palabra 'Ventas' para activar esta sección.")
+    st.info("ℹ️ Sube el reporte de 'Ventas' a GitHub para activar el ranking de ingresos.")
 
 st.markdown("<br><p style='text-align: center; color: gray;'>Gestión Estratégica Occidente | LAE José Estrada</p>", unsafe_allow_html=True)
