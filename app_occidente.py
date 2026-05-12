@@ -5,7 +5,7 @@ import os
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Monitor Comercial Occidente", layout="wide")
 
-# --- ESTILO PARA REDUCIR ANCHO DE COLUMNAS ---
+# --- ESTILO COMPACTO ---
 st.markdown("""
     <style>
     .main-title {
@@ -31,12 +31,8 @@ st.markdown("""
     </style>
     <h1 class="main-title">🔴 MONITOR COMERCIAL OCCIDENTE</h1>
     """, unsafe_allow_html=True)
-    /* Encabezados resaltados en Rojo Flexi */
-    .stTable thead tr th {
-        background-color: #E30613 !important;
-        color: white !important;
-        font-weight: bold !important;
-    }
+
+def buscar_archivo(palabra_clave):
     /* Ocultar la numeración de la izquierda */
     thead tr th:first-child {display:none}
     tbody th {display:none}
