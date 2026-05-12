@@ -3,9 +3,9 @@ import pandas as pd
 import os
 
 # --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Monitor Comercial", layout="wide")
+st.set_page_config(page_title="Monitor Comercial Occidente", layout="wide")
 
-# --- ESTILO GLOBAL: RECUPERAMOS EL CÍRCULO Y FORZAMOS ENCABEZADOS ---
+# --- ESTILO GLOBAL INTEGRAL ---
 st.markdown("""
     <style>
     .main-title {
@@ -17,14 +17,13 @@ st.markdown("""
         padding-bottom: 10px; 
         margin-bottom: 20px;
     }
-    /* FUERZA BRUTA ENCABEZADOS: ROJO FLEXI / LETRA BLANCA */
+    /* ENCABEZADOS: ROJO FLEXI / LETRA BLANCA */
     th {
         background-color: #E30613 !important;
         color: white !important;
         font-weight: bold !important;
         text-transform: uppercase !important;
         text-align: center !important;
-        border: 1px solid #E30613 !important;
     }
     td { text-align: center !important; font-size: 14px !important; }
     
@@ -48,7 +47,6 @@ tab1, tab2 = st.tabs(["📊 DESEMPEÑO COMERCIAL", "👟 TOP 20 MODELOS"])
 with tab1:
     if archivo_conv:
         df_c = pd.read_excel(archivo_conv)
-        # Filtro de administrativas
         df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
         
         col_tienda = next((c for c in df_c.columns if 'Tienda' in c or 'TIENDA' in c), df_c.columns[0])
@@ -81,7 +79,7 @@ with tab2:
         col_cant = next((c for c in df_m.columns if 'Cant' in c or 'Pares' in c or 'Venta' in c), df_m.columns[2])
         col_prov = next((c for c in df_m.columns if 'Prov' in c or 'PROV' in c), None)
 
-        # FILTROS CRÍTICOS: CALZADO SOLAMENTE
+        # FILTROS DE CALZADO (SIN ACCESORIOS NI BOLSAS)
         if col_prov:
             df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])]
         df_m = df_m[df_m[col_mod].astype(str) != 'AUBOLPETT0RO']
@@ -93,7 +91,7 @@ with tab2:
         df_tienda = df_agrupado[df_agrupado[col_t] == tienda_sel].copy()
         top_20 = df_tienda[[col_mod, col_cant]].sort_values(by=col_cant, ascending=False).head(20).reset_index(drop=True)
         
-        # ASIGNACIÓN DE NOMBRES SOLICITADOS
+        # --- ENCABEZADOS SOLICITADOS ---
         top_20.columns = ['MODELO', 'PARES VENDIDOS'] 
         
         def estilo_top_5(data):
@@ -102,7 +100,6 @@ with tab2:
             return estilos
 
         st.subheader(f"🏆 RANKING DE VENTAS - TIENDA {tienda_sel}")
-        # La tabla usará los encabezados MODELO y PARES VENDIDOS en Rojo/Blanco
         st.table(top_20.style.apply(estilo_top_5, axis=None))
 
 st.markdown("<p style='text-align: center; color: gray; font-size: 10px;'>Gestión Occidente | LAE José Estrada</p>", unsafe_allow_html=True)
