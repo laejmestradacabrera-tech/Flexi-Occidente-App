@@ -36,15 +36,12 @@ def buscar_archivo(palabra_clave):
 archivo_conv = buscar_archivo('Conversion')
 archivo_modelos = buscar_archivo('Modelos')
 
-# DEFINICIÓN DE PESTAÑAS (Esto evita el NameError)
 tab1, tab2 = st.tabs(["📊 DESEMPEÑO COMERCIAL", "👟 TOP 20 MODELOS"])
 
 with tab1:
     if archivo_conv:
         df_c = pd.read_excel(archivo_conv)
-        # Filtro de administrativos
         df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
-        
         col_tienda = next((c for c in df_c.columns if 'Tienda' in c or 'TIENDA' in c), df_c.columns[0])
         col_conv_real = next((c for c in df_c.columns if 'Conv' in c and 'Actual' in c), None)
         col_tkt_real = next((c for c in df_c.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
@@ -53,13 +50,10 @@ with tab1:
             meta_conv, meta_tkt = 10.9, 1.29
             df_c['Conversión'] = df_c[col_conv_real].apply(lambda x: x*100 if x < 1 else x)
             df_c['Ticket Promedio'] = df_c[col_tkt_real]
-            
-            # Brechas
             df_c['Faltante Conv.'] = df_c['Conversión'].apply(lambda x: "✅" if x >= meta_conv else f"{x - meta_conv:.2f}%")
             df_c['Faltante Tkt.'] = df_c['Ticket Promedio'].apply(lambda x: "✅" if x >= meta_tkt else f"{x - meta_tkt:.2f}")
 
-            # Semáforo
-            def aplicar_color(row):
+            def aplicar_color_semaforo(row):
                 c_conv, c_tkt = row['Conversión'] >= meta_conv, row['Ticket Promedio'] >= meta_tkt
                 if c_conv and c_tkt: return ['background-color: #d4edda; color: #155724'] * 5
                 elif c_conv or c_tkt: return ['background-color: #fff3cd; color: #856404'] * 5
@@ -75,40 +69,38 @@ with tab1:
             ranking = df_c.sort_values(by=['Prioridad', 'Conversión'], ascending=[False, False])
             tabla_final = ranking[[col_tienda, 'Conversión', 'Faltante Conv.', 'Ticket Promedio', 'Faltante Tkt.']]
             tabla_final.columns = ['Tienda', 'Conversión', 'Faltante Conv.', 'Ticket Promedio', 'Faltante Tkt.']
-            
-            st.table(tabla_final.style.apply(aplicar_color, axis=1).format({'Conversión': '{:.2f}%', 'Ticket Promedio': '{:.2f}'}))
-        else: st.error("❌ Columnas de conversión no detectadas.")
+            st.table(tabla_final.style.apply(aplicar_color_semaforo, axis=1).format({'Conversión': '{:.2f}%', 'Ticket Promedio': '{:.2f}'}))
+        else: st.error("❌ Columnas no detectadas.")
 
 with tab2:
     if archivo_modelos:
         df_m = pd.read_excel(archivo_modelos)
-        
-        # --- LIMPIEZA Y FILTROS DE CALZADO ---
         col_t = next((c for c in df_m.columns if 'Tienda' in c or 'TIENDA' in c), df_m.columns[0])
         col_mod = next((c for c in df_m.columns if 'Modelo' in c or 'Estilo' in c or 'Art' in c), df_m.columns[1])
         col_cant = next((c for c in df_m.columns if 'Cant' in c or 'Pares' in c or 'Venta' in c), df_m.columns[2])
         col_prov = next((c for c in df_m.columns if 'Prov' in c or 'PROV' in c), None)
 
-        # Filtros de proveedores y modelos específicos
         if col_prov:
             df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])]
         df_m = df_m[df_m[col_mod].astype(str) != 'AUBOLPETT0RO']
         df_m = df_m[~df_m[col_t].astype(str).str.contains('3004|3015', na=False)]
 
-        # --- CORRECCIÓN DE CONTEO AGRUPADO ---
-        # Esto asegura que si el modelo aparece en varias filas, se sume el total real
         df_agrupado = df_m.groupby([col_t, col_mod])[col_cant].sum().reset_index()
 
-        # Visualización por tienda
         tiendas = sorted(df_agrupado[col_t].unique())
         tienda_sel = st.selectbox("Selecciona Tienda para ver el Top de Modelos:", tiendas)
         
         df_tienda = df_agrupado[df_agrupado[col_t] == tienda_sel].copy()
-        top_20 = df_tienda[[col_mod, col_cant]].sort_values(by=col_cant, ascending=False).head(20)
+        top_20 = df_tienda[[col_mod, col_cant]].sort_values(by=col_cant, ascending=False).head(20).reset_index(drop=True)
         top_20.columns = ['Modelo / Estilo', 'Pares Vendidos']
         
+        # --- LÓGICA DE RESALTADO TOP 5 (NUEVO) ---
+        def resaltar_top_5(s):
+            return ['background-color: #d1e7dd; color: #0f5132; font-weight: bold' if i < 5 else '' for i in range(len(s))]
+
         st.subheader(f"👟 Top 20 Calzado más vendido - Tienda {tienda_sel}")
-        st.table(top_20)
+        st.table(top_20.style.apply(resaltar_top_5, axis=0))
+        st.caption("🟢 Resaltado: Los 5 modelos con mayor desplazamiento.")
     else:
         st.info("ℹ️ Sube un archivo con la palabra 'Modelos' en GitHub.")
 
