@@ -5,7 +5,7 @@ import os
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Monitor Comercial Occidente", layout="wide")
 
-# --- ESTILO GLOBAL ---
+# --- ESTILO GLOBAL INTEGRAL ---
 st.markdown("""
     <style>
     .main-title {
@@ -17,6 +17,7 @@ st.markdown("""
         padding-bottom: 10px; 
         margin-bottom: 20px;
     }
+    /* FUERZA ENCABEZADOS: ROJO FLEXI / LETRA BLANCA */
     th {
         background-color: #E30613 !important;
         color: white !important;
@@ -24,12 +25,14 @@ st.markdown("""
         text-transform: uppercase !important;
         text-align: center !important;
         padding: 12px !important;
+        border: 1px solid #E30613 !important;
     }
     td { 
         text-align: center !important; 
         font-size: 15px !important;
         padding: 8px !important;
     }
+    /* OCULTAR ÍNDICE DE PYTHON */
     thead tr th:first-child { display: none !important; }
     tbody th { display: none !important; }
     </style>
@@ -45,6 +48,7 @@ archivo_modelos = buscar_archivo('Modelos')
 
 tab1, tab2 = st.tabs(["📊 DESEMPEÑO COMERCIAL", "👟 TOP 20 MODELOS"])
 
+# --- TAB 1: DESEMPEÑO ---
 with tab1:
     if archivo_conv:
         df_c = pd.read_excel(archivo_conv)
@@ -70,6 +74,7 @@ with tab1:
             ranking.columns = ['TIENDA', 'CONVERSIÓN', 'FALTANTE CONV.', 'TICKET PROMEDIO', 'FALTANTE TKT.']
             st.table(ranking.style.apply(color_desempeno, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))
 
+# --- TAB 2: TOP 20 ---
 with tab2:
     if archivo_modelos:
         df_m = pd.read_excel(archivo_modelos)
@@ -88,16 +93,18 @@ with tab2:
         
         df_tienda = df_agrupado[df_agrupado[col_t] == tienda_sel].copy()
         top_20 = df_tienda[[col_mod, col_cant]].sort_values(by=col_cant, ascending=False).head(20).reset_index(drop=True)
+        
+        # NOMBRES DE COLUMNA EXPLÍCITOS
         top_20.columns = ['MODELO', 'PARES VENDIDOS'] 
 
-        # --- FUNCIÓN CORREGIDA PARA PINTAR TODA LA FILA ---
+        # FUNCIÓN DE ESTILO PARA FILAS COMPLETAS
         def resaltar_filas_top_5(data):
             estilo = pd.DataFrame('', index=data.index, columns=data.columns)
-            # Aplicamos el color a las dos columnas (0 y 1) para las primeras 5 filas
             estilo.iloc[0:5, :] = 'background-color: #d1e7dd; color: #0f5132; font-weight: bold'
             return estilo
 
         st.subheader(f"🏆 RANKING DE VENTAS - TIENDA {tienda_sel}")
+        # Aplicamos el estilo cuidando que el CSS global mantenga los encabezados rojos
         st.table(top_20.style.apply(resaltar_filas_top_5, axis=None))
 
 st.markdown("<p style='text-align: center; color: gray; font-size: 10px;'>Gestión Occidente | LAE José Estrada</p>", unsafe_allow_html=True)
