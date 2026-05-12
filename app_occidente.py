@@ -2,17 +2,17 @@ import streamlit as st
 import pandas as pd
 import os
 
-# --- CONFIGURACIÓN DE PÁGINA ---
+# 1. CONFIGURACIÓN INICIAL
 st.set_page_config(page_title="Monitor Comercial Occidente", layout="wide")
 
-# --- ESTILO GLOBAL (ROJO FLEXI Y ENCABEZADOS BLANCOS) ---
+# 2. ESTILO BLINDADO (FUERZA BRUTA PARA ENCABEZADOS ROJOS)
 st.markdown("""
     <style>
     .main-title {
         text-align: center; color: #E30613; font-size: 32px; font-weight: bold;
         border-bottom: 3px solid #E30613; padding-bottom: 10px; margin-bottom: 20px;
     }
-    /* ENCABEZADOS: FONDO ROJO Y LETRA BLANCA */
+    /* ENCABEZADOS: FONDO ROJO, LETRA BLANCA, CENTRADOS */
     th {
         background-color: #E30613 !important;
         color: white !important;
@@ -28,13 +28,14 @@ st.markdown("""
         font-size: 15px !important;
         padding: 8px !important;
     }
-    /* OCULTAR ÍNDICE DE PYTHON */
+    /* ELIMINAR EL ÍNDICE IZQUIERDO PARA EVITAR DESALINEACIÓN */
     thead tr th:first-child { display: none !important; }
     tbody th { display: none !important; }
     </style>
     <h1 class="main-title">🔴 MONITOR COMERCIAL OCCIDENTE</h1>
     """, unsafe_allow_html=True)
 
+# 3. LÓGICA DE ARCHIVOS
 def buscar_archivo(palabra_clave):
     archivos = [f for f in os.listdir('.') if palabra_clave.lower() in f.lower() and f.endswith('.xlsx')]
     return sorted(archivos)[-1] if archivos else None
@@ -70,7 +71,7 @@ with tab1:
             ranking.columns = ['TIENDA', 'CONVERSIÓN', 'FALTANTE CONV.', 'TICKET PROMEDIO', 'FALTANTE TKT.']
             st.table(ranking.style.apply(color_desempeno, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))
 
-# --- TAB 2: TOP 20 ---
+# --- TAB 2: TOP 20 MODELOS ---
 with tab2:
     if archivo_modelos:
         df_m = pd.read_excel(archivo_modelos)
@@ -79,26 +80,32 @@ with tab2:
         col_cant = next((c for c in df_m.columns if 'Cant' in c or 'Pares' in c or 'Venta' in c), df_m.columns[2])
         col_prov = next((c for c in df_m.columns if 'Prov' in c or 'PROV' in c), None)
 
+        # Filtros: Solo calzado
         if col_prov:
             df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])]
         df_m = df_m[df_m[col_mod].astype(str) != 'AUBOLPETT0RO']
         df_m = df_m[~df_m[col_t].astype(str).str.contains('3004|3015', na=False)]
 
         df_agrupado = df_m.groupby([col_t, col_mod])[col_cant].sum().reset_index()
-        tienda_sel = st.selectbox("Selecciona Tienda:", sorted(df_agrupado[col_t].unique()))
+        tienda_sel = st.selectbox("Tienda:", sorted(df_agrupado[col_t].unique()))
         
         df_tienda = df_agrupado[df_agrupado[col_t] == tienda_sel].copy()
+        
+        # PREPARACIÓN DE TABLA SIN ÍNDICES
         top_20 = df_tienda[[col_mod, col_cant]].sort_values(by=col_cant, ascending=False).head(20).reset_index(drop=True)
         
-        # --- PASO ACTUAL: CAMBIO DE NOMBRES ---
+        # NOMBRES DE COLUMNA EXACTOS
         top_20.columns = ['MODELO', 'PARES VENDIDOS'] 
 
-        def resaltar_top_5(data):
+        # FUNCIÓN PARA PINTAR TODA LA FILA DEL TOP 5
+        def resaltar_filas_top_5(data):
             estilo = pd.DataFrame('', index=data.index, columns=data.columns)
             estilo.iloc[0:5, :] = 'background-color: #d1e7dd; color: #0f5132; font-weight: bold'
             return estilo
 
         st.subheader(f"🏆 RANKING DE VENTAS - TIENDA {tienda_sel}")
-        st.table(top_20.style.apply(resaltar_top_5, axis=None))
+        st.table(top_20.style.apply(resaltar_filas_top_5, axis=None))
+    else:
+        st.info("ℹ️ Sube el archivo 'Modelos' en GitHub.")
 
 st.markdown("<p style='text-align: center; color: gray; font-size: 10px;'>Gestión Occidente | LAE José Estrada</p>", unsafe_allow_html=True)
