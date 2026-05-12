@@ -5,7 +5,7 @@ import os
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Monitor Comercial Occidente", layout="wide")
 
-# --- ESTILO DEFINITIVO ROJO FLEXI ---
+# --- ESTILO DEFINITIVO Y AGRESIVO PARA ENCABEZADOS ---
 st.markdown("""
     <style>
     .main-title {
@@ -17,21 +17,27 @@ st.markdown("""
         padding-bottom: 10px;
         margin-bottom: 20px;
     }
-    .stTable td, .stTable th {
-        max-width: 100px !important;
-        padding: 6px !important;
-        text-align: center !important;
-        font-size: 14px !important;
-    }
-    /* ENCABEZADOS: FONDO ROJO Y LETRAS BLANCAS */
-    .stTable thead tr th {
+    
+    /* FUERZA TOTAL: FONDO ROJO Y LETRAS BLANCAS EN TODOS LOS ENCABEZADOS */
+    th {
         background-color: #E30613 !important;
         color: white !important;
         font-weight: bold !important;
         text-transform: uppercase !important;
+        text-align: center !important;
     }
-    thead tr th:first-child {display:none}
-    tbody th {display:none}
+
+    /* Ajuste de celdas */
+    .stTable td {
+        max-width: 120px !important;
+        padding: 6px !important;
+        text-align: center !important;
+        font-size: 14px !important;
+    }
+
+    /* Ocultar la columna de índice de Python */
+    thead tr th:first-child { display: none !important; }
+    tbody th { display: none !important; }
     </style>
     <h1 class="main-title">MONITOR COMERCIAL OCCIDENTE</h1>
     """, unsafe_allow_html=True)
@@ -80,11 +86,10 @@ with tab2:
 
         # --- FILTROS DE CALZADO (Nivelación de datos) ---
         if col_prov:
-            df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])] # Quita accesorios
-        df_m = df_m[df_m[col_mod].astype(str) != 'AUBOLPETT0RO'] # Quita bolsa reutilizable
-        df_m = df_m[~df_m[col_t].astype(str).str.contains('3004|3015', na=False)] # Quita administrativas
+            df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])]
+        df_m = df_m[df_m[col_mod].astype(str) != 'AUBOLPETT0RO']
+        df_m = df_m[~df_m[col_t].astype(str).str.contains('3004|3015', na=False)]
 
-        # Agrupación por tienda/modelo para precisión
         df_agrupado = df_m.groupby([col_t, col_mod])[col_cant].sum().reset_index()
         tienda_sel = st.selectbox("Selecciona Tienda:", sorted(df_agrupado[col_t].unique()))
         
