@@ -5,7 +5,7 @@ import os
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Monitor Comercial Occidente", layout="wide")
 
-# --- ESTILO GLOBAL BLINDADO ---
+# --- ESTILO GLOBAL (ROJO FLEXI Y ENCABEZADOS BLANCOS) ---
 st.markdown("""
     <style>
     .main-title {
@@ -28,7 +28,7 @@ st.markdown("""
         font-size: 15px !important;
         padding: 8px !important;
     }
-    /* OCULTAR ÍNDICE DE PYTHON PARA EVITAR DESPLAZAMIENTOS */
+    /* OCULTAR ÍNDICE DE PYTHON */
     thead tr th:first-child { display: none !important; }
     tbody th { display: none !important; }
     </style>
@@ -44,7 +44,7 @@ archivo_modelos = buscar_archivo('Modelos')
 
 tab1, tab2 = st.tabs(["📊 DESEMPEÑO COMERCIAL", "👟 TOP 20 MODELOS"])
 
-# --- TAB 1: DESEMPEÑO (SE MANTIENE INTACTO) ---
+# --- TAB 1: DESEMPEÑO ---
 with tab1:
     if archivo_conv:
         df_c = pd.read_excel(archivo_conv)
@@ -70,7 +70,7 @@ with tab1:
             ranking.columns = ['TIENDA', 'CONVERSIÓN', 'FALTANTE CONV.', 'TICKET PROMEDIO', 'FALTANTE TKT.']
             st.table(ranking.style.apply(color_desempeno, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))
 
-# --- TAB 2: TOP 20 (AJUSTE DE NOMBRES DE COLUMNA) ---
+# --- TAB 2: TOP 20 ---
 with tab2:
     if archivo_modelos:
         df_m = pd.read_excel(archivo_modelos)
@@ -90,7 +90,7 @@ with tab2:
         df_tienda = df_agrupado[df_agrupado[col_t] == tienda_sel].copy()
         top_20 = df_tienda[[col_mod, col_cant]].sort_values(by=col_cant, ascending=False).head(20).reset_index(drop=True)
         
-        # --- ENCABEZADOS SOLICITADOS ---
+        # --- PASO ACTUAL: CAMBIO DE NOMBRES ---
         top_20.columns = ['MODELO', 'PARES VENDIDOS'] 
 
         def resaltar_top_5(data):
@@ -100,7 +100,5 @@ with tab2:
 
         st.subheader(f"🏆 RANKING DE VENTAS - TIENDA {tienda_sel}")
         st.table(top_20.style.apply(resaltar_top_5, axis=None))
-    else:
-        st.info("ℹ️ Sube el archivo 'Modelos' en GitHub.")
 
 st.markdown("<p style='text-align: center; color: gray; font-size: 10px;'>Gestión Occidente | LAE José Estrada</p>", unsafe_allow_html=True)
