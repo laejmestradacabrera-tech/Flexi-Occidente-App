@@ -5,20 +5,15 @@ import os
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Monitor Comercial Occidente", layout="wide")
 
-# --- ESTILO GLOBAL INTEGRAL ---
+# --- ESTILO GLOBAL FINAL ---
 st.markdown("""
     <style>
     .main-title {
-        text-align: center; 
-        color: #E30613; 
-        font-size: 32px; 
-        font-weight: bold;
-        border-bottom: 3px solid #E30613; 
-        padding-bottom: 10px; 
-        margin-bottom: 20px;
+        text-align: center; color: #E30613; font-size: 32px; font-weight: bold;
+        border-bottom: 3px solid #E30613; padding-bottom: 10px; margin-bottom: 20px;
     }
-    /* FUERZA ENCABEZADOS: ROJO FLEXI / LETRA BLANCA */
-    th {
+    /* DISEÑO DE TABLA BLINDADO */
+    .report-table th {
         background-color: #E30613 !important;
         color: white !important;
         font-weight: bold !important;
@@ -27,12 +22,13 @@ st.markdown("""
         padding: 12px !important;
         border: 1px solid #E30613 !important;
     }
-    td { 
-        text-align: center !important; 
+    .report-table td {
+        text-align: center !important;
         font-size: 15px !important;
         padding: 8px !important;
+        border: 0.1px solid #f0f0f0 !important;
     }
-    /* OCULTAR ÍNDICE DE PYTHON */
+    /* OCULTAR ÍNDICE PARA QUE NO SE DESPLACE EL ENCABEZADO */
     thead tr th:first-child { display: none !important; }
     tbody th { display: none !important; }
     </style>
@@ -94,17 +90,18 @@ with tab2:
         df_tienda = df_agrupado[df_agrupado[col_t] == tienda_sel].copy()
         top_20 = df_tienda[[col_mod, col_cant]].sort_values(by=col_cant, ascending=False).head(20).reset_index(drop=True)
         
-        # NOMBRES DE COLUMNA EXPLÍCITOS
+        # NOMBRES DE COLUMNA QUE DEBEN APARECER EN ROJO
         top_20.columns = ['MODELO', 'PARES VENDIDOS'] 
 
-        # FUNCIÓN DE ESTILO PARA FILAS COMPLETAS
         def resaltar_filas_top_5(data):
             estilo = pd.DataFrame('', index=data.index, columns=data.columns)
             estilo.iloc[0:5, :] = 'background-color: #d1e7dd; color: #0f5132; font-weight: bold'
             return estilo
 
         st.subheader(f"🏆 RANKING DE VENTAS - TIENDA {tienda_sel}")
-        # Aplicamos el estilo cuidando que el CSS global mantenga los encabezados rojos
+        # Usamos el contenedor de clase 'report-table' definido arriba
+        st.write('<div class="report-table">', unsafe_allow_html=True)
         st.table(top_20.style.apply(resaltar_filas_top_5, axis=None))
+        st.write('</div>', unsafe_allow_html=True)
 
 st.markdown("<p style='text-align: center; color: gray; font-size: 10px;'>Gestión Occidente | LAE José Estrada</p>", unsafe_allow_html=True)
