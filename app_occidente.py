@@ -17,17 +17,21 @@ st.markdown("""
         padding-bottom: 10px; 
         margin-bottom: 20px;
     }
-    /* ENCABEZADOS: ROJO FLEXI / LETRA BLANCA */
+    /* FUERZA BRUTA EN ENCABEZADOS */
     th {
         background-color: #E30613 !important;
         color: white !important;
         font-weight: bold !important;
         text-transform: uppercase !important;
         text-align: center !important;
+        padding: 12px !important;
     }
-    td { text-align: center !important; font-size: 14px !important; }
-    
-    /* OCULTAR ÍNDICE DE PYTHON */
+    td { 
+        text-align: center !important; 
+        font-size: 15px !important;
+        padding: 8px !important;
+    }
+    /* OCULTAR COMPLETAMENTE COLUMNAS DE ÍNDICE */
     thead tr th:first-child { display: none !important; }
     tbody th { display: none !important; }
     </style>
@@ -48,7 +52,6 @@ with tab1:
     if archivo_conv:
         df_c = pd.read_excel(archivo_conv)
         df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
-        
         col_tienda = next((c for c in df_c.columns if 'Tienda' in c or 'TIENDA' in c), df_c.columns[0])
         col_conv_real = next((c for c in df_c.columns if 'Conv' in c and 'Actual' in c), None)
         col_tkt_real = next((c for c in df_c.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
@@ -70,7 +73,7 @@ with tab1:
             ranking.columns = ['TIENDA', 'CONVERSIÓN', 'FALTANTE CONV.', 'TICKET PROMEDIO', 'FALTANTE TKT.']
             st.table(ranking.style.apply(color_desempeno, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))
 
-# --- TAB 2: TOP 20 ---
+# --- TAB 2: TOP 20 (CORRECCIÓN SEGÚN FOTO) ---
 with tab2:
     if archivo_modelos:
         df_m = pd.read_excel(archivo_modelos)
@@ -79,27 +82,33 @@ with tab2:
         col_cant = next((c for c in df_m.columns if 'Cant' in c or 'Pares' in c or 'Venta' in c), df_m.columns[2])
         col_prov = next((c for c in df_m.columns if 'Prov' in c or 'PROV' in c), None)
 
-        # FILTROS DE CALZADO (SIN ACCESORIOS NI BOLSAS)
+        # Filtros de calzado
         if col_prov:
             df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])]
         df_m = df_m[df_m[col_mod].astype(str) != 'AUBOLPETT0RO']
         df_m = df_m[~df_m[col_t].astype(str).str.contains('3004|3015', na=False)]
 
         df_agrupado = df_m.groupby([col_t, col_mod])[col_cant].sum().reset_index()
-        tienda_sel = st.selectbox("Tienda:", sorted(df_agrupado[col_t].unique()))
+        tienda_sel = st.selectbox("Selecciona Tienda:", sorted(df_agrupado[col_t].unique()))
         
         df_tienda = df_agrupado[df_agrupado[col_t] == tienda_sel].copy()
-        top_20 = df_tienda[[col_mod, col_cant]].sort_values(by=col_cant, ascending=False).head(20).reset_index(drop=True)
         
-        # --- ENCABEZADOS SOLICITADOS ---
+        # IMPORTANTE: No usamos reset_index(drop=True) para evitar que Streamlit se confunda
+        top_20 = df_tienda[[col_mod, col_cant]].sort_values(by=col_cant, ascending=False).head(20)
+        
+        # Renombramos explícitamente las columnas
         top_20.columns = ['MODELO', 'PARES VENDIDOS'] 
-        
-        def estilo_top_5(data):
-            estilos = pd.DataFrame('', index=data.index, columns=data.columns)
-            estilos.iloc[0:5, 0] = 'background-color: #d1e7dd; color: #0f5132; font-weight: bold'
-            return estilos
+
+        def resaltar_top_5(data):
+            # Creamos una máscara de estilos vacía del mismo tamaño que la tabla
+            estilo = pd.DataFrame('', index=data.index, columns=data.columns)
+            # Solo aplicamos color a las primeras 5 filas de la columna 'MODELO'
+            estilo.iloc[0:5, 0] = 'background-color: #d1e7dd; color: #0f5132; font-weight: bold'
+            return estilo
 
         st.subheader(f"🏆 RANKING DE VENTAS - TIENDA {tienda_sel}")
-        st.table(top_20.style.apply(estilo_top_5, axis=None))
+        
+        # Convertimos a HTML para forzar el diseño si el style de pandas falla
+        st.table(top_20.style.apply(resaltar_top_5, axis=None))
 
 st.markdown("<p style='text-align: center; color: gray; font-size: 10px;'>Gestión Occidente | LAE José Estrada</p>", unsafe_allow_html=True)
