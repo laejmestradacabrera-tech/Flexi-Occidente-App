@@ -17,18 +17,21 @@ st.markdown("""
         padding-bottom: 10px;
         margin-bottom: 20px;
     }
+    /* Diseño de celdas: compacto y centrado */
     .stTable td, .stTable th {
         max-width: 100px !important;
         padding: 6px !important;
         text-align: center !important;
         font-size: 14px !important;
     }
+    /* ENCABEZADOS: FONDO ROJO Y LETRAS BLANCAS PARA TODO EL MONITOR */
     .stTable thead tr th {
         background-color: #E30613 !important;
         color: white !important;
         font-weight: bold !important;
         text-transform: uppercase !important;
     }
+    /* Ocultar el índice automático de Python */
     thead tr th:first-child {display:none}
     tbody th {display:none}
     </style>
@@ -54,33 +57,21 @@ with tab1:
         
         if col_conv_real and col_tkt_real:
             meta_conv, meta_tkt = 10.9, 1.29
-            
-            # --- PREPARACIÓN DE COLUMNAS CON NOMBRES FINALES ---
             df_c['CONVERSIÓN'] = df_c[col_conv_real].apply(lambda x: x*100 if x < 1 else x)
             df_c['TICKET PROMEDIO'] = df_c[col_tkt_real]
             df_c['FALTANTE CONV.'] = df_c['CONVERSIÓN'].apply(lambda x: "✅" if x >= meta_conv else f"{x - meta_conv:.2f}%")
             df_c['FALTANTE TKT.'] = df_c['TICKET PROMEDIO'].apply(lambda x: "✅" if x >= meta_tkt else f"{x - meta_tkt:.2f}")
 
-            # Función de color corregida para usar los nombres en MAYÚSCULAS
             def aplicar_color_semaforo(row):
-                c_conv = row['CONVERSIÓN'] >= meta_conv
-                c_tkt = row['TICKET PROMEDIO'] >= meta_tkt
+                c_conv, c_tkt = row['CONVERSIÓN'] >= meta_conv, row['TICKET PROMEDIO'] >= meta_tkt
                 if c_conv and c_tkt: return ['background-color: #d4edda; color: #155724'] * 5
                 elif c_conv or c_tkt: return ['background-color: #fff3cd; color: #856404'] * 5
                 else: return ['background-color: #f8d7da; color: #721c24'] * 5
 
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Zona Conv.", f"{df_c['CONVERSIÓN'].mean():.2f}%")
-            m2.metric("Zona Tkt.", f"{df_c['TICKET PROMEDIO'].mean():.2f}")
-            m3.metric("Excelencia", f"{df_c[(df_c['CONVERSIÓN']>=meta_conv) & (df_c['TICKET PROMEDIO']>=meta_tkt)].shape[0]}")
-
             st.markdown("---")
-            df_c['Prioridad'] = df_c.apply(lambda r: 2 if (r['CONVERSIÓN'] >= meta_conv and r['TICKET PROMEDIO'] >= meta_tkt) else (1 if (r['CONVERSIÓN'] >= meta_conv or r['TICKET PROMEDIO'] >= meta_tkt) else 0), axis=1)
-            ranking = df_c.sort_values(by=['Prioridad', 'CONVERSIÓN'], ascending=[False, False])
-            
+            ranking = df_c.sort_values(by=['CONVERSIÓN'], ascending=False)
             tabla_final = ranking[[col_tienda, 'CONVERSIÓN', 'FALTANTE CONV.', 'TICKET PROMEDIO', 'FALTANTE TKT.']]
             tabla_final.columns = ['TIENDA', 'CONVERSIÓN', 'FALTANTE CONV.', 'TICKET PROMEDIO', 'FALTANTE TKT.']
-            
             st.table(tabla_final.style.apply(aplicar_color_semaforo, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))
 
 with tab2:
@@ -89,29 +80,24 @@ with tab2:
         col_t = next((c for c in df_m.columns if 'Tienda' in c or 'TIENDA' in c), df_m.columns[0])
         col_mod = next((c for c in df_m.columns if 'Modelo' in c or 'Estilo' in c or 'Art' in c), df_m.columns[1])
         col_cant = next((c for c in df_m.columns if 'Cant' in c or 'Pares' in c or 'Venta' in c), df_m.columns[2])
-        col_prov = next((c for c in df_m.columns if 'Prov' in c or 'PROV' in c), None)
-
-        if col_prov:
-            df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])]
-        df_m = df_m[df_m[col_mod].astype(str) != 'AUBOLPETT0RO']
-        df_m = df_m[~df_m[col_t].astype(str).str.contains('3004|3015', na=False)]
-
+        
         df_agrupado = df_m.groupby([col_t, col_mod])[col_cant].sum().reset_index()
-        tiendas = sorted(df_agrupado[col_t].unique())
-        tienda_sel = st.selectbox("Selecciona Tienda para ver el Top:", tiendas)
+        tienda_sel = st.selectbox("Selecciona Tienda para el Ranking:", sorted(df_agrupado[col_t].unique()))
         
         df_tienda = df_agrupado[df_agrupado[col_t] == tienda_sel].copy()
         top_20 = df_tienda[[col_mod, col_cant]].sort_values(by=col_cant, ascending=False).head(20).reset_index(drop=True)
         
-        top_20.columns = ['MODELO', 'PARES VENDIDOS'] 
+        # --- ENCABEZADOS SOLICITADOS ---
+        top_20.columns = ['MODELO', 'PARES'] 
         
-        def resaltar_solo_modelo(data):
+        def resaltar_top_5_solo_modelo(data):
             estilos = pd.DataFrame('', index=data.index, columns=data.columns)
             estilos.iloc[0:5, 0] = 'background-color: #d1e7dd; color: #0f5132; font-weight: bold'
             return estilos
 
-        st.subheader(f"🏆 RANKING DE VENTAS - TIENDA {tienda_sel}")
-        st.table(top_20.style.apply(resaltar_solo_modelo, axis=None))
+        st.subheader(f"🏆 TOP 20 VENTAS - TIENDA {tienda_sel}")
+        # La tabla usará el estilo general de encabezados rojos definido arriba
+        st.table(top_20.style.apply(resaltar_top_5_solo_modelo, axis=None))
     else:
         st.info("ℹ️ Sube el archivo 'Modelos' en GitHub.")
 
