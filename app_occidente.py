@@ -5,19 +5,14 @@ import os
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(page_title="Monitor Comercial Occidente", layout="wide")
 
-# --- PASO 2: AGREGAR ESTILO DE ENCABEZADOS ROJOS ---
+# --- PASO 2: ENCABEZADOS ROJOS CON ALINEACIÓN PROTEGIDA ---
 st.markdown("""
     <style>
     .main-title {
-        text-align: center; 
-        color: #E30613; 
-        font-size: 32px; 
-        font-weight: bold;
-        border-bottom: 3px solid #E30613; 
-        padding-bottom: 10px; 
-        margin-bottom: 20px;
+        text-align: center; color: #E30613; font-size: 32px; font-weight: bold;
+        border-bottom: 3px solid #E30613; padding-bottom: 10px; margin-bottom: 20px;
     }
-    /* ESTILO PARA LOS ENCABEZADOS DE LAS TABLAS */
+    /* ENCABEZADOS: ROJO Y BLANCO */
     th {
         background-color: #E30613 !important;
         color: white !important;
@@ -26,17 +21,18 @@ st.markdown("""
         text-align: center !important;
         padding: 12px !important;
     }
-    td { 
-        text-align: center !important; 
+    /* MANTENER ESTRUCTURA PERO OCULTAR TEXTO DEL ÍNDICE */
+    th.blank, tbody th {
+        background-color: white !important;
+        color: white !important;
+        border: none !important;
+        width: 10px !important;
     }
-    /* OCULTAR ÍNDICE PARA QUE NO SE DESPLACE EL COLOR ROJO */
-    thead tr th:first-child { display: none !important; }
-    tbody th { display: none !important; }
+    td { text-align: center !important; font-size: 15px !important; }
     </style>
     <h1 class="main-title">🔴 MONITOR COMERCIAL OCCIDENTE</h1>
     """, unsafe_allow_html=True)
 
-# 2. FUNCIÓN PARA BUSCAR ARCHIVOS
 def buscar_archivo(palabra_clave):
     archivos = [f for f in os.listdir('.') if palabra_clave.lower() in f.lower() and f.endswith('.xlsx')]
     return sorted(archivos)[-1] if archivos else None
@@ -81,10 +77,11 @@ with tab2:
         df_tienda = df_agrupado[df_agrupado[col_t] == tienda_sel].copy()
         top_20 = df_tienda[[col_mod, col_cant]].sort_values(by=col_cant, ascending=False).head(20).reset_index(drop=True)
         
-        # Mantenemos los nombres del Paso 1
+        # Nombres de columna
         top_20.columns = ['MODELO', 'PARES VENDIDOS'] 
 
         st.subheader(f"Ranking de Ventas - {tienda_sel}")
+        # IMPORTANTE: Aquí NO quitamos el índice, solo lo ocultamos con el CSS de arriba
         st.table(top_20)
     else:
         st.info("ℹ️ Esperando archivo de modelos...")
