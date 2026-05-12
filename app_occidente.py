@@ -2,29 +2,32 @@ import streamlit as st
 import pandas as pd
 import os
 
-# 1. CONFIGURACIÓN
+# --- 1. CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Monitor Comercial Occidente", layout="wide")
 
-# 2. ESTILO GLOBAL DEFINITIVO (BLOQUEA ENCABEZADOS Y CÍRCULO)
+# --- 2. ESTILO "FIXED-WIDTH" (CORRIGE EL ERROR DE COLUMNAS REDUCIDAS) ---
 st.markdown("""
     <style>
     .main-title {
         text-align: center; color: #E30613; font-size: 32px; font-weight: bold;
         border-bottom: 3px solid #E30613; padding-bottom: 10px; margin-bottom: 20px;
     }
-    /* ESTILO DE ENCABEZADOS ROJO/BLANCO */
+    /* FUERZA ENCABEZADOS ROJOS CON ANCHO FIJO */
     th {
         background-color: #E30613 !important;
         color: white !important;
         font-weight: bold !important;
         text-transform: uppercase !important;
         text-align: center !important;
-        padding: 12px !important;
-        border: 1px solid #E30613 !important;
+        padding: 10px !important;
+        min-width: 150px !important; /* Evita que el nombre desaparezca al reducir */
     }
-    td { text-align: center !important; font-size: 15px !important; padding: 8px !important; }
-    
-    /* ELIMINAR EL ÍNDICE QUE CAUSA EL DESPLAZAMIENTO */
+    td { 
+        text-align: center !important; 
+        font-size: 14px !important; 
+        padding: 8px !important;
+    }
+    /* OCULTAR ÍNDICE (ELIMINA EL DESPLAZAMIENTO HACIA LA DERECHA) */
     thead tr th:first-child { display: none !important; }
     tbody th { display: none !important; }
     </style>
@@ -40,7 +43,7 @@ archivo_modelos = buscar_archivo('Modelos')
 
 tab1, tab2 = st.tabs(["📊 DESEMPEÑO COMERCIAL", "👟 TOP 20 MODELOS"])
 
-# --- TAB 1: DESEMPEÑO (SE MANTIENE IGUAL) ---
+# --- TAB 1: DESEMPEÑO ---
 with tab1:
     if archivo_conv:
         df_c = pd.read_excel(archivo_conv)
@@ -66,7 +69,7 @@ with tab1:
             ranking.columns = ['TIENDA', 'CONVERSIÓN', 'FALTANTE CONV.', 'TICKET PROMEDIO', 'FALTANTE TKT.']
             st.table(ranking.style.apply(color_desempeno, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))
 
-# --- TAB 2: TOP 20 (SOLUCIÓN AL ERROR DE REDUCCIÓN) ---
+# --- TAB 2: TOP 20 ---
 with tab2:
     if archivo_modelos:
         df_m = pd.read_excel(archivo_modelos)
@@ -85,8 +88,10 @@ with tab2:
         
         df_tienda = df_agrupado[df_agrupado[col_t] == tienda_sel].copy()
         
-        # ALINEACIÓN: Forzamos que Modelo sea columna y no índice
+        # RESET INDEX ES VITAL: Convierte el Modelo en columna real para que el CSS lo vea
         top_20 = df_tienda[[col_mod, col_cant]].sort_values(by=col_cant, ascending=False).head(20).reset_index(drop=True)
+        
+        # NOMBRES EXACTOS
         top_20.columns = ['MODELO', 'PARES VENDIDOS'] 
 
         def resaltar_filas_top_5(data):
@@ -95,6 +100,7 @@ with tab2:
             return estilo
 
         st.subheader(f"🏆 RANKING DE VENTAS - TIENDA {tienda_sel}")
+        # USAMOS st.table() que es más estable para estilos CSS fijos
         st.table(top_20.style.apply(resaltar_filas_top_5, axis=None))
 
 st.markdown("<p style='text-align: center; color: gray; font-size: 10px;'>Gestión Occidente | LAE José Estrada</p>", unsafe_allow_html=True)
