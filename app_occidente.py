@@ -41,6 +41,7 @@ tab1, tab2 = st.tabs(["📊 DESEMPEÑO COMERCIAL", "👟 TOP 20 MODELOS"])
 with tab1:
     if archivo_conv:
         df_c = pd.read_excel(archivo_conv)
+        # FILTRO CRÍTICO: Eliminamos 3015 y otros administrativos
         df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
         
         col_tienda = next((c for c in df_c.columns if 'Tienda' in c or 'TIENDA' in c), df_c.columns[0])
@@ -74,24 +75,27 @@ with tab1:
             
             st.table(tabla_final.style.apply(aplicar_color, axis=1).format({'Conversión': '{:.2f}%', 'Ticket Promedio': '{:.2f}'}))
         else: st.error("❌ Columnas no detectadas.")
-    else: st.warning("⚠️ Sube 'Conversion' a GitHub.")
 
 with tab2:
     if archivo_modelos:
         df_m = pd.read_excel(archivo_modelos)
         
-        # --- FILTROS DE CALZADO (NUEVO) ---
-        # 1. Eliminar proveedores 415, 426 y 427
+        # --- FILTROS DE CALZADO Y TIENDAS ---
+        col_t = next((c for c in df_m.columns if 'Tienda' in c or 'TIENDA' in c), df_m.columns[0])
+        
+        # 1. Eliminar Tienda 3015 y otras administrativas del Ranking
+        df_m = df_m[~df_m[col_t].astype(str).str.contains('3004|3015', na=False)]
+        
+        # 2. Eliminar proveedores 415, 426 y 427
         col_prov = next((c for c in df_m.columns if 'Prov' in c or 'PROV' in c), None)
         if col_prov:
             df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])]
             
-        # 2. Eliminar modelo específico AUBOLPETT0RO
+        # 3. Eliminar modelo AUBOLPETT0RO
         col_mod = next((c for c in df_m.columns if 'Modelo' in c or 'Estilo' in c or 'Art' in c), df_m.columns[1])
         df_m = df_m[df_m[col_mod].astype(str) != 'AUBOLPETT0RO']
         
         # --- LÓGICA DE VISUALIZACIÓN ---
-        col_t = next((c for c in df_m.columns if 'Tienda' in c or 'TIENDA' in c), df_m.columns[0])
         tiendas = sorted(df_m[col_t].unique())
         tienda_sel = st.selectbox("Selecciona Tienda para ver el Top de Modelos:", tiendas)
         
@@ -103,8 +107,8 @@ with tab2:
         
         st.subheader(f"👟 Top 20 Calzado más vendido - Tienda {tienda_sel}")
         st.table(top_20)
-        st.caption("Nota: Se han excluido proveedores administrativos y accesorios.")
+        st.caption("Nota: Reporte filtrado por calzado estratégico. Se excluyó la tienda 3015.")
     else:
-        st.info("ℹ️ Sube un archivo con la palabra 'Modelos' en GitHub para activar esta sección.")
+        st.info("ℹ️ Sube un archivo con la palabra 'Modelos' en GitHub.")
 
 st.markdown("<p style='text-align: center; color: gray;'>Gestión Estratégica Occidente | LAE José Estrada</p>", unsafe_allow_html=True)
