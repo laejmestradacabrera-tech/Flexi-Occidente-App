@@ -17,25 +17,21 @@ st.markdown("""
         padding-bottom: 10px;
         margin-bottom: 20px;
     }
-    /* Estilo de celdas */
-    .stTable td {
+    .stTable td, .stTable th {
+        max-width: 100px !important;
         padding: 6px !important;
         text-align: center !important;
         font-size: 14px !important;
     }
-    /* FUERZA ENCABEZADOS: FONDO ROJO Y LETRAS BLANCAS EN TODO EL APP */
+    /* ENCABEZADOS: FONDO ROJO Y LETRAS BLANCAS */
     .stTable thead tr th {
         background-color: #E30613 !important;
         color: white !important;
         font-weight: bold !important;
         text-transform: uppercase !important;
-        text-align: center !important;
-        padding: 8px !important;
-        border: 1px solid #E30613 !important;
     }
-    /* Ocultar solo el índice numérico de la izquierda que pone Python */
-    thead tr th:first-child { display: none !important; }
-    tbody th { display: none !important; }
+    thead tr th:first-child {display:none}
+    tbody th {display:none}
     </style>
     <h1 class="main-title">MONITOR COMERCIAL OCCIDENTE</h1>
     """, unsafe_allow_html=True)
@@ -59,7 +55,6 @@ with tab1:
         
         if col_conv_real and col_tkt_real:
             meta_conv, meta_tkt = 10.9, 1.29
-            # Nombres en mayúsculas para consistencia
             df_c['CONVERSIÓN'] = df_c[col_conv_real].apply(lambda x: x*100 if x < 1 else x)
             df_c['TICKET PROMEDIO'] = df_c[col_tkt_real]
             df_c['FALTANTE CONV.'] = df_c['CONVERSIÓN'].apply(lambda x: "✅" if x >= meta_conv else f"{x - meta_conv:.2f}%")
@@ -71,7 +66,9 @@ with tab1:
                 elif c_conv or c_tkt: return ['background-color: #fff3cd; color: #856404'] * 5
                 else: return ['background-color: #f8d7da; color: #721c24'] * 5
 
-            st.table(df_c[[col_tienda, 'CONVERSIÓN', 'FALTANTE CONV.', 'TICKET PROMEDIO', 'FALTANTE TKT.']].sort_values(by='CONVERSIÓN', ascending=False).style.apply(aplicar_color_semaforo, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))
+            tabla_final = df_c[[col_tienda, 'CONVERSIÓN', 'FALTANTE CONV.', 'TICKET PROMEDIO', 'FALTANTE TKT.']].sort_values(by='CONVERSIÓN', ascending=False)
+            tabla_final.columns = ['TIENDA', 'CONVERSIÓN', 'FALTANTE CONV.', 'TICKET PROMEDIO', 'FALTANTE TKT.']
+            st.table(tabla_final.style.apply(aplicar_color_semaforo, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))
 
 with tab2:
     if archivo_modelos:
@@ -79,18 +76,22 @@ with tab2:
         col_t = next((c for c in df_m.columns if 'Tienda' in c or 'TIENDA' in c), df_m.columns[0])
         col_mod = next((c for c in df_m.columns if 'Modelo' in c or 'Estilo' in c or 'Art' in c), df_m.columns[1])
         col_cant = next((c for c in df_m.columns if 'Cant' in c or 'Pares' in c or 'Venta' in c), df_m.columns[2])
-        
-        # Filtros de limpieza
-        df_m = df_m[~df_m[col_t].astype(str).str.contains('3004|3015', na=False)]
+        col_prov = next((c for c in df_m.columns if 'Prov' in c or 'PROV' in c), None)
+
+        # --- FILTROS DE CALZADO (Nivelación de datos) ---
+        if col_prov:
+            df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])] # Quita accesorios
+        df_m = df_m[df_m[col_mod].astype(str) != 'AUBOLPETT0RO'] # Quita bolsa reutilizable
+        df_m = df_m[~df_m[col_t].astype(str).str.contains('3004|3015', na=False)] # Quita administrativas
+
+        # Agrupación por tienda/modelo para precisión
         df_agrupado = df_m.groupby([col_t, col_mod])[col_cant].sum().reset_index()
+        tienda_sel = st.selectbox("Selecciona Tienda:", sorted(df_agrupado[col_t].unique()))
         
-        tienda_sel = st.selectbox("Selecciona Tienda para ver el Ranking:", sorted(df_agrupado[col_t].unique()))
         df_tienda = df_agrupado[df_agrupado[col_t] == tienda_sel].copy()
-        
-        # PREPARACIÓN DE TABLA TOP 20
         top_20 = df_tienda[[col_mod, col_cant]].sort_values(by=col_cant, ascending=False).head(20).reset_index(drop=True)
         
-        # ASIGNACIÓN DE NOMBRES SOLICITADOS
+        # --- ENCABEZADOS SOLICITADOS ---
         top_20.columns = ['MODELO', 'PARES VENDIDOS'] 
         
         def resaltar_top_5_modelo(data):
@@ -98,8 +99,7 @@ with tab2:
             estilos.iloc[0:5, 0] = 'background-color: #d1e7dd; color: #0f5132; font-weight: bold'
             return estilos
 
-        st.subheader(f"🏆 TOP VENTAS - TIENDA {tienda_sel}")
-        # Se muestra la tabla con los encabezados MODELO y PARES VENDIDOS
+        st.subheader(f"🏆 RANKING VENTAS - TIENDA {tienda_sel}")
         st.table(top_20.style.apply(resaltar_top_5_modelo, axis=None))
     else:
         st.info("ℹ️ Sube el archivo 'Modelos' en GitHub.")
