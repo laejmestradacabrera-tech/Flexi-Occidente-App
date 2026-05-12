@@ -5,7 +5,6 @@ import os
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Monitor Comercial Occidente", layout="wide")
 
-# --- ESTILO ROJO FLEXI Y TABLA LIMPIA ---
 # --- ESTILO PARA REDUCIR ANCHO DE COLUMNAS ---
 st.markdown("""
     <style>
@@ -17,12 +16,21 @@ st.markdown("""
         border-bottom: 3px solid #E30613;
         padding-bottom: 10px;
     }
-    /* AQUÍ SE REDUCE EL ANCHO */
     .stTable td, .stTable th {
-        max-width: 80px !important;  /* Ajusta este número si quieres que sea más o menos ancho */
+        max-width: 80px !important;
         padding: 4px !important;
         text-align: center !important;
     }
+    .stTable thead tr th {
+        background-color: #E30613 !important;
+        color: white !important;
+        font-weight: bold !important;
+    }
+    thead tr th:first-child {display:none}
+    tbody th {display:none}
+    </style>
+    <h1 class="main-title">🔴 MONITOR COMERCIAL OCCIDENTE</h1>
+    """, unsafe_allow_html=True)
     /* Encabezados resaltados en Rojo Flexi */
     .stTable thead tr th {
         background-color: #E30613 !important;
