@@ -5,7 +5,36 @@ import os
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(page_title="Monitor Comercial Occidente", layout="wide")
 
-st.markdown("<h1 style='text-align: center; color: #E30613;'>🔴 MONITOR COMERCIAL OCCIDENTE</h1>", unsafe_allow_html=True)
+# --- PASO 2: AGREGAR ESTILO DE ENCABEZADOS ROJOS ---
+st.markdown("""
+    <style>
+    .main-title {
+        text-align: center; 
+        color: #E30613; 
+        font-size: 32px; 
+        font-weight: bold;
+        border-bottom: 3px solid #E30613; 
+        padding-bottom: 10px; 
+        margin-bottom: 20px;
+    }
+    /* ESTILO PARA LOS ENCABEZADOS DE LAS TABLAS */
+    th {
+        background-color: #E30613 !important;
+        color: white !important;
+        font-weight: bold !important;
+        text-transform: uppercase !important;
+        text-align: center !important;
+        padding: 12px !important;
+    }
+    td { 
+        text-align: center !important; 
+    }
+    /* OCULTAR ÍNDICE PARA QUE NO SE DESPLACE EL COLOR ROJO */
+    thead tr th:first-child { display: none !important; }
+    tbody th { display: none !important; }
+    </style>
+    <h1 class="main-title">🔴 MONITOR COMERCIAL OCCIDENTE</h1>
+    """, unsafe_allow_html=True)
 
 # 2. FUNCIÓN PARA BUSCAR ARCHIVOS
 def buscar_archivo(palabra_clave):
@@ -17,7 +46,7 @@ archivo_modelos = buscar_archivo('Modelos')
 
 tab1, tab2 = st.tabs(["📊 DESEMPEÑO COMERCIAL", "👟 TOP 20 MODELOS"])
 
-# --- PESTAÑA 1: DESEMPEÑO (ESTABLE) ---
+# --- PESTAÑA 1: DESEMPEÑO ---
 with tab1:
     if archivo_conv:
         df_c = pd.read_excel(archivo_conv)
@@ -33,18 +62,15 @@ with tab1:
             ranking.columns = ['TIENDA', 'CONVERSIÓN', 'TICKET PROMEDIO']
             st.table(ranking.head(21))
 
-# --- PESTAÑA 2: SUBIR TOP 20 (NOMBRES DE COLUMNA) ---
+# --- PESTAÑA 2: TOP 20 MODELOS ---
 with tab2:
     if archivo_modelos:
         df_m = pd.read_excel(archivo_modelos)
-        
-        # Identificar columnas originales
         col_t = next((c for c in df_m.columns if 'Tienda' in c or 'TIENDA' in c), df_m.columns[0])
         col_mod = next((c for c in df_m.columns if 'Modelo' in c or 'Estilo' in c or 'Art' in c), df_m.columns[1])
         col_cant = next((c for c in df_m.columns if 'Cant' in c or 'Pares' in c or 'Venta' in c), df_m.columns[2])
         col_prov = next((c for c in df_m.columns if 'Prov' in c or 'PROV' in c), None)
 
-        # Filtros básicos (Solo calzado)
         if col_prov:
             df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])]
         df_m = df_m[~df_m[col_t].astype(str).str.contains('3004|3015', na=False)]
@@ -53,15 +79,13 @@ with tab2:
         tienda_sel = st.selectbox("Selecciona Tienda:", sorted(df_agrupado[col_t].unique()))
         
         df_tienda = df_agrupado[df_agrupado[col_t] == tienda_sel].copy()
-        
-        # Preparar solo las 2 columnas deseadas
         top_20 = df_tienda[[col_mod, col_cant]].sort_values(by=col_cant, ascending=False).head(20).reset_index(drop=True)
         
-        # CAMBIO DE NOMBRES SOLICITADO
+        # Mantenemos los nombres del Paso 1
         top_20.columns = ['MODELO', 'PARES VENDIDOS'] 
 
         st.subheader(f"Ranking de Ventas - {tienda_sel}")
-        st.table(top_20) # Tabla simple sin colores aún
+        st.table(top_20)
     else:
         st.info("ℹ️ Esperando archivo de modelos...")
 
