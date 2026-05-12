@@ -5,29 +5,29 @@ import os
 # --- 1. CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Monitor Comercial Occidente", layout="wide")
 
-# --- 2. ESTILO "FIXED-WIDTH" (CORRIGE EL ERROR DE COLUMNAS REDUCIDAS) ---
+# --- 2. ESTILO DEFINITIVO (BLOQUEA ENCABEZADOS Y ALINEACIÓN) ---
 st.markdown("""
     <style>
     .main-title {
         text-align: center; color: #E30613; font-size: 32px; font-weight: bold;
         border-bottom: 3px solid #E30613; padding-bottom: 10px; margin-bottom: 20px;
     }
-    /* FUERZA ENCABEZADOS ROJOS CON ANCHO FIJO */
+    /* FUERZA ENCABEZADOS: ROJO Y BLANCO CON ANCHO COMPLETO */
     th {
         background-color: #E30613 !important;
         color: white !important;
         font-weight: bold !important;
         text-transform: uppercase !important;
         text-align: center !important;
-        padding: 10px !important;
-        min-width: 150px !important; /* Evita que el nombre desaparezca al reducir */
+        padding: 12px !important;
+        min-width: 200px !important; /* Asegura que el nombre no se corte */
     }
     td { 
         text-align: center !important; 
-        font-size: 14px !important; 
-        padding: 8px !important;
+        font-size: 15px !important; 
+        padding: 10px !important;
     }
-    /* OCULTAR ÍNDICE (ELIMINA EL DESPLAZAMIENTO HACIA LA DERECHA) */
+    /* OCULTAR ÍNDICE PARA QUE NO EMPUJE LAS COLUMNAS */
     thead tr th:first-child { display: none !important; }
     tbody th { display: none !important; }
     </style>
@@ -78,6 +78,7 @@ with tab2:
         col_cant = next((c for c in df_m.columns if 'Cant' in c or 'Pares' in c or 'Venta' in c), df_m.columns[2])
         col_prov = next((c for c in df_m.columns if 'Prov' in c or 'PROV' in c), None)
 
+        # Filtros de calzado
         if col_prov:
             df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])]
         df_m = df_m[df_m[col_mod].astype(str) != 'AUBOLPETT0RO']
@@ -88,10 +89,11 @@ with tab2:
         
         df_tienda = df_agrupado[df_agrupado[col_t] == tienda_sel].copy()
         
-        # RESET INDEX ES VITAL: Convierte el Modelo en columna real para que el CSS lo vea
-        top_20 = df_tienda[[col_mod, col_cant]].sort_values(by=col_cant, ascending=False).head(20).reset_index(drop=True)
+        # OBTENEMOS LOS DATOS Y FORZAMOS EL ORDEN
+        top_20 = df_tienda[[col_mod, col_cant]].sort_values(by=col_cant, ascending=False).head(20)
         
-        # NOMBRES EXACTOS
+        # --- ELIMINAMOS CUALQUIER ÍNDICE Y RENOMBRAMOS AQUÍ ---
+        top_20 = top_20.reset_index(drop=True)
         top_20.columns = ['MODELO', 'PARES VENDIDOS'] 
 
         def resaltar_filas_top_5(data):
@@ -100,7 +102,7 @@ with tab2:
             return estilo
 
         st.subheader(f"🏆 RANKING DE VENTAS - TIENDA {tienda_sel}")
-        # USAMOS st.table() que es más estable para estilos CSS fijos
+        # USAMOS st.table() PARA MANTENER EL CSS RIGIDO
         st.table(top_20.style.apply(resaltar_filas_top_5, axis=None))
 
 st.markdown("<p style='text-align: center; color: gray; font-size: 10px;'>Gestión Occidente | LAE José Estrada</p>", unsafe_allow_html=True)
