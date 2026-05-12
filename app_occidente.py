@@ -2,14 +2,20 @@ import streamlit as st
 import pandas as pd
 import os
 
-# --- 1. CONFIGURACIÓN E INTERFAZ ---
+# --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Monitor Comercial", layout="wide")
 
+# --- ESTILO GLOBAL: RECUPERAMOS EL CÍRCULO Y FORZAMOS ENCABEZADOS ---
 st.markdown("""
     <style>
     .main-title {
-        text-align: center; color: #E30613; font-size: 32px; font-weight: bold;
-        border-bottom: 3px solid #E30613; padding-bottom: 10px; margin-bottom: 20px;
+        text-align: center; 
+        color: #E30613; 
+        font-size: 32px; 
+        font-weight: bold;
+        border-bottom: 3px solid #E30613; 
+        padding-bottom: 10px; 
+        margin-bottom: 20px;
     }
     /* FUERZA BRUTA ENCABEZADOS: ROJO FLEXI / LETRA BLANCA */
     th {
@@ -18,16 +24,17 @@ st.markdown("""
         font-weight: bold !important;
         text-transform: uppercase !important;
         text-align: center !important;
+        border: 1px solid #E30613 !important;
     }
     td { text-align: center !important; font-size: 14px !important; }
+    
     /* OCULTAR ÍNDICE DE PYTHON */
     thead tr th:first-child { display: none !important; }
     tbody th { display: none !important; }
     </style>
-    <h1 class="main-title">MONITOR COMERCIAL OCCIDENTE</h1>
+    <h1 class="main-title">🔴 MONITOR COMERCIAL OCCIDENTE</h1>
     """, unsafe_allow_html=True)
 
-# --- 2. FUNCIONES DE DATOS ---
 def buscar_archivo(palabra_clave):
     archivos = [f for f in os.listdir('.') if palabra_clave.lower() in f.lower() and f.endswith('.xlsx')]
     return sorted(archivos)[-1] if archivos else None
@@ -41,6 +48,7 @@ tab1, tab2 = st.tabs(["📊 DESEMPEÑO COMERCIAL", "👟 TOP 20 MODELOS"])
 with tab1:
     if archivo_conv:
         df_c = pd.read_excel(archivo_conv)
+        # Filtro de administrativas
         df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
         
         col_tienda = next((c for c in df_c.columns if 'Tienda' in c or 'TIENDA' in c), df_c.columns[0])
@@ -85,7 +93,7 @@ with tab2:
         df_tienda = df_agrupado[df_agrupado[col_t] == tienda_sel].copy()
         top_20 = df_tienda[[col_mod, col_cant]].sort_values(by=col_cant, ascending=False).head(20).reset_index(drop=True)
         
-        # ASIGNACIÓN DE NOMBRES DE COLUMNA
+        # ASIGNACIÓN DE NOMBRES SOLICITADOS
         top_20.columns = ['MODELO', 'PARES VENDIDOS'] 
         
         def estilo_top_5(data):
@@ -94,6 +102,7 @@ with tab2:
             return estilos
 
         st.subheader(f"🏆 RANKING DE VENTAS - TIENDA {tienda_sel}")
+        # La tabla usará los encabezados MODELO y PARES VENDIDOS en Rojo/Blanco
         st.table(top_20.style.apply(estilo_top_5, axis=None))
 
 st.markdown("<p style='text-align: center; color: gray; font-size: 10px;'>Gestión Occidente | LAE José Estrada</p>", unsafe_allow_html=True)
