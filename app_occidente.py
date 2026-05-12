@@ -5,7 +5,7 @@ import os
 # --- CONFIGURACIÓN ---
 st.set_page_config(page_title="Monitor Comercial Occidente", layout="wide")
 
-# --- ESTILO ROJO FLEXI Y TABLA LIMPIA ---
+# --- ESTILO ROJO FLEXI ---
 st.markdown("""
     <style>
     .main-title {
@@ -52,11 +52,9 @@ with tab1:
             df_c['Conversión'] = df_c[col_conv_real].apply(lambda x: x*100 if x < 1 else x)
             df_c['Ticket Promedio'] = df_c[col_tkt_real]
             
-            # Brechas
             df_c['Faltante Conv.'] = df_c['Conversión'].apply(lambda x: "✅" if x >= meta_conv else f"{x - meta_conv:.2f}%")
             df_c['Faltante Tkt.'] = df_c['Ticket Promedio'].apply(lambda x: "✅" if x >= meta_tkt else f"{x - meta_tkt:.2f}")
 
-            # Semáforo
             def aplicar_color(row):
                 c_conv, c_tkt = row['Conversión'] >= meta_conv, row['Ticket Promedio'] >= meta_tkt
                 if c_conv and c_tkt: return ['background-color: #d4edda; color: #155724'] * 5
@@ -81,19 +79,31 @@ with tab1:
 with tab2:
     if archivo_modelos:
         df_m = pd.read_excel(archivo_modelos)
-        col_t = next((c for c in df_m.columns if 'Tienda' in c or 'TIENDA' in c), df_m.columns[0])
         
+        # --- FILTROS DE CALZADO (NUEVO) ---
+        # 1. Eliminar proveedores 415, 426 y 427
+        col_prov = next((c for c in df_m.columns if 'Prov' in c or 'PROV' in c), None)
+        if col_prov:
+            df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])]
+            
+        # 2. Eliminar modelo específico AUBOLPETT0RO
+        col_mod = next((c for c in df_m.columns if 'Modelo' in c or 'Estilo' in c or 'Art' in c), df_m.columns[1])
+        df_m = df_m[df_m[col_mod].astype(str) != 'AUBOLPETT0RO']
+        
+        # --- LÓGICA DE VISUALIZACIÓN ---
+        col_t = next((c for c in df_m.columns if 'Tienda' in c or 'TIENDA' in c), df_m.columns[0])
         tiendas = sorted(df_m[col_t].unique())
         tienda_sel = st.selectbox("Selecciona Tienda para ver el Top de Modelos:", tiendas)
         
         df_t = df_m[df_m[col_t] == tienda_sel].copy()
-        col_mod = next((c for c in df_t.columns if 'Modelo' in c or 'Estilo' in c or 'Art' in c), df_t.columns[1])
         col_cant = next((c for c in df_t.columns if 'Cant' in c or 'Pares' in c or 'Venta' in c), df_t.columns[2])
         
         top_20 = df_t[[col_mod, col_cant]].sort_values(by=col_cant, ascending=False).head(20)
         top_20.columns = ['Modelo / Estilo', 'Pares Vendidos']
-        st.subheader(f"👟 Top 20 Artículos más vendidos - Tienda {tienda_sel}")
+        
+        st.subheader(f"👟 Top 20 Calzado más vendido - Tienda {tienda_sel}")
         st.table(top_20)
+        st.caption("Nota: Se han excluido proveedores administrativos y accesorios.")
     else:
         st.info("ℹ️ Sube un archivo con la palabra 'Modelos' en GitHub para activar esta sección.")
 
