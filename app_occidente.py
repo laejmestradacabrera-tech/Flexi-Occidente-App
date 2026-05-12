@@ -5,30 +5,29 @@ import os
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Monitor Comercial Occidente", layout="wide")
 
-# --- ESTILO GLOBAL FINAL ---
+# --- ESTILO GLOBAL BLINDADO (PARA QUE NO SE MUEVAN LOS ENCABEZADOS) ---
 st.markdown("""
     <style>
     .main-title {
         text-align: center; color: #E30613; font-size: 32px; font-weight: bold;
         border-bottom: 3px solid #E30613; padding-bottom: 10px; margin-bottom: 20px;
     }
-    /* DISEÑO DE TABLA BLINDADO */
-    .report-table th {
+    /* FUERZA BRUTA ENCABEZADOS: FONDO ROJO Y LETRA BLANCA */
+    th {
         background-color: #E30613 !important;
         color: white !important;
         font-weight: bold !important;
         text-transform: uppercase !important;
         text-align: center !important;
         padding: 12px !important;
-        border: 1px solid #E30613 !important;
     }
-    .report-table td {
-        text-align: center !important;
+    /* CELDAS: TEXTO CENTRADO Y TAMAÑO LEGIBLE */
+    td { 
+        text-align: center !important; 
         font-size: 15px !important;
         padding: 8px !important;
-        border: 0.1px solid #f0f0f0 !important;
     }
-    /* OCULTAR ÍNDICE PARA QUE NO SE DESPLACE EL ENCABEZADO */
+    /* OCULTAR ÍNDICE PARA QUE LOS ENCABEZADOS NO SE DESPLACEN */
     thead tr th:first-child { display: none !important; }
     tbody th { display: none !important; }
     </style>
@@ -44,7 +43,7 @@ archivo_modelos = buscar_archivo('Modelos')
 
 tab1, tab2 = st.tabs(["📊 DESEMPEÑO COMERCIAL", "👟 TOP 20 MODELOS"])
 
-# --- TAB 1: DESEMPEÑO ---
+# --- TAB 1: DESEMPEÑO (TODO SE MANTIENE IGUAL) ---
 with tab1:
     if archivo_conv:
         df_c = pd.read_excel(archivo_conv)
@@ -70,7 +69,7 @@ with tab1:
             ranking.columns = ['TIENDA', 'CONVERSIÓN', 'FALTANTE CONV.', 'TICKET PROMEDIO', 'FALTANTE TKT.']
             st.table(ranking.style.apply(color_desempeno, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))
 
-# --- TAB 2: TOP 20 ---
+# --- TAB 2: TOP 20 (CORRECCIÓN SEGÚN REFERENCIA) ---
 with tab2:
     if archivo_modelos:
         df_m = pd.read_excel(archivo_modelos)
@@ -79,6 +78,7 @@ with tab2:
         col_cant = next((c for c in df_m.columns if 'Cant' in c or 'Pares' in c or 'Venta' in c), df_m.columns[2])
         col_prov = next((c for c in df_m.columns if 'Prov' in c or 'PROV' in c), None)
 
+        # Filtros: Solo calzado (Sin accesorios ni bolsas)
         if col_prov:
             df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])]
         df_m = df_m[df_m[col_mod].astype(str) != 'AUBOLPETT0RO']
@@ -88,20 +88,21 @@ with tab2:
         tienda_sel = st.selectbox("Selecciona Tienda:", sorted(df_agrupado[col_t].unique()))
         
         df_tienda = df_agrupado[df_agrupado[col_t] == tienda_sel].copy()
-        top_20 = df_tienda[[col_mod, col_cant]].sort_values(by=col_cant, ascending=False).head(20).reset_index(drop=True)
         
-        # NOMBRES DE COLUMNA QUE DEBEN APARECER EN ROJO
+        # Preparamos la tabla exactamente con 2 columnas de datos
+        top_20 = df_tienda[[col_mod, col_cant]].sort_values(by=col_cant, ascending=False).head(20).reset_index(drop=True)
         top_20.columns = ['MODELO', 'PARES VENDIDOS'] 
 
-        def resaltar_filas_top_5(data):
+        # Función para pintar las dos columnas del Top 5
+        def resaltar_top_5(data):
             estilo = pd.DataFrame('', index=data.index, columns=data.columns)
             estilo.iloc[0:5, :] = 'background-color: #d1e7dd; color: #0f5132; font-weight: bold'
             return estilo
 
         st.subheader(f"🏆 RANKING DE VENTAS - TIENDA {tienda_sel}")
-        # Usamos el contenedor de clase 'report-table' definido arriba
-        st.write('<div class="report-table">', unsafe_allow_html=True)
-        st.table(top_20.style.apply(resaltar_filas_top_5, axis=None))
-        st.write('</div>', unsafe_allow_html=True)
+        # Mostramos la tabla aplicando el estilo
+        st.table(top_20.style.apply(resaltar_top_5, axis=None))
+    else:
+        st.info("ℹ️ Sube el archivo 'Modelos' en GitHub.")
 
 st.markdown("<p style='text-align: center; color: gray; font-size: 10px;'>Gestión Occidente | LAE José Estrada</p>", unsafe_allow_html=True)
