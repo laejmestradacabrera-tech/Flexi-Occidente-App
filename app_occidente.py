@@ -5,39 +5,36 @@ import os
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Monitor Comercial Occidente", layout="wide")
 
-# --- ESTILO COMPACTO ---
+# --- ESTILO COMPACTO Y DISEÑO ROJO FLEXI ---
 st.markdown("""
     <style>
     .main-title {
         text-align: center;
         color: #E30613;
-        font-size: 40px;
+        font-size: 35px;
         font-weight: bold;
         border-bottom: 3px solid #E30613;
         padding-bottom: 10px;
+        margin-bottom: 20px;
     }
+    /* Reducción de ancho de columnas y centrado de datos */
     .stTable td, .stTable th {
-        max-width: 80px !important;
-        padding: 4px !important;
+        max-width: 90px !important;
+        padding: 5px !important;
         text-align: center !important;
+        font-size: 14px !important;
     }
+    /* Encabezados de tabla */
     .stTable thead tr th {
         background-color: #E30613 !important;
         color: white !important;
         font-weight: bold !important;
     }
+    /* Ocultar índice de la izquierda */
     thead tr th:first-child {display:none}
     tbody th {display:none}
     </style>
-    <h1 class="main-title">🔴 MONITOR COMERCIAL OCCIDENTE</h1>
-    """, unsafe_allow_html=True)
-
-def buscar_archivo(palabra_clave):
-    /* Ocultar la numeración de la izquierda */
-    thead tr th:first-child {display:none}
-    tbody th {display:none}
-    </style>
-    <h1 class="main-title">🔴 MONITOR COMERCIAL OCCIDENTE</h1>
+    <h1 class="main-title">MONITOR COMERCIAL OCCIDENTE</h1>
     """, unsafe_allow_html=True)
 
 def buscar_archivo(palabra_clave):
@@ -53,7 +50,9 @@ tab1, tab2 = st.tabs(["📊 DESEMPEÑO COMERCIAL", "👟 TOP 20 MODELOS"])
 with tab1:
     if archivo_conv:
         df_c = pd.read_excel(archivo_conv)
+        # Filtro de tiendas administrativas
         df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
+        
         col_tienda = next((c for c in df_c.columns if 'Tienda' in c or 'TIENDA' in c), df_c.columns[0])
         col_conv_real = next((c for c in df_c.columns if 'Conv' in c and 'Actual' in c), None)
         col_tkt_real = next((c for c in df_c.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
@@ -62,15 +61,19 @@ with tab1:
             meta_conv, meta_tkt = 10.9, 1.29
             df_c['Conversión'] = df_c[col_conv_real].apply(lambda x: x*100 if x < 1 else x)
             df_c['Ticket Promedio'] = df_c[col_tkt_real]
+            
+            # Brechas operativas
             df_c['Faltante Conv.'] = df_c['Conversión'].apply(lambda x: "✅" if x >= meta_conv else f"{x - meta_conv:.2f}%")
             df_c['Faltante Tkt.'] = df_c['Ticket Promedio'].apply(lambda x: "✅" if x >= meta_tkt else f"{x - meta_tkt:.2f}")
 
+            # Semáforo de desempeño
             def aplicar_color_semaforo(row):
                 c_conv, c_tkt = row['Conversión'] >= meta_conv, row['Ticket Promedio'] >= meta_tkt
                 if c_conv and c_tkt: return ['background-color: #d4edda; color: #155724'] * 5
                 elif c_conv or c_tkt: return ['background-color: #fff3cd; color: #856404'] * 5
                 else: return ['background-color: #f8d7da; color: #721c24'] * 5
 
+            # Métricas generales de zona
             m1, m2, m3 = st.columns(3)
             m1.metric("Zona Conv.", f"{df_c['Conversión'].mean():.2f}%", f"Meta: {meta_conv}%")
             m2.metric("Zona Tkt.", f"{df_c['Ticket Promedio'].mean():.2f}", f"Meta: {meta_tkt}")
@@ -79,41 +82,46 @@ with tab1:
             st.markdown("---")
             df_c['Prioridad'] = df_c.apply(lambda r: 2 if (r['Conversión'] >= meta_conv and r['Ticket Promedio'] >= meta_tkt) else (1 if (r['Conversión'] >= meta_conv or r['Ticket Promedio'] >= meta_tkt) else 0), axis=1)
             ranking = df_c.sort_values(by=['Prioridad', 'Conversión'], ascending=[False, False])
+            
             tabla_final = ranking[[col_tienda, 'Conversión', 'Faltante Conv.', 'Ticket Promedio', 'Faltante Tkt.']]
             tabla_final.columns = ['Tienda', 'Conversión', 'Faltante Conv.', 'Ticket Promedio', 'Faltante Tkt.']
+            
             st.table(tabla_final.style.apply(aplicar_color_semaforo, axis=1).format({'Conversión': '{:.2f}%', 'Ticket Promedio': '{:.2f}'}))
-        else: st.error("❌ Columnas no detectadas.")
+        else: st.error("❌ Columnas de datos no detectadas.")
+    else: st.warning("⚠️ Sube el archivo 'Conversion' para ver el desempeño.")
 
 with tab2:
     if archivo_modelos:
         df_m = pd.read_excel(archivo_modelos)
+        
         col_t = next((c for c in df_m.columns if 'Tienda' in c or 'TIENDA' in c), df_m.columns[0])
         col_mod = next((c for c in df_m.columns if 'Modelo' in c or 'Estilo' in c or 'Art' in c), df_m.columns[1])
         col_cant = next((c for c in df_m.columns if 'Cant' in c or 'Pares' in c or 'Venta' in c), df_m.columns[2])
         col_prov = next((c for c in df_m.columns if 'Prov' in c or 'PROV' in c), None)
 
+        # Filtros de Calzado Estratégico
         if col_prov:
             df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])]
         df_m = df_m[df_m[col_mod].astype(str) != 'AUBOLPETT0RO']
         df_m = df_m[~df_m[col_t].astype(str).str.contains('3004|3015', na=False)]
 
+        # Agrupación y suma para precisión (Tienda 56 corregida)
         df_agrupado = df_m.groupby([col_t, col_mod])[col_cant].sum().reset_index()
 
         tiendas = sorted(df_agrupado[col_t].unique())
-        tienda_sel = st.selectbox("Selecciona Tienda para ver el Top de Modelos:", tiendas)
+        tienda_sel = st.selectbox("Selecciona Tienda:", tiendas)
         
         df_tienda = df_agrupado[df_agrupado[col_t] == tienda_sel].copy()
         top_20 = df_tienda[[col_mod, col_cant]].sort_values(by=col_cant, ascending=False).head(20).reset_index(drop=True)
         top_20.columns = ['Modelo / Estilo', 'Pares Vendidos']
         
-        # --- LÓGICA DE RESALTADO TOP 5 (NUEVO) ---
+        # Resaltado del Top 5 en verde
         def resaltar_top_5(s):
             return ['background-color: #d1e7dd; color: #0f5132; font-weight: bold' if i < 5 else '' for i in range(len(s))]
 
-        st.subheader(f"👟 Top 20 Calzado más vendido - Tienda {tienda_sel}")
+        st.subheader(f"👟 Top 20 Calzado - Tienda {tienda_sel}")
         st.table(top_20.style.apply(resaltar_top_5, axis=0))
-        st.caption("🟢 Resaltado: Los 5 modelos con mayor desplazamiento.")
     else:
-        st.info("ℹ️ Sube un archivo con la palabra 'Modelos' en GitHub.")
+        st.info("ℹ️ Sube el archivo 'Modelos' para ver el top de ventas.")
 
 st.markdown("<p style='text-align: center; color: gray;'>Gestión Estratégica Occidente | LAE José Estrada</p>", unsafe_allow_html=True)
