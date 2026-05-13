@@ -12,14 +12,16 @@ st.markdown("""
         text-align: center; color: #E30613; font-size: 32px; font-weight: bold;
         border-bottom: 3px solid #E30613; padding-bottom: 10px; margin-bottom: 20px;
     }
+    .footer {
+        position: fixed; left: 0; bottom: 0; width: 100%;
+        background-color: white; color: gray; text-align: center;
+        padding: 5px; font-size: 12px; border-top: 1px solid #eee;
+        z-index: 999;
+    }
     th {
         background-color: #E30613 !important; color: white !important;
         font-weight: bold !important; text-transform: uppercase !important;
         text-align: center !important; padding: 12px !important;
-    }
-    th.blank, tbody th {
-        background-color: white !important; color: white !important;
-        border: none !important; width: 1px !important;
     }
     td { text-align: center !important; font-size: 15px !important; }
     </style>
@@ -33,7 +35,8 @@ def buscar_archivo(palabra_clave):
 archivo_conv = buscar_archivo('Conversion')
 archivo_modelos = buscar_archivo('Venta_Modelos')
 
-tab1, tab2, tab3 = st.tabs(["📊 DESEMPEÑO", "👟 TOP 20 TIENDA", "🌍 TOP 20 ZONA"])
+# Cambiamos el nombre del primer tab a "Desempeño Comercial"
+tab1, tab2, tab3 = st.tabs(["📊 DESEMPEÑO COMERCIAL", "👟 TOP 20 TIENDA", "🌍 TOP 20 ZONA"])
 
 # --- PESTAÑA 1: DESEMPEÑO COMERCIAL ---
 with tab1:
@@ -60,22 +63,17 @@ with tab1:
             ranking.columns = ['TIENDA', 'CONVERSIÓN', 'TICKET PROMEDIO']
             st.table(ranking.style.apply(color_semaforo, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))
 
-# --- PROCESAMIENTO FILTRADO PARA RANKINGS (SOLO ZAPATO) ---
+# --- PROCESAMIENTO FILTRADO PARA RANKINGS ---
 if archivo_modelos:
     df_m = pd.read_excel(archivo_modelos)
-    
-    # 1. Identificar columnas
     col_m = next((c for c in df_m.columns if c.lower() in ['clave', 'modelo', 'estilo']), df_m.columns[1])
     col_p = next((c for c in df_m.columns if c.lower() in ['pares', 'cantidad', 'venta']), df_m.columns[2])
     col_t = next((c for c in df_m.columns if c.lower() in ['tienda', 'sucursal']), df_m.columns[0])
     col_prov = next((c for c in df_m.columns if 'prov' in c.lower() or 'provee' in c.lower()), None)
 
-    # 2. APLICAR FILTROS DE EXCLUSIÓN
-    # Eliminar Proveedores de Accesorios
+    # Filtrado estricto: Proveedores accesorios y Bolsa Reusable
     if col_prov:
         df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])]
-    
-    # Eliminar Bolsa Reusable (buscando en la columna de modelo/estilo)
     df_m = df_m[~df_m[col_m].astype(str).str.contains('BOLSA|REUSABLE', case=False, na=False)]
 
     def resaltar_top_5(data):
@@ -86,8 +84,8 @@ if archivo_modelos:
     with tab2:
         tiendas = sorted(df_m[col_t].unique())
         t_sel = st.selectbox("Selecciona Tienda:", tiendas)
-        df_t = df_m[df_m[col_t] == t_sel].groupby(col_m)[col_p].sum().reset_index()
-        top_t = df_t.sort_values(by=col_p, ascending=False).head(20).reset_index(drop=True)
+        df_tienda_data = df_m[df_m[col_t] == t_sel].groupby(col_m)[col_p].sum().reset_index()
+        top_t = df_tienda_data.sort_values(by=col_p, ascending=False).head(20).reset_index(drop=True)
         top_t.columns = ['MODELO', 'PARES VENDIDOS']
         st.table(top_t.style.apply(resaltar_top_5, axis=None))
 
@@ -97,3 +95,10 @@ if archivo_modelos:
         top_z = df_z.sort_values(by=col_p, ascending=False).head(20).reset_index(drop=True)
         top_z.columns = ['MODELO', 'PARES VENDIDOS']
         st.table(top_z.style.apply(resaltar_top_5, axis=None))
+
+# Pie de página solicitado
+st.markdown("""
+    <div class="footer">
+        KPIs zona Occidente/LAE. José Martín Estrada
+    </div>
+    """, unsafe_allow_html=True)
