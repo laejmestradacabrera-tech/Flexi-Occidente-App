@@ -5,7 +5,7 @@ import os
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(page_title="Monitor Comercial Occidente", layout="wide")
 
-# --- ESTILO GLOBAL PROTEGIDO ---
+# --- ESTILO GLOBAL ---
 st.markdown("""
     <style>
     .main-title {
@@ -30,18 +30,16 @@ def buscar_archivo(palabra_clave):
     archivos = [f for f in os.listdir('.') if palabra_clave.lower() in f.lower() and f.endswith('.xlsx')]
     return sorted(archivos)[-1] if archivos else None
 
-# Recuperamos la búsqueda de ambos archivos
 archivo_conv = buscar_archivo('Conversion')
 archivo_modelos = buscar_archivo('Venta_Modelos')
 
 tab1, tab2, tab3 = st.tabs(["📊 DESEMPEÑO", "👟 TOP 20 TIENDA", "🌍 TOP 20 ZONA"])
 
-# --- PESTAÑA 1: DESEMPEÑO COMERCIAL (RECUPERADA) ---
+# --- PESTAÑA 1: DESEMPEÑO COMERCIAL ---
 with tab1:
     if archivo_conv:
         df_c = pd.read_excel(archivo_conv)
         df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
-        
         col_tienda = next((c for c in df_c.columns if 'Tienda' in c or 'TIENDA' in c), df_c.columns[0])
         col_conv_real = next((c for c in df_c.columns if 'Conv' in c and 'Actual' in c), None)
         col_tkt_real = next((c for c in df_c.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
@@ -61,18 +59,25 @@ with tab1:
             ranking = df_c[[col_tienda, 'CONVERSIÓN', 'TICKET PROMEDIO']].sort_values(by='CONVERSIÓN', ascending=False)
             ranking.columns = ['TIENDA', 'CONVERSIÓN', 'TICKET PROMEDIO']
             st.table(ranking.style.apply(color_semaforo, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))
-    else:
-        st.info("ℹ️ Esperando archivo de Conversión...")
 
-# --- PROCESAMIENTO PARA TOP 20 (TIENDA Y ZONA) ---
+# --- PROCESAMIENTO FILTRADO PARA RANKINGS (SOLO ZAPATO) ---
 if archivo_modelos:
     df_m = pd.read_excel(archivo_modelos)
     
-    # Identificación de columnas
+    # 1. Identificar columnas
     col_m = next((c for c in df_m.columns if c.lower() in ['clave', 'modelo', 'estilo']), df_m.columns[1])
     col_p = next((c for c in df_m.columns if c.lower() in ['pares', 'cantidad', 'venta']), df_m.columns[2])
     col_t = next((c for c in df_m.columns if c.lower() in ['tienda', 'sucursal']), df_m.columns[0])
+    col_prov = next((c for c in df_m.columns if 'prov' in c.lower() or 'provee' in c.lower()), None)
+
+    # 2. APLICAR FILTROS DE EXCLUSIÓN
+    # Eliminar Proveedores de Accesorios
+    if col_prov:
+        df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])]
     
+    # Eliminar Bolsa Reusable (buscando en la columna de modelo/estilo)
+    df_m = df_m[~df_m[col_m].astype(str).str.contains('BOLSA|REUSABLE', case=False, na=False)]
+
     def resaltar_top_5(data):
         estilo = pd.DataFrame('', index=data.index, columns=data.columns)
         estilo.iloc[0:5, :] = 'background-color: #d1e7dd; color: #0f5132; font-weight: bold'
@@ -92,8 +97,3 @@ if archivo_modelos:
         top_z = df_z.sort_values(by=col_p, ascending=False).head(20).reset_index(drop=True)
         top_z.columns = ['MODELO', 'PARES VENDIDOS']
         st.table(top_z.style.apply(resaltar_top_5, axis=None))
-else:
-    with tab2: st.info("ℹ️ Esperando archivo Venta_Modelos.xlsx...")
-    with tab3: st.info("ℹ️ Esperando archivo Venta_Modelos.xlsx...")
-
-st.markdown("<p style='text-align: center; color: gray; font-size: 10px;'>Gestión Occidente | José Estrada</p>", unsafe_allow_html=True)
