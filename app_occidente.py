@@ -14,9 +14,9 @@ st.markdown("""
     }
     .footer {
         position: fixed; left: 0; bottom: 0; width: 100%;
-        background-color: white; color: gray; text-align: center;
-        padding: 5px; font-size: 12px; border-top: 1px solid #eee;
-        z-index: 999;
+        background-color: white; color: #666; text-align: center;
+        padding: 8px; font-size: 13px; border-top: 1px solid #ddd;
+        z-index: 999; font-weight: bold;
     }
     th {
         background-color: #E30613 !important; color: white !important;
@@ -35,14 +35,15 @@ def buscar_archivo(palabra_clave):
 archivo_conv = buscar_archivo('Conversion')
 archivo_modelos = buscar_archivo('Venta_Modelos')
 
-# Cambiamos el nombre del primer tab a "Desempeño Comercial"
 tab1, tab2, tab3 = st.tabs(["📊 DESEMPEÑO COMERCIAL", "👟 TOP 20 TIENDA", "🌍 TOP 20 ZONA"])
 
-# --- PESTAÑA 1: DESEMPEÑO COMERCIAL ---
+# --- PESTAÑA 1: DESEMPEÑO COMERCIAL (JERARQUIZACIÓN 1-19) ---
 with tab1:
     if archivo_conv:
         df_c = pd.read_excel(archivo_conv)
+        # Limpieza de filas que no son tiendas
         df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
+        
         col_tienda = next((c for c in df_c.columns if 'Tienda' in c or 'TIENDA' in c), df_c.columns[0])
         col_conv_real = next((c for c in df_c.columns if 'Conv' in c and 'Actual' in c), None)
         col_tkt_real = next((c for c in df_c.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
@@ -52,18 +53,24 @@ with tab1:
             df_c['CONVERSIÓN'] = df_c[col_conv_real].apply(lambda x: x*100 if x < 1 else x)
             df_c['TICKET PROMEDIO'] = df_c[col_tkt_real]
             
+            # Ordenar por Conversión para establecer el ranking de alcance
+            ranking = df_c[[col_tienda, 'CONVERSIÓN', 'TICKET PROMEDIO']].sort_values(by='CONVERSIÓN', ascending=False).reset_index(drop=True)
+            
+            # Crear la columna de jerarquización del 1 al 19
+            ranking.insert(0, 'POS', range(1, len(ranking) + 1))
+            ranking.columns = ['#', 'TIENDA', 'CONVERSIÓN', 'TICKET PROMEDIO']
+
             def color_semaforo(row):
                 c_conv = row['CONVERSIÓN'] >= meta_conv
                 c_tkt = row['TICKET PROMEDIO'] >= meta_tkt
-                if c_conv and c_tkt: return ['background-color: #d4edda; color: #155724'] * 3
-                elif c_conv or c_tkt: return ['background-color: #fff3cd; color: #856404'] * 3
-                else: return ['background-color: #f8d7da; color: #721c24'] * 3
+                # 4 columnas ahora por la inclusión del '#'
+                if c_conv and c_tkt: return ['background-color: #d4edda; color: #155724'] * 4
+                elif c_conv or c_tkt: return ['background-color: #fff3cd; color: #856404'] * 4
+                else: return ['background-color: #f8d7da; color: #721c24'] * 4
 
-            ranking = df_c[[col_tienda, 'CONVERSIÓN', 'TICKET PROMEDIO']].sort_values(by='CONVERSIÓN', ascending=False)
-            ranking.columns = ['TIENDA', 'CONVERSIÓN', 'TICKET PROMEDIO']
             st.table(ranking.style.apply(color_semaforo, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))
 
-# --- PROCESAMIENTO FILTRADO PARA RANKINGS ---
+# --- PROCESAMIENTO FILTRADO PARA RANKINGS (SOLO ZAPATO) ---
 if archivo_modelos:
     df_m = pd.read_excel(archivo_modelos)
     col_m = next((c for c in df_m.columns if c.lower() in ['clave', 'modelo', 'estilo']), df_m.columns[1])
@@ -71,7 +78,7 @@ if archivo_modelos:
     col_t = next((c for c in df_m.columns if c.lower() in ['tienda', 'sucursal']), df_m.columns[0])
     col_prov = next((c for c in df_m.columns if 'prov' in c.lower() or 'provee' in c.lower()), None)
 
-    # Filtrado estricto: Proveedores accesorios y Bolsa Reusable
+    # Filtros de exclusión: Proveedores accesorios (415, 426, 427) y Bolsa Reusable
     if col_prov:
         df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])]
     df_m = df_m[~df_m[col_m].astype(str).str.contains('BOLSA|REUSABLE', case=False, na=False)]
@@ -96,7 +103,7 @@ if archivo_modelos:
         top_z.columns = ['MODELO', 'PARES VENDIDOS']
         st.table(top_z.style.apply(resaltar_top_5, axis=None))
 
-# Pie de página solicitado
+# PIE DE PÁGINA (KPIs zona Occidente/LAE. José Martín Estrada)
 st.markdown("""
     <div class="footer">
         KPIs zona Occidente/LAE. José Martín Estrada
