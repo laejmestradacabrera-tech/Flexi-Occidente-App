@@ -40,7 +40,6 @@ archivo_modelos = buscar_archivo('Venta_Modelos')
 
 
 # --- FUNCIÓN DE ALERTA BLINDADA (SÓLO CON ARCHIVO MODIFICADO) ---
-# Usamos cache para recordar el archivo enviado y evitar duplicados por clics
 @st.cache_data(show_spinner=False)
 def enviar_correo_por_modificacion(df_ranking, ruta_archivo, ultima_modificacion, tienda_objetivo="56"):
     fila_tienda = df_ranking[df_ranking['TIENDA'].astype(str).str.contains(tienda_objetivo, na=False)]
@@ -130,10 +129,7 @@ with tab1:
 
             st.table(ranking.style.apply(color_semaforo, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))
             
-            # CONTROL DE MODIFICACIÓN: Obtenemos el tiempo exacto del archivo en el sistema
             mod_time = os.path.getmtime(archivo_conv)
-            
-            # Se ejecuta la función pasándole la marca de tiempo. Si el archivo no cambia, no reenvía nada.
             resultado_alerta = enviar_correo_por_modificacion(ranking, archivo_conv, mod_time, tienda_objetivo="56")
             
             if resultado_alerta:
@@ -149,6 +145,9 @@ if archivo_modelos:
     col_p = next((c for c in df_m.columns if c.lower() in ['pares', 'cantidad', 'venta']), df_m.columns[2])
     col_t = next((c for c in df_m.columns if c.lower() in ['tienda', 'sucursal']), df_m.columns[0])
     col_prov = next((c for c in df_m.columns if 'prov' in c.lower() or 'provee' in c.lower()), None)
+
+    # --- CORRECCIÓN CRÍTICA: Filtramos tiendas 3004 y 3015 también de la venta de modelos ---
+    df_m = df_m[~df_m[col_t].astype(str).str.contains('3004|3015', na=False)]
 
     if col_prov:
         df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])]
