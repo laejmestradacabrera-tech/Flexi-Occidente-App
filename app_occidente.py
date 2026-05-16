@@ -7,7 +7,7 @@ from email.mime.text import MIMEText
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(page_title="Monitor Comercial Occidente", layout="wide")
 
-# --- ESTILO GLOBAL ---
+# --- ESTILO GLOBAL INTERACTIVO ---
 st.markdown("""
     <style>
     .main-title {
@@ -26,20 +26,29 @@ st.markdown("""
         text-align: center !important; padding: 12px !important;
     }
     td { text-align: center !important; font-size: 15px !important; }
+    
+    /* Estilos para las tarjetas de KPI */
+    .kpi-box {
+        background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 8px;
+        padding: 15px; text-align: center; box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
+    }
+    .kpi-title { font-size: 14px; color: #555; font-weight: bold; text-transform: uppercase; }
+    .kpi-value { font-size: 24px; color: #E30613; font-weight: bold; margin: 5px 0; }
+    .kpi-delta { font-size: 15px; font-weight: bold; }
     </style>
     <h1 class="main-title">🔴 MONITOR COMERCIAL OCCIDENTE</h1>
     """, unsafe_allow_html=True)
 
 def buscar_archivo(palabra_clave):
-    archivos = [f for f in os.listdir('.') if palabra_clave.lower() in f.lower() and f.endswith('.xlsx')]
+    archivos = [f for f in os.listdir('.') if palabra_clave.lower() in f.lower() and f.endswith(('.xlsx', '.csv'))]
     return sorted(archivos)[-1] if archivos else None
 
 archivo_conv = buscar_archivo('Conversion')
-# buscar archivo venta modelos
 archivo_modelos = buscar_archivo('Venta_Modelos')
+# Buscador dinámico para el archivo de comparativo por operación
+archivo_comp = buscar_archivo('Comparativo por Operacion')
 
-
-# --- FUNCIÓN DE ALERTA BLINDADA (SÓLO CON ARCHIVO MODIFICADO) ---
+# --- FUNCIÓN DE ALERTA BLINDADA ---
 @st.cache_data(show_spinner=False)
 def enviar_correo_por_modificacion(df_ranking, ruta_archivo, ultima_modificacion, tienda_objetivo="56"):
     fila_tienda = df_ranking[df_ranking['TIENDA'].astype(str).str.contains(tienda_objetivo, na=False)]
@@ -63,7 +72,6 @@ def enviar_correo_por_modificacion(df_ranking, ruta_archivo, ultima_modificacion
             destinatario = "fleoutgdl@divec-flexi.com"
             
             asunto = f"📊 Reporte de Desviaciones Meta - Tienda {tienda_objetivo}"
-            
             cuerpo = f"Estimada Ana Leticia y equipo de Plazas Outlet (Tienda {tienda_objetivo}):\n\n"
             cuerpo += "Les compartimos el análisis de desviaciones frente a las metas establecidas:\n\n"
             
@@ -99,13 +107,19 @@ def enviar_correo_por_modificacion(df_ranking, ruta_archivo, ultima_modificacion
     return None
 
 
-# --- AGREGAMOS LA CUARTA PESTAÑA AL MONITOR ---
-tab1, tab2, tab3, tab4 = st.tabs(["📊 DESEMPEÑO COMERCIAL", "👟 TOP 20 TIENDA", "🌍 TOP 20 ZONA", "🧭 RUTA DEL CLIENTE"])
+# --- DEFINICIÓN DE LAS 5 PESTAÑAS ---
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "📊 DESEMPEÑO COMERCIAL", 
+    "📈 COMPARATIVO ANUAL",
+    "👟 TOP 20 TIENDA", 
+    "🌍 TOP 20 ZONA", 
+    "🧭 RUTA DEL CLIENTE"
+])
 
 # --- PESTAÑA 1: DESEMPEÑO COMERCIAL ---
 with tab1:
     if archivo_conv:
-        df_c = pd.read_excel(archivo_conv)
+        df_c = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
         df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
         
         col_tienda = next((c for c in df_c.columns if 'Tienda' in c or 'TIENDA' in c), df_c.columns[0])
@@ -134,18 +148,103 @@ with tab1:
             resultado_alerta = enviar_correo_por_modificacion(ranking, archivo_conv, mod_time, tienda_objetivo="56")
             
             if resultado_alerta:
-                if "✅" in resultado_alerta:
-                    st.success(resultado_alerta)
-                else:
-                    st.error(resultado_alerta)
+                if "✅" in resultado_alerta: st.success(resultado_alerta)
+                else: st.error(resultado_alerta)
+
+# --- PESTAÑA 2: COMPARATIVO ANUAL (REPLICANDO REGLAS POWER BI) ---
+with tab2:
+    if archivo_comp:
+        st.subheader("📊 Análisis Comparativo Puro de Calzado (2025 vs. 2026)")
+        
+        # Carga dinámica
+        df_op = pd.read_excel(archivo_comp) if archivo_comp.endswith('.xlsx') else pd.read_csv(archivo_comp)
+        
+        # Identificación automática de columnas críticas
+        c_ano = next((c for c in df_op.columns if 'año' in c.lower() or 'ano' in c.lower()), df_op.columns[0])
+        c_tda = next((c for c in df_op.columns if 'tienda' in c.lower() or 'sucursal' in c.lower()), df_op.columns[2])
+        c_prs = next((c for c in df_op.columns if 'pares' in c.lower() or 'cant' in c.lower()), None)
+        c_imp = next((c for c in df_op.columns if 'importe' in c.lower() or 'peso' in c.lower() or 'monto' in c.lower()), None)
+        c_prov = next((c for c in df_op.columns if 'prov' in c.lower()), None)
+        c_tipo = next((c for c in df_op.columns if 'tipo' in c.lower() or 'concepto' in c.lower()), None)
+        
+        if c_prs and c_imp:
+            # --- APLICACIÓN DE FILTROS DE TU NEGOCIO ---
+            # 1. Excluir tiendas especiales (Ozono)
+            df_op = df_op[~df_op[c_tda].astype(str).str.contains('3004|3015', na=False)]
+            # 2. Excluir proveedores que no van
+            if c_prov:
+                df_op = df_op[~df_op[c_prov].astype(str).isin(['415', '426', '427'])]
+            # 3. Excluir complementos (Bolsas y Reutilizables)
+            if c_tipo:
+                df_op = df_op[~df_op[c_tipo].astype(str).str.contains('BOLSA|REUSABLE|BOLSO', case=False, na=False)]
+            
+            # Agrupar datos por Tienda y Año
+            resumen = df_op.groupby([c_tda, c_ano])[[c_prs, c_imp]].sum().unstack(fill_value=0)
+            resumen.columns = ['Pares 2025', 'Pares 2026', 'Pesos 2025', 'Pesos 2026']
+            resumen = resumen.reset_index()
+            resumen.columns = ['TIENDA', 'PARES 2025', 'PARES 2026', 'PESOS 2025', 'PESOS 2026']
+            
+            # Fórmulas de Variación %
+            resumen['VAR PARES %'] = ((resumen['PARES 2026'] - resumen['PARES 2025']) / resumen['PARES 2025']) * 100
+            resumen['VAR PESOS %'] = ((resumen['PESOS 2026'] - resumen['PESOS 2025']) / resumen['PESOS 2025']) * 100
+            
+            # Totales globales de la Zona Occidente
+            tot_p25, tot_p26 = resumen['PARES 2025'].sum(), resumen['PARES 2026'].sum()
+            tot_w25, tot_w26 = resumen['PESOS 2025'].sum(), resumen['PESOS 2026'].sum()
+            var_p_global = ((tot_p26 - tot_p25) / tot_p25) * 100
+            var_w_global = ((tot_w26 - tot_w25) / tot_w25) * 100
+            
+            # --- TARJETAS DE INDICADORES GLOBALES (ZONA) ---
+            c1, c2 = st.columns(2)
+            with c1:
+                signo_p = "+" if var_p_global >= 0 else ""
+                col_p = "#155724" if var_p_global >= 0 else "#721c24"
+                st.markdown(f"""
+                    <div class="kpi-box">
+                        <div class="kpi-title">📦 Total Pares Zona Occidente</div>
+                        <div class="kpi-value">{tot_p26:,.0f} Pares</div>
+                        <div class="kpi-delta" style="color: {col_p};">Variación: {signo_p}{var_p_global:.2f}% vs 2025</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            with c2:
+                signo_w = "+" if var_w_global >= 0 else ""
+                col_w = "#155724" if var_w_global >= 0 else "#721c24"
+                st.markdown(f"""
+                    <div class="kpi-box">
+                        <div class="kpi-title">💰 Total Ventas ($) Zona Occidente</div>
+                        <div class="kpi-value">${tot_w26:,.2f} MXN</div>
+                        <div class="kpi-delta" style="color: {col_w};">Variación: {signo_w}{var_w_global:.2f}% vs 2025</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            
+            st.write("<br>", unsafe_allow_html=True)
+            
+            # Reordenar columnas para visualización ejecutiva
+            tabla_comp = resumen[['TIENDA', 'PARES 2025', 'PARES 2026', 'VAR PARES %', 'PESOS 2025', 'PESOS 2026', 'VAR PESOS %']].sort_values(by='VAR PARES %', ascending=False).reset_index(drop=True)
+            
+            # Función de Semáforo de Crecimiento
+            def color_variacion(val):
+                if isinstance(val, (int, float)):
+                    color = '#d4edda' if val >= 0 else '#f8d7da'
+                    texto = '#155724' if val >= 0 else '#721c24'
+                    return f'background-color: {color}; color: {texto}; font-weight: bold;'
+                return ''
+
+            # Desplegar la gran tabla formateada al centavo
+            st.table(tabla_comp.style.applymap(color_variacion, subset=['VAR PARES %', 'VAR PESOS %']).format({
+                'PARES 2025': '{:,.0f}', 'PARES 2026': '{:,.0f}', 'VAR PARES %': '{:+.2f}%',
+                'PESOS 2025': '${:,.2f}', 'PESOS 2026': '${:,.2f}', 'VAR PESOS %': '{:+.2f}%'
+            }))
+    else:
+        st.warning("⚠️ No se encontró el archivo con los datos del comparativo. Sube un archivo que contenga la palabra clave 'Comparativo por Operacion' a tu GitHub.")
 
 # --- PROCESAMIENTO FILTRADO PARA RANKINGS (SOLO ZAPATO) ---
 if archivo_modelos:
-    df_m = pd.read_excel(archivo_modelos)
+    df_m = pd.read_excel(archivo_modelos) if archivo_modelos.endswith('.xlsx') else pd.read_csv(archivo_modelos)
     col_m = next((c for c in df_m.columns if c.lower() in ['clave', 'modelo', 'estilo']), df_m.columns[1])
     col_p = next((c for c in df_m.columns if c.lower() in ['pares', 'cantidad', 'venta']), df_m.columns[2])
     col_t = next((c for c in df_m.columns if c.lower() in ['tienda', 'sucursal']), df_m.columns[0])
-    col_prov = next((c for c in df_m.columns if 'prov' in c.lower() or 'provee' in c.lower()), None)
+    col_prov = next((c for c in df_m.columns if 'prov' in c.lower()), None)
 
     df_m = df_m[~df_m[col_t].astype(str).str.contains('3004|3015', na=False)]
 
@@ -158,7 +257,7 @@ if archivo_modelos:
         estilo.iloc[0:5, :] = 'background-color: #d1e7dd; color: #0f5132; font-weight: bold'
         return estilo
 
-    with tab2:
+    with tab3:
         tiendas = sorted(df_m[col_t].unique())
         t_sel = st.selectbox("Selecciona Tienda:", tiendas)
         df_tienda_data = df_m[df_m[col_t] == t_sel].groupby(col_m)[col_p].sum().reset_index()
@@ -166,23 +265,21 @@ if archivo_modelos:
         top_t.columns = ['MODELO', 'PARES VENDIDOS']
         st.table(top_t.style.apply(resaltar_top_5, axis=None))
 
-    with tab3:
+    with tab4:
         st.subheader("🌍 Consolidado Zona Occidente")
         df_z = df_m.groupby(col_m)[col_p].sum().reset_index()
         top_z = df_z.sort_values(by=col_p, ascending=False).head(20).reset_index(drop=True)
         top_z.columns = ['MODELO', 'PARES VENDIDOS']
         st.table(top_z.style.apply(resaltar_top_5, axis=None))
 
-# --- PESTAÑA 4: MOSTRAR LA INFOGRAFÍA EN ALTA DEFINICIÓN ---
+# --- PESTAÑA 5: RUTA DEL CLIENTE ---
 with tab4:
     st.subheader("🧭 Protocolo de Venta Flexi - Zona Occidente")
     nombre_imagen = "RC Zona Occidente.png"
-    
     if os.path.exists(nombre_imagen):
-        # Muestra la imagen centrada y aprovecha el ancho completo de la pantalla
         st.image(nombre_imagen, use_container_width=True)
     else:
-        st.warning("⚠️ La imagen 'RC Zona Occidente.png' aún no se encuentra en la carpeta de GitHub. Por favor, súbela para habilitar la visualización.")
+        st.warning("⚠️ La imagen 'RC Zona Occidente.png' aún no se encuentra en GitHub.")
 
 # PIE DE PÁGINA
 st.markdown("""
