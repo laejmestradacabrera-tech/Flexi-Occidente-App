@@ -39,8 +39,10 @@ archivo_conv = buscar_archivo('Conversion')
 archivo_modelos = buscar_archivo('Venta_Modelos')
 
 
-# --- FUNCIÓN DE ALERTA DE CORREO CON REDACCIÓN DINÁMICA ---
-def verificar_y_enviar_alerta(df_ranking, tienda_objetivo="56"):
+# --- FUNCIÓN DE ALERTA BLINDADA (SÓLO CON ARCHIVO MODIFICADO) ---
+# Usamos cache para recordar el archivo enviado y evitar duplicados por clics
+@st.cache_data(show_spinner=False)
+def enviar_correo_por_modificacion(df_ranking, ruta_archivo, ultima_modificacion, tienda_objetivo="56"):
     fila_tienda = df_ranking[df_ranking['TIENDA'].astype(str).str.contains(tienda_objetivo, na=False)]
     
     if not fila_tienda.empty:
@@ -50,7 +52,6 @@ def verificar_y_enviar_alerta(df_ranking, tienda_objetivo="56"):
         meta_conv = 10.9
         meta_ticket = 1.29
         
-        # Evaluar si se logró cada indicador
         logro_conv = conversion_actual >= meta_conv
         logro_ticket = ticket_actual >= meta_ticket
         
@@ -67,19 +68,16 @@ def verificar_y_enviar_alerta(df_ranking, tienda_objetivo="56"):
             cuerpo = f"Estimada Ana Leticia y equipo de Plazas Outlet (Tienda {tienda_objetivo}):\n\n"
             cuerpo += "Les compartimos el análisis de desviaciones frente a las metas establecidas:\n\n"
             
-            # Línea de Conversión
             if logro_conv:
                 cuerpo += f"✅ CONVERSIÓN: {conversion_actual:.2f}% (Supera la meta por +{desviacion_conv:.2f}%)\n"
             else:
                 cuerpo += f"❌ CONVERSIÓN: {conversion_actual:.2f}% (Faltan {abs(desviacion_conv):.2f}% para la meta de {meta_conv}%)\n"
                 
-            # Línea de Ticket Promedio
             if logro_ticket:
                 cuerpo += f"✅ TICKET PROMEDIO: {ticket_actual:.2f} pares (Supera la meta por +{desviacion_ticket:.2f} pares)\n\n"
             else:
                 cuerpo += f"❌ TICKET PROMEDIO: {ticket_actual:.2f} pares (Faltan {abs(desviacion_ticket):.2f} pares para la meta de {meta_ticket} de calzado)\n\n"
                 
-            # --- LÓGICA DE LA ÚLTIMA LÍNEA (REQUISITO REQUERIDO) ---
             if logro_conv and logro_ticket:
                 cuerpo += "🏆 ¡Muchas felicidades por lograr ambos indicadores! Excelente desempeño en el piso de venta, sigan manteniendo ese ritmo."
             elif logro_conv or logro_ticket:
@@ -96,9 +94,10 @@ def verificar_y_enviar_alerta(df_ranking, tienda_objetivo="56"):
             server.login(remitente, password)
             server.sendmail(remitente, [destinatario], msg.as_string())
             server.quit()
-            st.success(f"✅ Alerta de desviación enviada a la Tienda {tienda_objetivo} (Plazas Outlet)")
+            return f"✅ Alerta de desviación enviada exitosamente a la Tienda {tienda_objetivo} (Plazas Outlet)"
         except Exception as e:
-            st.error(f"❌ Error al enviar el correo: {e}")
+            return f"❌ Error al enviar el correo: {e}"
+    return None
 
 
 tab1, tab2, tab3 = st.tabs(["📊 DESEMPEÑO COMERCIAL", "👟 TOP 20 TIENDA", "🌍 TOP 20 ZONA"])
@@ -131,8 +130,17 @@ with tab1:
 
             st.table(ranking.style.apply(color_semaforo, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))
             
-            # EJECUTAR ALERTA DE PRUEBA PARA TIENDA 56
-            verificar_y_enviar_alerta(ranking, tienda_objetivo="56")
+            # CONTROL DE MODIFICACIÓN: Obtenemos el tiempo exacto del archivo en el sistema
+            mod_time = os.path.getmtime(archivo_conv)
+            
+            # Se ejecuta la función pasándole la marca de tiempo. Si el archivo no cambia, no reenvía nada.
+            resultado_alerta = enviar_correo_por_modificacion(ranking, archivo_conv, mod_time, tienda_objetivo="56")
+            
+            if resultado_alerta:
+                if "✅" in resultado_alerta:
+                    st.success(resultado_alerta)
+                else:
+                    st.error(resultado_alerta)
 
 # --- PROCESAMIENTO FILTRADO PARA RANKINGS (SOLO ZAPATO) ---
 if archivo_modelos:
