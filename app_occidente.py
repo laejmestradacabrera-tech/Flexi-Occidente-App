@@ -164,10 +164,13 @@ with tab2:
         c_tipo = next((c for c in df_op.columns if 'tipo' in c.lower() or 'concepto' in c.lower()), None)
         
         if c_prs and c_imp:
+            # --- SOLUCIÓN DE LIMPIEZA PARA EVITAR DIFERENCIAS (TIENDA 186) ---
+            df_op[c_tda] = df_op[c_tda].astype(str).str.strip()
+            
             # Filtros aplicados estrictamente
-            df_op = df_op[~df_op[c_tda].astype(str).str.contains('3004|3015', na=False)]
+            df_op = df_op[~df_op[c_tda].str.contains('3004|3015', na=False)]
             if c_prov:
-                df_op = df_op[~df_op[c_prov].astype(str).isin(['415', '426', '427'])]
+                df_op = df_op[~df_op[c_prov].astype(str).str.strip().isin(['415', '426', '427'])]
             if c_tipo:
                 df_op = df_op[~df_op[c_tipo].astype(str).str.contains('BOLSA|REUSABLE|BOLSO', case=False, na=False)]
             
@@ -217,7 +220,6 @@ with tab2:
                     return f'background-color: {color}; color: {texto}; font-weight: bold;'
                 return ''
 
-            # --- CORRECCIÓN AQUÍ: Se cambió .applymap por .map para máxima compatibilidad ---
             st.table(tabla_comp.style.map(color_variacion, subset=['VAR PARES %', 'VAR PESOS %']).format({
                 'PARES 2025': '{:,.0f}', 'PARES 2026': '{:,.0f}', 'VAR PARES %': '{:+.2f}%',
                 'PESOS 2025': '${:,.2f}', 'PESOS 2026': '${:,.2f}', 'VAR PESOS %': '{:+.2f}%'
