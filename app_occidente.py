@@ -45,7 +45,6 @@ def buscar_archivo(palabra_clave):
 
 archivo_conv = buscar_archivo('Conversion')
 archivo_modelos = buscar_archivo('Venta_Modelos')
-# Buscador dinámico para el archivo de comparativo por operación
 archivo_comp = buscar_archivo('Comparativo por Operacion')
 
 # --- FUNCIÓN DE ALERTA BLINDADA ---
@@ -151,15 +150,12 @@ with tab1:
                 if "✅" in resultado_alerta: st.success(resultado_alerta)
                 else: st.error(resultado_alerta)
 
-# --- PESTAÑA 2: COMPARATIVO ANUAL (REPLICANDO REGLAS POWER BI) ---
+# --- PESTAÑA 2: COMPARATIVO ANUAL ---
 with tab2:
     if archivo_comp:
         st.subheader("📊 Análisis Comparativo Puro de Calzado (2025 vs. 2026)")
-        
-        # Carga dinámica
         df_op = pd.read_excel(archivo_comp) if archivo_comp.endswith('.xlsx') else pd.read_csv(archivo_comp)
         
-        # Identificación automática de columnas críticas
         c_ano = next((c for c in df_op.columns if 'año' in c.lower() or 'ano' in c.lower()), df_op.columns[0])
         c_tda = next((c for c in df_op.columns if 'tienda' in c.lower() or 'sucursal' in c.lower()), df_op.columns[2])
         c_prs = next((c for c in df_op.columns if 'pares' in c.lower() or 'cant' in c.lower()), None)
@@ -168,33 +164,26 @@ with tab2:
         c_tipo = next((c for c in df_op.columns if 'tipo' in c.lower() or 'concepto' in c.lower()), None)
         
         if c_prs and c_imp:
-            # --- APLICACIÓN DE FILTROS DE TU NEGOCIO ---
-            # 1. Excluir tiendas especiales (Ozono)
+            # Filtros aplicados estrictamente
             df_op = df_op[~df_op[c_tda].astype(str).str.contains('3004|3015', na=False)]
-            # 2. Excluir proveedores que no van
             if c_prov:
                 df_op = df_op[~df_op[c_prov].astype(str).isin(['415', '426', '427'])]
-            # 3. Excluir complementos (Bolsas y Reutilizables)
             if c_tipo:
                 df_op = df_op[~df_op[c_tipo].astype(str).str.contains('BOLSA|REUSABLE|BOLSO', case=False, na=False)]
             
-            # Agrupar datos por Tienda y Año
             resumen = df_op.groupby([c_tda, c_ano])[[c_prs, c_imp]].sum().unstack(fill_value=0)
             resumen.columns = ['Pares 2025', 'Pares 2026', 'Pesos 2025', 'Pesos 2026']
             resumen = resumen.reset_index()
             resumen.columns = ['TIENDA', 'PARES 2025', 'PARES 2026', 'PESOS 2025', 'PESOS 2026']
             
-            # Fórmulas de Variación %
             resumen['VAR PARES %'] = ((resumen['PARES 2026'] - resumen['PARES 2025']) / resumen['PARES 2025']) * 100
             resumen['VAR PESOS %'] = ((resumen['PESOS 2026'] - resumen['PESOS 2025']) / resumen['PESOS 2025']) * 100
             
-            # Totales globales de la Zona Occidente
             tot_p25, tot_p26 = resumen['PARES 2025'].sum(), resumen['PARES 2026'].sum()
             tot_w25, tot_w26 = resumen['PESOS 2025'].sum(), resumen['PESOS 2026'].sum()
             var_p_global = ((tot_p26 - tot_p25) / tot_p25) * 100
             var_w_global = ((tot_w26 - tot_w25) / tot_w25) * 100
             
-            # --- TARJETAS DE INDICADORES GLOBALES (ZONA) ---
             c1, c2 = st.columns(2)
             with c1:
                 signo_p = "+" if var_p_global >= 0 else ""
@@ -219,10 +208,8 @@ with tab2:
             
             st.write("<br>", unsafe_allow_html=True)
             
-            # Reordenar columnas para visualización ejecutiva
             tabla_comp = resumen[['TIENDA', 'PARES 2025', 'PARES 2026', 'VAR PARES %', 'PESOS 2025', 'PESOS 2026', 'VAR PESOS %']].sort_values(by='VAR PARES %', ascending=False).reset_index(drop=True)
             
-            # Función de Semáforo de Crecimiento
             def color_variacion(val):
                 if isinstance(val, (int, float)):
                     color = '#d4edda' if val >= 0 else '#f8d7da'
@@ -230,15 +217,15 @@ with tab2:
                     return f'background-color: {color}; color: {texto}; font-weight: bold;'
                 return ''
 
-            # Desplegar la gran tabla formateada al centavo
-            st.table(tabla_comp.style.applymap(color_variacion, subset=['VAR PARES %', 'VAR PESOS %']).format({
+            # --- CORRECCIÓN AQUÍ: Se cambió .applymap por .map para máxima compatibilidad ---
+            st.table(tabla_comp.style.map(color_variacion, subset=['VAR PARES %', 'VAR PESOS %']).format({
                 'PARES 2025': '{:,.0f}', 'PARES 2026': '{:,.0f}', 'VAR PARES %': '{:+.2f}%',
                 'PESOS 2025': '${:,.2f}', 'PESOS 2026': '${:,.2f}', 'VAR PESOS %': '{:+.2f}%'
             }))
     else:
-        st.warning("⚠️ No se encontró el archivo con los datos del comparativo. Sube un archivo que contenga la palabra clave 'Comparativo por Operacion' a tu GitHub.")
+        st.warning("⚠️ No se encontró el archivo 'Comparativo por Operacion'. Por favor súbelo a GitHub.")
 
-# --- PROCESAMIENTO FILTRADO PARA RANKINGS (SOLO ZAPATO) ---
+# --- PROCESAMIENTO FILTRADO PARA RANKINGS ---
 if archivo_modelos:
     df_m = pd.read_excel(archivo_modelos) if archivo_modelos.endswith('.xlsx') else pd.read_csv(archivo_modelos)
     col_m = next((c for c in df_m.columns if c.lower() in ['clave', 'modelo', 'estilo']), df_m.columns[1])
@@ -273,7 +260,7 @@ if archivo_modelos:
         st.table(top_z.style.apply(resaltar_top_5, axis=None))
 
 # --- PESTAÑA 5: RUTA DEL CLIENTE ---
-with tab4:
+with tab5:
     st.subheader("🧭 Protocolo de Venta Flexi - Zona Occidente")
     nombre_imagen = "RC Zona Occidente.png"
     if os.path.exists(nombre_imagen):
