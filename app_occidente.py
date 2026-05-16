@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import os
+import smtplib
+from email.mime.text import MIMEText
 
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(page_title="Monitor Comercial Occidente", layout="wide")
@@ -33,15 +35,66 @@ def buscar_archivo(palabra_clave):
     return sorted(archivos)[-1] if archivos else None
 
 archivo_conv = buscar_archivo('Conversion')
+# buscar archivo venta modelos
 archivo_modelos = buscar_archivo('Venta_Modelos')
+
+
+# --- FUNCIÓN DE ALERTA DE CORREO (CONVERSIÓN Y TICKET PROMEDIO) ---
+def verificar_y_enviar_alerta(df_ranking, tienda_objetivo="56"):
+    fila_tienda = df_ranking[df_ranking['TIENDA'].astype(str).str.contains(tienda_objetivo, na=False)]
+    
+    if not fila_tienda.empty:
+        conversion_actual = float(fila_tienda.iloc[0]['CONVERSIÓN'])
+        ticket_actual = float(fila_tienda.iloc[0]['TICKET PROMEDIO'])
+        
+        meta_conv = 10.9
+        meta_ticket = 1.29
+        
+        desviacion_conv = conversion_actual - meta_conv
+        desviacion_ticket = ticket_actual - meta_ticket
+        
+        try:
+            remitente = st.secrets["CORREO_REMITENTE"]
+            password = st.secrets["CORREO_PASSWORD"]
+            destinatario = "fleoutgdl@divec-flexi.com"
+            
+            asunto = f"📊 Reporte de Desviaciones Meta - Tienda {tienda_objetivo}"
+            
+            cuerpo = f"Estimada Ana Leticia y equipo de Plazas Outlet (Tienda {tienda_objetivo}):\n\n"
+            cuerpo += "Les compartimos el análisis de desviaciones frente a las metas establecidas:\n\n"
+            
+            if desviacion_conv >= 0:
+                cuerpo += f"✅ CONVERSIÓN: {conversion_actual:.2f}% (Supera la meta por +{desviacion_conv:.2f}%)\n"
+            else:
+                cuerpo += f"❌ CONVERSIÓN: {conversion_actual:.2f}% (Faltan {abs(desviacion_conv):.2f}% para la meta de {meta_conv}%)\n"
+                
+            if desviacion_ticket >= 0:
+                cuerpo += f"✅ TICKET PROMEDIO: {ticket_actual:.2f} pares (Supera la meta por +{desviacion_ticket:.2f} pares)\n\n"
+            else:
+                cuerpo += f"❌ TICKET PROMEDIO: {ticket_actual:.2f} pares (Faltan {abs(desviacion_ticket):.2f} pares para la meta de {meta_ticket} de calzado)\n\n"
+                
+            cuerpo += "Este indicador nos permite enfocar el esfuerzo en el piso de venta para asegurar la entrega de la garantía digital. ¡A asegurar el cierre!"
+
+            msg = MIMEText(cuerpo)
+            msg['Subject'] = asunto
+            msg['From'] = remitente
+            msg['To'] = destinatario
+            
+            server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+            server.login(remitente, password)
+            server.sendmail(remitente, [destinatario], msg.as_string())
+            server.quit()
+            st.success(f"✅ Alerta de desviación enviada a la Tienda {tienda_objetivo} (Plazas Outlet)")
+        except Exception as e:
+            st.error(f"❌ Error al enviar el correo: {e}")
+
 
 tab1, tab2, tab3 = st.tabs(["📊 DESEMPEÑO COMERCIAL", "👟 TOP 20 TIENDA", "🌍 TOP 20 ZONA"])
 
-# --- PESTAÑA 1: DESEMPEÑO COMERCIAL (JERARQUIZACIÓN 1-19) ---
+# --- PESTAÑA 1: DESEMPEÑO COMERCIAL ---
 with tab1:
     if archivo_conv:
         df_c = pd.read_excel(archivo_conv)
-        # Limpieza de filas que no son tiendas
         df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
         
         col_tienda = next((c for c in df_c.columns if 'Tienda' in c or 'TIENDA' in c), df_c.columns[0])
@@ -53,22 +106,21 @@ with tab1:
             df_c['CONVERSIÓN'] = df_c[col_conv_real].apply(lambda x: x*100 if x < 1 else x)
             df_c['TICKET PROMEDIO'] = df_c[col_tkt_real]
             
-            # Ordenar por Conversión para establecer el ranking de alcance
             ranking = df_c[[col_tienda, 'CONVERSIÓN', 'TICKET PROMEDIO']].sort_values(by='CONVERSIÓN', ascending=False).reset_index(drop=True)
-            
-            # Crear la columna de jerarquización del 1 al 19
             ranking.insert(0, 'POS', range(1, len(ranking) + 1))
             ranking.columns = ['#', 'TIENDA', 'CONVERSIÓN', 'TICKET PROMEDIO']
 
             def color_semaforo(row):
                 c_conv = row['CONVERSIÓN'] >= meta_conv
                 c_tkt = row['TICKET PROMEDIO'] >= meta_tkt
-                # 4 columnas ahora por la inclusión del '#'
                 if c_conv and c_tkt: return ['background-color: #d4edda; color: #155724'] * 4
                 elif c_conv or c_tkt: return ['background-color: #fff3cd; color: #856404'] * 4
                 else: return ['background-color: #f8d7da; color: #721c24'] * 4
 
             st.table(ranking.style.apply(color_semaforo, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))
+            
+            # EJECUTAR ALERTA DE PRUEBA PARA TIENDA 56
+            verificar_y_enviar_alerta(ranking, tienda_objetivo="56")
 
 # --- PROCESAMIENTO FILTRADO PARA RANKINGS (SOLO ZAPATO) ---
 if archivo_modelos:
@@ -78,7 +130,6 @@ if archivo_modelos:
     col_t = next((c for c in df_m.columns if c.lower() in ['tienda', 'sucursal']), df_m.columns[0])
     col_prov = next((c for c in df_m.columns if 'prov' in c.lower() or 'provee' in c.lower()), None)
 
-    # Filtros de exclusión: Proveedores accesorios (415, 426, 427) y Bolsa Reusable
     if col_prov:
         df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])]
     df_m = df_m[~df_m[col_m].astype(str).str.contains('BOLSA|REUSABLE', case=False, na=False)]
@@ -103,7 +154,7 @@ if archivo_modelos:
         top_z.columns = ['MODELO', 'PARES VENDIDOS']
         st.table(top_z.style.apply(resaltar_top_5, axis=None))
 
-# PIE DE PÁGINA (KPIs zona Occidente/LAE. José Martín Estrada)
+# PIE DE PÁGINA
 st.markdown("""
     <div class="footer">
         KPIs zona Occidente/LAE. José Martín Estrada
