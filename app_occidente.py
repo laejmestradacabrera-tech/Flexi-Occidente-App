@@ -99,7 +99,8 @@ def enviar_correo_por_modificacion(df_ranking, ruta_archivo, ultima_modificacion
     return None
 
 
-tab1, tab2, tab3 = st.tabs(["📊 DESEMPEÑO COMERCIAL", "👟 TOP 20 TIENDA", "🌍 TOP 20 ZONA"])
+# --- AGREGAMOS LA CUARTA PESTAÑA AL MONITOR ---
+tab1, tab2, tab3, tab4 = st.tabs(["📊 DESEMPEÑO COMERCIAL", "👟 TOP 20 TIENDA", "🌍 TOP 20 ZONA", "🧭 RUTA DEL CLIENTE"])
 
 # --- PESTAÑA 1: DESEMPEÑO COMERCIAL ---
 with tab1:
@@ -146,7 +147,6 @@ if archivo_modelos:
     col_t = next((c for c in df_m.columns if c.lower() in ['tienda', 'sucursal']), df_m.columns[0])
     col_prov = next((c for c in df_m.columns if 'prov' in c.lower() or 'provee' in c.lower()), None)
 
-    # --- CORRECCIÓN CRÍTICA: Filtramos tiendas 3004 y 3015 también de la venta de modelos ---
     df_m = df_m[~df_m[col_t].astype(str).str.contains('3004|3015', na=False)]
 
     if col_prov:
@@ -172,6 +172,17 @@ if archivo_modelos:
         top_z = df_z.sort_values(by=col_p, ascending=False).head(20).reset_index(drop=True)
         top_z.columns = ['MODELO', 'PARES VENDIDOS']
         st.table(top_z.style.apply(resaltar_top_5, axis=None))
+
+# --- PESTAÑA 4: MOSTRAR LA INFOGRAFÍA EN ALTA DEFINICIÓN ---
+with tab4:
+    st.subheader("🧭 Protocolo de Venta Flexi - Zona Occidente")
+    nombre_imagen = "RC Zona Occidente.png"
+    
+    if os.path.exists(nombre_imagen):
+        # Muestra la imagen centrada y aprovecha el ancho completo de la pantalla
+        st.image(nombre_imagen, use_container_width=True)
+    else:
+        st.warning("⚠️ La imagen 'RC Zona Occidente.png' aún no se encuentra en la carpeta de GitHub. Por favor, súbela para habilitar la visualización.")
 
 # PIE DE PÁGINA
 st.markdown("""
