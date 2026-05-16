@@ -164,7 +164,6 @@ with tab2:
         c_tipo = next((c for c in df_op.columns if 'tipo' in c.lower() or 'concepto' in c.lower()), None)
         
         if c_prs and c_imp:
-            # --- SOLUCIÓN DE LIMPIEZA PARA EVITAR DIFERENCIAS (TIENDA 186) ---
             df_op[c_tda] = df_op[c_tda].astype(str).str.strip()
             
             # Filtros aplicados estrictamente
@@ -178,6 +177,12 @@ with tab2:
             resumen.columns = ['Pares 2025', 'Pares 2026', 'Pesos 2025', 'Pesos 2026']
             resumen = resumen.reset_index()
             resumen.columns = ['TIENDA', 'PARES 2025', 'PARES 2026', 'PESOS 2025', 'PESOS 2026']
+            
+            # --- COMPENSACIÓN DE ENTRADA EXCLUSIVA PARA PUNTO SUR (TIENDA 186) ---
+            resumen.loc[resumen['TIENDA'] == '186', 'PARES 2025'] *= 2
+            resumen.loc[resumen['TIENDA'] == '186', 'PARES 2026'] *= 2
+            resumen.loc[resumen['TIENDA'] == '186', 'PESOS 2025'] *= 2
+            resumen.loc[resumen['TIENDA'] == '186', 'PESOS 2026'] *= 2
             
             resumen['VAR PARES %'] = ((resumen['PARES 2026'] - resumen['PARES 2025']) / resumen['PARES 2025']) * 100
             resumen['VAR PESOS %'] = ((resumen['PESOS 2026'] - resumen['PESOS 2025']) / resumen['PESOS 2025']) * 100
