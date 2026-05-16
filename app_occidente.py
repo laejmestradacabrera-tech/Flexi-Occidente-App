@@ -150,7 +150,7 @@ with tab1:
                 if "✅" in resultado_alerta: st.success(resultado_alerta)
                 else: st.error(resultado_alerta)
 
-# --- PESTAÑA 2: COMPARATIVO ANUAL ---
+# --- PESTAÑA 2: COMPARATIVO ANUAL (REGLA PURA Y EXACTA) ---
 with tab2:
     if archivo_comp:
         st.subheader("📊 Análisis Comparativo Puro de Calzado (2025 vs. 2026)")
@@ -164,34 +164,33 @@ with tab2:
         c_tipo = next((c for c in df_op.columns if 'tipo' in c.lower() or 'concepto' in c.lower()), None)
         
         if c_prs and c_imp:
+            # Limpieza absoluta de espacios para evitar duplicidades
             df_op[c_tda] = df_op[c_tda].astype(str).str.strip()
             
-            # Filtros aplicados estrictamente
+            # Filtros aplicados estrictamente bajo tus reglas comerciales
             df_op = df_op[~df_op[c_tda].str.contains('3004|3015', na=False)]
             if c_prov:
                 df_op = df_op[~df_op[c_prov].astype(str).str.strip().isin(['415', '426', '427'])]
             if c_tipo:
                 df_op = df_op[~df_op[c_tipo].astype(str).str.contains('BOLSA|REUSABLE|BOLSO', case=False, na=False)]
             
+            # Agrupación y pivote de años
             resumen = df_op.groupby([c_tda, c_ano])[[c_prs, c_imp]].sum().unstack(fill_value=0)
             resumen.columns = ['Pares 2025', 'Pares 2026', 'Pesos 2025', 'Pesos 2026']
             resumen = resumen.reset_index()
             resumen.columns = ['TIENDA', 'PARES 2025', 'PARES 2026', 'PESOS 2025', 'PESOS 2026']
             
-            # --- COMPENSACIÓN DE ENTRADA EXCLUSIVA PARA PUNTO SUR (TIENDA 186) ---
-            resumen.loc[resumen['TIENDA'] == '186', 'PARES 2025'] *= 2
-            resumen.loc[resumen['TIENDA'] == '186', 'PARES 2026'] *= 2
-            resumen.loc[resumen['TIENDA'] == '186', 'PESOS 2025'] *= 2
-            resumen.loc[resumen['TIENDA'] == '186', 'PESOS 2026'] *= 2
-            
+            # Fórmulas de Variación %
             resumen['VAR PARES %'] = ((resumen['PARES 2026'] - resumen['PARES 2025']) / resumen['PARES 2025']) * 100
             resumen['VAR PESOS %'] = ((resumen['PESOS 2026'] - resumen['PESOS 2025']) / resumen['PESOS 2025']) * 100
             
+            # Totales globales de la Zona Occidente
             tot_p25, tot_p26 = resumen['PARES 2025'].sum(), resumen['PARES 2026'].sum()
             tot_w25, tot_w26 = resumen['PESOS 2025'].sum(), resumen['PESOS 2026'].sum()
             var_p_global = ((tot_p26 - tot_p25) / tot_p25) * 100
             var_w_global = ((tot_w26 - tot_w25) / tot_w25) * 100
             
+            # Tarjetas de Indicadores Corporativos
             c1, c2 = st.columns(2)
             with c1:
                 signo_p = "+" if var_p_global >= 0 else ""
@@ -216,6 +215,7 @@ with tab2:
             
             st.write("<br>", unsafe_allow_html=True)
             
+            # Tabla de Control ordenada por crecimiento de pares
             tabla_comp = resumen[['TIENDA', 'PARES 2025', 'PARES 2026', 'VAR PARES %', 'PESOS 2025', 'PESOS 2026', 'VAR PESOS %']].sort_values(by='VAR PARES %', ascending=False).reset_index(drop=True)
             
             def color_variacion(val):
