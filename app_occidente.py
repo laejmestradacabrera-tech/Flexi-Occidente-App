@@ -39,7 +39,7 @@ archivo_conv = buscar_archivo('Conversion')
 archivo_modelos = buscar_archivo('Venta_Modelos')
 
 
-# --- FUNCIÓN DE ALERTA DE CORREO (CONVERSIÓN Y TICKET PROMEDIO) ---
+# --- FUNCIÓN DE ALERTA DE CORREO CON REDACCIÓN DINÁMICA ---
 def verificar_y_enviar_alerta(df_ranking, tienda_objetivo="56"):
     fila_tienda = df_ranking[df_ranking['TIENDA'].astype(str).str.contains(tienda_objetivo, na=False)]
     
@@ -49,6 +49,10 @@ def verificar_y_enviar_alerta(df_ranking, tienda_objetivo="56"):
         
         meta_conv = 10.9
         meta_ticket = 1.29
+        
+        # Evaluar si se logró cada indicador
+        logro_conv = conversion_actual >= meta_conv
+        logro_ticket = ticket_actual >= meta_ticket
         
         desviacion_conv = conversion_actual - meta_conv
         desviacion_ticket = ticket_actual - meta_ticket
@@ -63,17 +67,25 @@ def verificar_y_enviar_alerta(df_ranking, tienda_objetivo="56"):
             cuerpo = f"Estimada Ana Leticia y equipo de Plazas Outlet (Tienda {tienda_objetivo}):\n\n"
             cuerpo += "Les compartimos el análisis de desviaciones frente a las metas establecidas:\n\n"
             
-            if desviacion_conv >= 0:
+            # Línea de Conversión
+            if logro_conv:
                 cuerpo += f"✅ CONVERSIÓN: {conversion_actual:.2f}% (Supera la meta por +{desviacion_conv:.2f}%)\n"
             else:
                 cuerpo += f"❌ CONVERSIÓN: {conversion_actual:.2f}% (Faltan {abs(desviacion_conv):.2f}% para la meta de {meta_conv}%)\n"
                 
-            if desviacion_ticket >= 0:
+            # Línea de Ticket Promedio
+            if logro_ticket:
                 cuerpo += f"✅ TICKET PROMEDIO: {ticket_actual:.2f} pares (Supera la meta por +{desviacion_ticket:.2f} pares)\n\n"
             else:
                 cuerpo += f"❌ TICKET PROMEDIO: {ticket_actual:.2f} pares (Faltan {abs(desviacion_ticket):.2f} pares para la meta de {meta_ticket} de calzado)\n\n"
                 
-            cuerpo += "Este indicador nos permite enfocar el esfuerzo en el piso de venta para asegurar la entrega de la garantía digital. ¡A asegurar el cierre!"
+            # --- LÓGICA DE LA ÚLTIMA LÍNEA (REQUISITO REQUERIDO) ---
+            if logro_conv and logro_ticket:
+                cuerpo += "🏆 ¡Muchas felicidades por lograr ambos indicadores! Excelente desempeño en el piso de venta, sigan manteniendo ese ritmo."
+            elif logro_conv or logro_ticket:
+                cuerpo += "⚠️ ALERTA: Se está logrando solo un indicador. Es necesario ajustar la estrategia en el indicador faltante para asegurar el resultado completo."
+            else:
+                cuerpo += "📉 ATENCIÓN: No se logró ninguno de los indicadores establecidos. Hay que trabajar con urgencia y enfocar todo el esfuerzo para alcanzar las metas."
 
             msg = MIMEText(cuerpo)
             msg['Subject'] = asunto
