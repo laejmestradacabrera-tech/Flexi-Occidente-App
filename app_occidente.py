@@ -270,18 +270,19 @@ with tab6:
     st.markdown("## 🎓 Centro de Capacitación y Desarrollo Operativo")
     st.write("Bienvenido al espacio interactivo para el fortalecimiento del sentido de pertenencia y alineación comercial de la Zona Occidente.")
     
-    # Layout de dos columnas: Izquierda el Video Institucional, Derecha el Manual Estratégico Completo
+    # Layout de dos columnas: Izquierda Videos de Capacitación, Derecha el Manual Estratégico Completo
     col_izq, col_der = st.columns([1, 1])
     
     with col_izq:
-        st.markdown("### 📹 Mensaje de Dirección y Estrategia")
+        # 📹 TITULO CORREGIDO EN LA PARTE AUDIOVISUAL
+        st.markdown("### 📹 Videos de Capacitación para el Personal")
         st.video("https://youtu.be/688Bi49rI30")
-        st.caption("Capacitación y alineación de metas impartido por la Gerencia Comercial.")
+        st.caption("Material audiovisual interactivo para la alineación del equipo comercial.")
         
     with col_der:
         st.markdown("### 📘 Manual de Integración a Tiendas Flexi")
         
-        # 🎯 PUNTO UNO: PROPÓSITO DEL MONITOR (CORREGIDO SIN LA FRASE TÉCNICA DEL FILTRO)
+        # 🎯 PUNTO UNO: PROPÓSITO DEL MONITOR
         with st.expander("🎯 1. PROPÓSITO DEL MONITOR COMERCIAL"):
             st.markdown("""
             Este monitor interactivo fue desarrollado bajo la dirección del **LAE. José Martín Estrada Cabrera** con el objetivo de centralizar, automatizar y auditar los indicadores comerciales clave de las **21 tiendas físicas** de la Zona Occidente.
@@ -299,7 +300,7 @@ with tab6:
             **Objetivo General:**
             Establecer un proceso de acogida estandarizado que reduzca la rotación de personal en los primeros 90 días, transformando la incorporación en una experiencia de bienvenida profundamente profesional y humana.
             
-            *La permanencia del personal de nueva contratación no depende únicamente de las condiciones laborales, sino de la calidad de su integración inicial. Este espacio presenta los pilares fundamentales para asegurar que el nuevo colaborador se sientan valorado, guiado y conectado con los objetivos de la organización desde su primer día.*
+            *La permanencia del personal de nueva contratación no depende únicamente de las condiciones laborales, sino de la calidad de su integración inicial. Este espacio presenta los pilares fundamentales para asegurar que el nuevo colaborador se sienta valorado, guiado y conectado con los objetivos de la organización desde su primer día.*
             """)
             
         with st.expander("🤝 3. PILAR I: BIENVENIDA (LOGÍSTICA Y ORDEN)"):
