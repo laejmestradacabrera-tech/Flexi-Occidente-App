@@ -109,7 +109,7 @@ def enviar_correo_por_modificacion(df_ranking, ruta_archivo, ultima_modificacion
 # --- DEFINICIÓN DE LAS 6 PESTAÑAS ---
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📊 DESEMPEÑO COMERCIAL", 
-    "📈 COMPARATIVO ANUAL",
+    "📈 COMPARATIVO MENSUAL",
     "👟 TOP 20 TIENDA", 
     "🌍 TOP 20 ZONA", 
     "🧭 RUTA DEL CLIENTE",
@@ -151,10 +151,10 @@ with tab1:
                 if "✅" in resultado_alerta: st.success(resultado_alerta)
                 else: st.error(resultado_alerta)
 
-# --- PESTAÑA 2: COMPARATIVO ANUAL ---
+# --- PESTAÑA 2: COMPARATIVO MENSUAL (Título corregido) ---
 with tab2:
     if archivo_comp:
-        st.subheader("📊 Análisis Comparativo Puro de Calzado (2025 vs. 2026)")
+        st.subheader("📊 Análisis Comparativo de Calzado Mensual")
         df_op = pd.read_excel(archivo_comp) if archivo_comp.endswith('.xlsx') else pd.read_csv(archivo_comp)
         
         c_ano = next((c for c in df_op.columns if 'año' in c.lower() or 'ano' in c.lower()), df_op.columns[0])
@@ -270,29 +270,23 @@ with tab6:
     st.markdown("## 🎓 Centro de Capacitación y Desarrollo Operativo")
     st.write("Bienvenido al espacio interactivo para el fortalecimiento del sentido de pertenencia y alineación comercial de la Zona Occidente.")
     
-    # Layout de dos columnas: Izquierda Selector y Reproductor Audiovisual, Derecha el Manual Estratégico Completo
     col_izq, col_der = st.columns([1, 1])
     
     with col_izq:
         st.markdown("### 📹 Videos de Capacitación para el Personal")
         
-        # Diccionario con los 3 videos organizados de forma ejecutiva
         opciones_video = {
             "Video 1: Introducción y Bienvenida Comercial": "https://youtu.be/688Bi49rI30",
             "Video 2: Procesos y Operación en Tienda": "https://youtu.be/6hB95lYcL1g",
             "Video 3: Excelencia en el Piso de Venta (KPIs)": "https://youtu.be/WVi8geGSeOg"
         }
         
-        # Selector dinámico en pantalla
         video_seleccionado = st.selectbox("Selecciona el material audiovisual a reproducir:", list(opciones_video.keys()))
         url_video = opciones_video[video_seleccionado]
         
         st.write("<br>", unsafe_allow_html=True)
-        
-        # Reproductor dinámico según la opción elegida
         st.video(url_video)
         
-        # 🎯 BOTÓN DE AUXILIO BLINDADO INDIVIDUAL (Se adapta automáticamente al video seleccionado)
         st.write("¿No carga el reproductor por restricciones de red locales de la sucursal?")
         st.link_button(f"🚀 Clic aquí para ver {video_seleccionado.split(':')[0]} directo en YouTube", url_video, type="primary")
         st.caption("Nota: Todos los videos se encuentran resguardados bajo la modalidad 'No listado' para cuidar la privacidad operativa de la empresa.")
@@ -300,7 +294,6 @@ with tab6:
     with col_der:
         st.markdown("### 📘 Manual de Integración a Tiendas Flexi")
         
-        # 🎯 PUNTO UNO: PROPÓSITO DEL MONITOR
         with st.expander("🎯 1. PROPÓSITO DEL MONITOR COMERCIAL"):
             st.markdown("""
             Este monitor interactivo fue desarrollado bajo la dirección del **LAE. José Martín Estrada Cabrera** con el objetivo de centralizar, automatizar y auditar los indicadores comerciales clave de las **21 tiendas físicas** de la Zona Occidente.
@@ -310,14 +303,15 @@ with tab6:
             * 📊 **Conversión Mínima:** Meta de 10.90% en el piso de venta.
             """)
             
-        # 📝 PUNTO DOS: INTRODUCCIÓN DEL MANUAL
         with st.expander("📝 2. OBJETIVO DEL MANUAL Y FILOSOFÍA"):
             st.markdown("""
             **Plan de Retención de Personal y Fortalecimiento del Sentido de Pertenencia**
             
             **Objetivo General:**
-            Establecer un proceso de acogida estandarizado que reduzca la rotación de personal en los primeros 90 días, transformando la incorporación en una experiencia de bienvenida profundamente profesional y humana.
+            Establecer un proceso de acogida estandarizado que reduzca la rotación de personal en los primeros 90 días, transformando la incorporación en una experiencia de bienvenida profesional y humana.
+            """)
             
+            st.markdown("""
             *La permanencia del personal de nueva contratación no depende únicamente de las condiciones laborales, sino de la calidad de su integración inicial. Este espacio presenta los pilares fundamentales para asegurar que el nuevo colaborador se sienta valorado, guiado y conectado con los objetivos de la organización desde su primer día.*
             """)
             
@@ -325,50 +319,34 @@ with tab6:
             st.markdown("""
             **Concepto:** Proyectar orden y profesionalismo. La preparación del entorno de trabajo es el primer mensaje que el colaborador recibe sobre la cultura de la empresa.
             
-            **La Acción:** Asegurarse de que el espacio físico esté impecable, las herramientas de trabajo (computadora, accesos, sistemas) estén configuradas y el uniforme de la talla correcta esté listo sobre su lugar antes de que el colaborador cruce la puerta (en la medida de lo posible).
-            
-            **El Impacto:** Elimina la ansiedad e incertidumbre del primer día. Comunica de forma implícita: *'Te estábamos esperando y tu llegada es importante para nosotros'*.
+            **La Acción:** Asegurarse de que el espacio físico esté impecable, las herramientas de trabajo estén configuradas y el uniforme de la talla correcta esté listo sobre su lugar antes de que el colaborador cruce la puerta (en la medida de lo posible).
             """)
             
         with st.expander("👥 4. PILAR II: ACOMPAÑAMIENTO (SISTEMA DE MENTORÍA)"):
             st.markdown("""
             **Concepto:** Eliminar la 'soledad del novato' mediante el sistema de compañero guía.
             
-            **La Acción:** Designar a un colaborador con experiencia y actitud positiva para que actúe como mentor durante la primera semana. Este guía resolverá dudas cotidianas, presentará al resto del equipo y explicará las dinámicas no escritas de la tienda.
-            
-            **El Impacto:** Acelera la curva de aprendizaje social y técnico. Reduce el miedo a cometer errores básicos y crea un vínculo de confianza inmediato en el piso de venta.
+            **La Acción:** Designar a un colaborador con experiencia y actitud positiva para que actúe como mentor durante la primera semana.
             """)
             
         with st.expander("🧭 5. PILAR III: CLARIDAD DEL PROPÓSITO (KPIs)"):
             st.markdown("""
             **Concepto:** Conectar las tareas diarias con el impacto real en el éxito de la zona y la misión de la empresa.
             
-            **La Acción:** Realizar una sesión de alineación donde se explique no solo 'qué' debe hacer, sino 'por qué' su rol es vital para alcanzar los objetivos generales. Mostrar cómo su esfuerzo diario contribuye directamente al bienestar del cliente y a la salud del equipo.
-            
             **Enfoque Comercial Zona Occidente:**
             Todo colaborador de nuevo ingreso debe comprender que cuidamos con excelencia comercial dos indicadores vitales de calzado puro:
             * 👟 **Ticket Promedio:** Meta de 1.29 unidades por ticket.
             * 📊 **Conversión:** Meta de 10.90% en piso de venta.
-            
-            **El Impacto:** Genera compromiso emocional. Un colaborador que encuentra propósito en su trabajo desarrolla una lealtad que va más allá de la oferta económica.
             """)
             
         with st.expander("📈 6. PILAR IV: METAS DE CORTO PLAZO"):
             st.markdown("""
             **Concepto:** Brindar claridad absoluta sobre las expectativas de desempeño en la etapa crítica de adaptación.
-            
-            **La Acción:** Establecer objetivos específicos, medibles y alcanzables para la primera semana, los primeros 15 días y el primer mes. Brindar retroalimentación constructiva al finalizar cada etapa.
-            
-            **El Impacto:** Reduce la frustración causada por la ambigüedad. Permite que el colaborador celebre victorias tempranas y desarrolle la autoconfianza necesaria para su profesionalización.
             """)
             
         with st.expander("🎉 7. PILAR V: VINCULACIÓN SOCIAL"):
             st.markdown("""
             **Concepto:** Humanizar el entorno laboral y fomentar la integración grupal.
-            
-            **La Acción:** Organizar activamente momentos de convivencia (como una dinámica de presentación formal) donde el equipo actual reciba y arrope al nuevo integrante de la sucursal.
-            
-            **El Impacto:** Rompe las barreras invisibles entre el personal antiguo y el nuevo. El sentido de pertenencia a un grupo social es el factor de retención más potente ante ofertas de la competencia.
             
             ---
             *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
