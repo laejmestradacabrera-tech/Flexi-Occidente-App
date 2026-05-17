@@ -106,13 +106,14 @@ def enviar_correo_por_modificacion(df_ranking, ruta_archivo, ultima_modificacion
     return None
 
 
-# --- DEFINICIÓN DE LAS 5 PESTAÑAS ---
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+# --- DEFINICIÓN DE LAS 6 PESTAÑAS ---
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📊 DESEMPEÑO COMERCIAL", 
     "📈 COMPARATIVO ANUAL",
     "👟 TOP 20 TIENDA", 
     "🌍 TOP 20 ZONA", 
-    "🧭 RUTA DEL CLIENTE"
+    "🧭 RUTA DEL CLIENTE",
+    "🎓 CAPACITACIÓN"
 ])
 
 # --- PESTAÑA 1: DESEMPEÑO COMERCIAL ---
@@ -150,7 +151,7 @@ with tab1:
                 if "✅" in resultado_alerta: st.success(resultado_alerta)
                 else: st.error(resultado_alerta)
 
-# --- PESTAÑA 2: COMPARATIVO ANUAL (REGLA PURA Y EXACTA) ---
+# --- PESTAÑA 2: COMPARATIVO ANUAL ---
 with tab2:
     if archivo_comp:
         st.subheader("📊 Análisis Comparativo Puro de Calzado (2025 vs. 2026)")
@@ -164,33 +165,26 @@ with tab2:
         c_tipo = next((c for c in df_op.columns if 'tipo' in c.lower() or 'concepto' in c.lower()), None)
         
         if c_prs and c_imp:
-            # Limpieza absoluta de espacios para evitar duplicidades
             df_op[c_tda] = df_op[c_tda].astype(str).str.strip()
-            
-            # Filtros aplicados estrictamente bajo tus reglas comerciales
             df_op = df_op[~df_op[c_tda].str.contains('3004|3015', na=False)]
             if c_prov:
                 df_op = df_op[~df_op[c_prov].astype(str).str.strip().isin(['415', '426', '427'])]
             if c_tipo:
                 df_op = df_op[~df_op[c_tipo].astype(str).str.contains('BOLSA|REUSABLE|BOLSO', case=False, na=False)]
             
-            # Agrupación y pivote de años
             resumen = df_op.groupby([c_tda, c_ano])[[c_prs, c_imp]].sum().unstack(fill_value=0)
             resumen.columns = ['Pares 2025', 'Pares 2026', 'Pesos 2025', 'Pesos 2026']
             resumen = resumen.reset_index()
             resumen.columns = ['TIENDA', 'PARES 2025', 'PARES 2026', 'PESOS 2025', 'PESOS 2026']
             
-            # Fórmulas de Variación %
             resumen['VAR PARES %'] = ((resumen['PARES 2026'] - resumen['PARES 2025']) / resumen['PARES 2025']) * 100
             resumen['VAR PESOS %'] = ((resumen['PESOS 2026'] - resumen['PESOS 2025']) / resumen['PESOS 2025']) * 100
             
-            # Totales globales de la Zona Occidente
             tot_p25, tot_p26 = resumen['PARES 2025'].sum(), resumen['PARES 2026'].sum()
             tot_w25, tot_w26 = resumen['PESOS 2025'].sum(), resumen['PESOS 2026'].sum()
             var_p_global = ((tot_p26 - tot_p25) / tot_p25) * 100
             var_w_global = ((tot_w26 - tot_w25) / tot_w25) * 100
             
-            # Tarjetas de Indicadores Corporativos
             c1, c2 = st.columns(2)
             with c1:
                 signo_p = "+" if var_p_global >= 0 else ""
@@ -215,7 +209,6 @@ with tab2:
             
             st.write("<br>", unsafe_allow_html=True)
             
-            # Tabla de Control ordenada por crecimiento de pares
             tabla_comp = resumen[['TIENDA', 'PARES 2025', 'PARES 2026', 'VAR PARES %', 'PESOS 2025', 'PESOS 2026', 'VAR PESOS %']].sort_values(by='VAR PARES %', ascending=False).reset_index(drop=True)
             
             def color_variacion(val):
@@ -229,8 +222,6 @@ with tab2:
                 'PARES 2025': '{:,.0f}', 'PARES 2026': '{:,.0f}', 'VAR PARES %': '{:+.2f}%',
                 'PESOS 2025': '${:,.2f}', 'PESOS 2026': '${:,.2f}', 'VAR PESOS %': '{:+.2f}%'
             }))
-    else:
-        st.warning("⚠️ No se encontró el archivo 'Comparativo por Operacion'. Por favor súbelo a GitHub.")
 
 # --- PROCESAMIENTO FILTRADO PARA RANKINGS ---
 if archivo_modelos:
@@ -241,7 +232,6 @@ if archivo_modelos:
     col_prov = next((c for c in df_m.columns if 'prov' in c.lower()), None)
 
     df_m = df_m[~df_m[col_t].astype(str).str.contains('3004|3015', na=False)]
-
     if col_prov:
         df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])]
     df_m = df_m[~df_m[col_m].astype(str).str.contains('BOLSA|REUSABLE', case=False, na=False)]
@@ -268,12 +258,59 @@ if archivo_modelos:
 
 # --- PESTAÑA 5: RUTA DEL CLIENTE ---
 with tab5:
-    st.subheader("🧭 Protocolo de Venta Flexi - Zona Occidente")
+    st.subheader("🧭 Protocolo Operativo en Piso de Venta")
     nombre_imagen = "RC Zona Occidente.png"
     if os.path.exists(nombre_imagen):
         st.image(nombre_imagen, use_container_width=True)
     else:
         st.warning("⚠️ La imagen 'RC Zona Occidente.png' aún no se encuentra en GitHub.")
+
+# --- PESTAÑA 6: PORTAL DE CAPACITACIÓN Y MANUALES ---
+with tab6:
+    st.subheader("🎓 Centro de Capacitación e Integración - Zona Occidente")
+    st.write("Bienvenido al espacio interactivo para el desarrollo y alineación de los equipos comerciales.")
+    
+    # Layout de dos columnas: Izquierda el Video Institucional, Derecha el Manual de Integración
+    col_izq, col_der = st.columns([1, 1])
+    
+    with col_izq:
+        st.markdown("### 📹 Video de Estrategia Comercial")
+        st.video("https://youtu.be/688Bi49rI30")
+        st.caption("Capacitación y mensaje de alineación de KPIs impartido por la Gerencia Comercial.")
+        
+    with col_der:
+        st.markdown("### 📘 Manual de Integración del Sistema")
+        
+        with st.expander("🚀 1. Propósito del Monitor Comercial"):
+            st.markdown("""
+            Este monitor interactivo fue desarrollado bajo la dirección del **LAE. José Martín Estrada Cabrera** con el objetivo de centralizar, automatizar y auditar los indicadores comerciales clave de las **21 tiendas físicas** de la Zona Occidente.
+            
+            **Metas Estratégicas de la Zona:**
+            * 👟 **Ticket Promedio:** 1.29 unidades (exclusivo calzado puro).
+            * 📊 **Conversión Mínima:** 10.90% en piso de venta.
+            """)
+            
+        with st.expander("📂 2. Guía de Alimentación de Datos (Archivos Clave)"):
+            st.markdown("""
+            El sistema se automatiza de forma directa mediante la subida de reportes a GitHub cumpliendo con las siguientes palabras clave en el nombre del archivo:
+            1. **`Conversion`**: Alimenta el ranking de la pestaña 1 y gestiona alertas automáticas por correo.
+            2. **`Comparativo por Operacion`**: Alimenta las tarjetas ejecutivas y el análisis de crecimiento anual de calzado puro.
+            3. **`Venta_Modelos`**: Desglosa los 20 estilos más ganadores por sucursal y zona.
+            """)
+            
+        with st.expander("🛡️ 3. Reglas de Negocio Blindadas"):
+            st.markdown("""
+            Para asegurar la veracidad de la información frente a los tableros institucionales (Power BI), el código ejecuta filtros automáticos en cada actualización:
+            * **Calzado Puro:** Exclusión total de complementos como bolsas, bolsos y artículos reutilizables.
+            * **Proveedores Filtro:** Exclusión estricta de proveedores no comerciales (`415`, `426`, `427`).
+            * **Filtro de Sucursales:** Exclusión de códigos de tienda de control interno (`3004` y `3015`).
+            """)
+            
+        with st.expander("👥 4. Canales de Coordinación y Alertas"):
+            st.markdown("""
+            * **Alertas Automáticas:** El sistema monitorea desviaciones en tiempo real para la Tienda 56 (Plazas Outlet), emitiendo correos automáticos preventivos o de felicitación.
+            * **Coordinación Regional:** Los despliegues de planes de trabajo y auditorías en piso de venta se canalizan principalmente mediante los liderazgos de **Lety** y **Lupita** para asegurar la Ruta del Cliente.
+            """)
 
 # PIE DE PÁGINA
 st.markdown("""
