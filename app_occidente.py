@@ -270,14 +270,32 @@ with tab6:
     st.markdown("## 🎓 Centro de Capacitación y Desarrollo Operativo")
     st.write("Bienvenido al espacio interactivo para el fortalecimiento del sentido de pertenencia y alineación comercial de la Zona Occidente.")
     
-    # Layout de dos columnas: Izquierda Videos de Capacitación, Derecha el Manual Estratégico Completo
+    # Layout de dos columnas: Izquierda Selector y Reproductor Audiovisual, Derecha el Manual Estratégico Completo
     col_izq, col_der = st.columns([1, 1])
     
     with col_izq:
-        # 📹 TITULO CORREGIDO EN LA PARTE AUDIOVISUAL
         st.markdown("### 📹 Videos de Capacitación para el Personal")
-        st.video("https://youtu.be/688Bi49rI30")
-        st.caption("Material audiovisual interactivo para la alineación del equipo comercial.")
+        
+        # Diccionario con los 3 videos organizados de forma ejecutiva
+        opciones_video = {
+            "Video 1: Introducción y Bienvenida Comercial": "https://youtu.be/688Bi49rI30",
+            "Video 2: Procesos y Operación en Tienda": "https://youtu.be/6hB95lYcL1g",
+            "Video 3: Excelencia en el Piso de Venta (KPIs)": "https://youtu.be/WVi8geGSeOg"
+        }
+        
+        # Selector dinámico en pantalla
+        video_seleccionado = st.selectbox("Selecciona el material audiovisual a reproducir:", list(opciones_video.keys()))
+        url_video = opciones_video[video_seleccionado]
+        
+        st.write("<br>", unsafe_allow_html=True)
+        
+        # Reproductor dinámico según la opción elegida
+        st.video(url_video)
+        
+        # 🎯 BOTÓN DE AUXILIO BLINDADO INDIVIDUAL (Se adapta automáticamente al video seleccionado)
+        st.write("¿No carga el reproductor por restricciones de red locales de la sucursal?")
+        st.link_button(f"🚀 Clic aquí para ver {video_seleccionado.split(':')[0]} directo en YouTube", url_video, type="primary")
+        st.caption("Nota: Todos los videos se encuentran resguardados bajo la modalidad 'No listado' para cuidar la privacidad operativa de la empresa.")
         
     with col_der:
         st.markdown("### 📘 Manual de Integración a Tiendas Flexi")
