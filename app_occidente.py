@@ -265,56 +265,89 @@ with tab5:
     else:
         st.warning("⚠️ La imagen 'RC Zona Occidente.png' aún no se encuentra en GitHub.")
 
-# --- PESTAÑA 6: PORTAL DE CAPACITACIÓN Y MANUALES ---
+# --- PESTAÑA 6: PORTAL DE CAPACITACIÓN Y MANUAL DE INTEGRACIÓN ---
 with tab6:
-    st.subheader("🎓 Centro de Capacitación e Integración - Zona Occidente")
-    st.write("Bienvenido al espacio interactivo para el desarrollo y alineación de los equipos comerciales.")
+    st.markdown("## 🎓 Centro de Capacitación y Desarrollo Operativo")
+    st.write("Bienvenido al espacio interactivo para el fortalecimiento del sentido de pertenencia y alineación comercial de la Zona Occidente.")
     
-    # Layout de dos columnas: Izquierda el Video Institucional, Derecha el Manual de Integración
+    # Layout de dos columnas: Izquierda el Video Institucional, Derecha el Manual Estratégico Completo
     col_izq, col_der = st.columns([1, 1])
     
     with col_izq:
-        st.markdown("### 📹 Video de Estrategia Comercial")
+        st.markdown("### 📹 Mensaje de Dirección y Estrategia")
         st.video("https://youtu.be/688Bi49rI30")
-        st.caption("Capacitación y mensaje de alineación de KPIs impartido por la Gerencia Comercial.")
+        st.caption("Capacitación y alineación de metas impartido por la Gerencia Comercial.")
         
     with col_der:
-        st.markdown("### 📘 Manual de Integración del Sistema")
+        st.markdown("### 📘 Manual de Integración a Tiendas Flexi")
         
-        with st.expander("🚀 1. Propósito del Monitor Comercial"):
+        # PROPÓSITO DIRECTIVO (El punto 1 que te fascinó)
+        with st.expander("🎯 1. PROPÓSITO DEL MANUAL Y FILOSOFÍA"):
             st.markdown("""
-            Este monitor interactivo fue desarrollado bajo la dirección del **LAE. José Martín Estrada Cabrera** con el objetivo de centralizar, automatizar y auditar los indicadores comerciales clave de las **21 tiendas físicas** de la Zona Occidente.
+            **Plan de Retención de Personal y Fortalecimiento del Sentido de Pertenencia**
             
-            **Metas Estratégicas de la Zona:**
-            * 👟 **Ticket Promedio:** 1.29 unidades (exclusivo calzado puro).
-            * 📊 **Conversión Mínima:** 10.90% en piso de venta.
+            **Objetivo General:**
+            Establecer un proceso de acogida estandarizado que reduzca la rotación de personal en los primeros 90 días, transformando la incorporación en una experiencia de bienvenida profundamente profesional y humana.
+            
+            *La permanencia del personal de nueva contratación no depende únicamente de las condiciones laborales, sino de la calidad de su integración inicial. Este espacio presenta los pilares fundamentales para asegurar que el nuevo colaborador se sienta valorado, guiado y conectado con los objetivos de la organización desde su primer día.*
             """)
             
-        with st.expander("📂 2. Guía de Alimentación de Datos (Archivos Clave)"):
+        with st.expander("🤝 2. PILAR I: BIENVENIDA (LOGÍSTICA Y ORDEN)"):
             st.markdown("""
-            El sistema se automatiza de forma directa mediante la subida de reportes a GitHub cumpliendo con las siguientes palabras clave en el nombre del archivo:
-            1. **`Conversion`**: Alimenta el ranking de la pestaña 1 y gestiona alertas automáticas por correo.
-            2. **`Comparativo por Operacion`**: Alimenta las tarjetas ejecutivas y el análisis de crecimiento anual de calzado puro.
-            3. **`Venta_Modelos`**: Desglosa los 20 estilos más ganadores por sucursal y zona.
+            **Concepto:** Proyectar orden y profesionalismo. La preparación del entorno de trabajo es el primer mensaje que el colaborador recibe sobre la cultura de la empresa.
+            
+            **La Acción:** Asegurarse de que el espacio físico esté impecable, las herramientas de trabajo (computadora, accesos, sistemas) estén configuradas y el uniforme de la talla correcta esté listo sobre su lugar antes de que el colaborador cruce la puerta (en la medida de lo posible).
+            
+            **El Impacto:** Elimina la ansiedad e incertidumbre del primer día. Comunica de forma implícita: *'Te estábamos esperando y tu llegada es importante para nosotros'*.
             """)
             
-        with st.expander("🛡️ 3. Reglas de Negocio Blindadas"):
+        with st.expander("👥 3. PILAR II: ACOMPAÑAMIENTO (SISTEMA DE MENTORÍA)"):
             st.markdown("""
-            Para asegurar la veracidad de la información frente a los tableros institucionales (Power BI), el código ejecuta filtros automáticos en cada actualización:
-            * **Calzado Puro:** Exclusión total de complementos como bolsas, bolsos y artículos reutilizables.
-            * **Proveedores Filtro:** Exclusión estricta de proveedores no comerciales (`415`, `426`, `427`).
-            * **Filtro de Sucursales:** Exclusión de códigos de tienda de control interno (`3004` y `3015`).
+            **Concepto:** Eliminar la 'soledad del novato' mediante el sistema de compañero guía.
+            
+            **La Acción:** Designar a un colaborador con experiencia y actitud positiva para que actúe como mentor durante la primera semana. Este guía resolverá dudas cotidianas, presentará al resto del equipo y explicará las dinámicas no escritas de la tienda.
+            
+            **El Impacto:** Acelera la curva de aprendizaje social y técnico. Reduce el miedo a cometer errores básicos y crea un vínculo de confianza inmediato en el piso de venta.
             """)
             
-        with st.expander("👥 4. Canales de Coordinación y Alertas"):
+        with st.expander("🧭 4. PILAR III: CLARIDAD DEL PROPÓSITO (KPIs)"):
             st.markdown("""
-            * **Alertas Automáticas:** El sistema monitorea desviaciones en tiempo real para la Tienda 56 (Plazas Outlet), emitiendo correos automáticos preventivos o de felicitación.
-            * **Coordinación Regional:** Los despliegues de planes de trabajo y auditorías en piso de venta se canalizan principalmente mediante los liderazgos de **Lety** y **Lupita** para asegurar la Ruta del Cliente.
+            **Concepto:** Conectar las tareas diarias con el impacto real en el éxito de la zona y la misión de la empresa.
+            
+            **La Acción:** Realizar una sesión de alineación donde se explique no solo 'qué' debe hacer, sino 'por qué' su rol es vital para alcanzar los objetivos generales. Mostrar cómo su esfuerzo diario contribuye directamente al bienestar del cliente y a la salud del equipo.
+            
+            **Enfoque Comercial Zona Occidente:**
+            Todo colaborador de nuevo ingreso debe comprender que cuidamos con excelencia comercial dos indicadores vitales de calzado puro:
+            * 👟 **Ticket Promedio:** Meta de 1.29 unidades por ticket.
+            * 📊 **Conversión:** Meta de 10.90% en piso de venta.
+            
+            **El Impacto:** Genera compromiso emocional. Un colaborador que encuentra propósito en su trabajo desarrolla una lealtad que va más allá de la oferta económica.
+            """)
+            
+        with st.expander("📈 5. PILAR IV: METAS DE CORTO PLAZO"):
+            st.markdown("""
+            **Concepto:** Brindar claridad absoluta sobre las expectativas de desempeño en la etapa crítica de adaptación.
+            
+            **La Acción:** Establecer objetivos específicos, medibles y alcanzables para la primera semana, los primeros 15 días y el primer mes. Brindar retroalimentación constructiva al finalizar cada etapa.
+            
+            **El Impacto:** Reduce la frustración causada por la ambigüedad. Permite que el colaborador celebre victorias tempranas y desarrolle la autoconfianza necesaria para su profesionalización.
+            """)
+            
+        with st.expander("🎉 6. PILAR V: VINCULACIÓN SOCIAL"):
+            st.markdown("""
+            **Concepto:** Humanizar el entorno laboral y fomentar la integración grupal.
+            
+            **La Acción:** Organizar activamente momentos de convivencia (como una dinámica de presentación formal) donde el equipo actual reciba y arrope al nuevo integrante de la sucursal.
+            
+            **El Impacto:** Rompe las barreras invisibles entre el personal antiguo y el nuevo. El sentido de pertenencia a un grupo social es el factor de retención más potente ante ofertas de la competencia.
+            
+            ---
+            *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
             """)
 
 # PIE DE PÁGINA
 st.markdown("""
     <div class="footer">
-        KPIs zona Occidente/LAE. José Martín Estrada
+        © 2026 Gerencia Comercial Zona Occidente | KPIs Administrados por LAE. José Martín Estrada Cabrera
     </div>
     """, unsafe_allow_html=True)
