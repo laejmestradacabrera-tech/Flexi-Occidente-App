@@ -151,7 +151,7 @@ with tab1:
                 if "✅" in resultado_alerta: st.success(resultado_alerta)
                 else: st.error(resultado_alerta)
 
-# --- PESTAÑA 2: COMPARATIVO MENSUAL (Título corregido) ---
+# --- PESTAÑA 2: COMPARATIVO MENSUAL ---
 with tab2:
     if archivo_comp:
         st.subheader("📊 Análisis Comparativo de Calzado Mensual")
@@ -265,7 +265,7 @@ with tab5:
     else:
         st.warning("⚠️ La imagen 'RC Zona Occidente.png' aún no se encuentra en GitHub.")
 
-# --- PESTAÑA 6: PORTAL DE CAPACITACIÓN Y MANUAL DE INTEGRACIÓN ---
+# --- PESTAÑA 6: PORTAL DE CAPACITACIÓN Y MANUAL DE INTEGRACIÓN (Nombres Actualizados) ---
 with tab6:
     st.markdown("## 🎓 Centro de Capacitación y Desarrollo Operativo")
     st.write("Bienvenido al espacio interactivo para el fortalecimiento del sentido de pertenencia y alineación comercial de la Zona Occidente.")
@@ -275,10 +275,11 @@ with tab6:
     with col_izq:
         st.markdown("### 📹 Videos de Capacitación para el Personal")
         
+        # 📑 Nombres Corporativos Oficiales de los Sistemas
         opciones_video = {
-            "Video 1: Introducción y Bienvenida Comercial": "https://youtu.be/688Bi49rI30",
-            "Video 2: Procesos y Operación en Tienda": "https://youtu.be/6hB95lYcL1g",
-            "Video 3: Excelencia en el Piso de Venta (KPIs)": "https://youtu.be/WVi8geGSeOg"
+            "Mi Nómina Flexi": "https://youtu.be/688Bi49rI30",
+            "Tutorial Vales de Zapatos": "https://youtu.be/6hB95lYcL1g",
+            "Tutorial mi Flexi": "https://youtu.be/WVi8geGSeOg"
         }
         
         video_seleccionado = st.selectbox("Selecciona el material audiovisual a reproducir:", list(opciones_video.keys()))
@@ -288,7 +289,7 @@ with tab6:
         st.video(url_video)
         
         st.write("¿No carga el reproductor por restricciones de red locales de la sucursal?")
-        st.link_button(f"🚀 Clic aquí para ver {video_seleccionado.split(':')[0]} directo en YouTube", url_video, type="primary")
+        st.link_button(f"🚀 Clic aquí para ver {video_seleccionado} directo en YouTube", url_video, type="primary")
         st.caption("Nota: Todos los videos se encuentran resguardados bajo la modalidad 'No listado' para cuidar la privacidad operativa de la empresa.")
         
     with col_der:
