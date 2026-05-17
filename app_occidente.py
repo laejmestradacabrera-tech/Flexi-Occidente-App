@@ -281,18 +281,28 @@ with tab6:
     with col_der:
         st.markdown("### 📘 Manual de Integración a Tiendas Flexi")
         
-        # PROPÓSITO DIRECTIVO (El punto 1 que te fascinó)
-        with st.expander("🎯 1. PROPÓSITO DEL MANUAL Y FILOSOFÍA"):
+        # 🎯 PUNTO UNO: PROPÓSITO DEL MONITOR (CORREGIDO SIN LA FRASE TÉCNICA DEL FILTRO)
+        with st.expander("🎯 1. PROPÓSITO DEL MONITOR COMERCIAL"):
+            st.markdown("""
+            Este monitor interactivo fue desarrollado bajo la dirección del **LAE. José Martín Estrada Cabrera** con el objetivo de centralizar, automatizar y auditar los indicadores comerciales clave de las **21 tiendas físicas** de la Zona Occidente.
+            
+            **Metas Estratégicas de la Zona:**
+            * 👟 **Ticket Promedio:** Meta de 1.29 unidades (enfocado exclusivamente en calzado puro).
+            * 📊 **Conversión Mínima:** Meta de 10.90% en el piso de venta.
+            """)
+            
+        # 📝 PUNTO DOS: INTRODUCCIÓN DEL MANUAL
+        with st.expander("📝 2. OBJETIVO DEL MANUAL Y FILOSOFÍA"):
             st.markdown("""
             **Plan de Retención de Personal y Fortalecimiento del Sentido de Pertenencia**
             
             **Objetivo General:**
             Establecer un proceso de acogida estandarizado que reduzca la rotación de personal en los primeros 90 días, transformando la incorporación en una experiencia de bienvenida profundamente profesional y humana.
             
-            *La permanencia del personal de nueva contratación no depende únicamente de las condiciones laborales, sino de la calidad de su integración inicial. Este espacio presenta los pilares fundamentales para asegurar que el nuevo colaborador se sienta valorado, guiado y conectado con los objetivos de la organización desde su primer día.*
+            *La permanencia del personal de nueva contratación no depende únicamente de las condiciones laborales, sino de la calidad de su integración inicial. Este espacio presenta los pilares fundamentales para asegurar que el nuevo colaborador se sientan valorado, guiado y conectado con los objetivos de la organización desde su primer día.*
             """)
             
-        with st.expander("🤝 2. PILAR I: BIENVENIDA (LOGÍSTICA Y ORDEN)"):
+        with st.expander("🤝 3. PILAR I: BIENVENIDA (LOGÍSTICA Y ORDEN)"):
             st.markdown("""
             **Concepto:** Proyectar orden y profesionalismo. La preparación del entorno de trabajo es el primer mensaje que el colaborador recibe sobre la cultura de la empresa.
             
@@ -301,7 +311,7 @@ with tab6:
             **El Impacto:** Elimina la ansiedad e incertidumbre del primer día. Comunica de forma implícita: *'Te estábamos esperando y tu llegada es importante para nosotros'*.
             """)
             
-        with st.expander("👥 3. PILAR II: ACOMPAÑAMIENTO (SISTEMA DE MENTORÍA)"):
+        with st.expander("👥 4. PILAR II: ACOMPAÑAMIENTO (SISTEMA DE MENTORÍA)"):
             st.markdown("""
             **Concepto:** Eliminar la 'soledad del novato' mediante el sistema de compañero guía.
             
@@ -310,7 +320,7 @@ with tab6:
             **El Impacto:** Acelera la curva de aprendizaje social y técnico. Reduce el miedo a cometer errores básicos y crea un vínculo de confianza inmediato en el piso de venta.
             """)
             
-        with st.expander("🧭 4. PILAR III: CLARIDAD DEL PROPÓSITO (KPIs)"):
+        with st.expander("🧭 5. PILAR III: CLARIDAD DEL PROPÓSITO (KPIs)"):
             st.markdown("""
             **Concepto:** Conectar las tareas diarias con el impacto real en el éxito de la zona y la misión de la empresa.
             
@@ -324,7 +334,7 @@ with tab6:
             **El Impacto:** Genera compromiso emocional. Un colaborador que encuentra propósito en su trabajo desarrolla una lealtad que va más allá de la oferta económica.
             """)
             
-        with st.expander("📈 5. PILAR IV: METAS DE CORTO PLAZO"):
+        with st.expander("📈 6. PILAR IV: METAS DE CORTO PLAZO"):
             st.markdown("""
             **Concepto:** Brindar claridad absoluta sobre las expectativas de desempeño en la etapa crítica de adaptación.
             
@@ -333,7 +343,7 @@ with tab6:
             **El Impacto:** Reduce la frustración causada por la ambigüedad. Permite que el colaborador celebre victorias tempranas y desarrolle la autoconfianza necesaria para su profesionalización.
             """)
             
-        with st.expander("🎉 6. PILAR V: VINCULACIÓN SOCIAL"):
+        with st.expander("🎉 7. PILAR V: VINCULACIÓN SOCIAL"):
             st.markdown("""
             **Concepto:** Humanizar el entorno laboral y fomentar la integración grupal.
             
