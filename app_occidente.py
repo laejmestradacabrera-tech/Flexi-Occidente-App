@@ -238,9 +238,9 @@ if archivo_modelos:
     df_m = df_m[~df_m[col_m].astype(str).str.contains('BOLSA|REUSABLE', case=False, na=False)]
 
     def resaltar_top_5(data):
-        stilo = pd.DataFrame('', index=data.index, columns=data.columns)
-        stilo.iloc[0:5, :] = 'background-color: #d1e7dd; color: #0f5132; font-weight: bold'
-        return stilo
+        estilo = pd.DataFrame('', index=data.index, columns=data.columns)
+        estilo.iloc[0:5, :] = 'background-color: #d1e7dd; color: #0f5132; font-weight: bold'
+        return estilo
 
     with tab3:
         tiendas = sorted(df_m[col_t].unique())
@@ -315,7 +315,7 @@ with tab6:
             
         with st.expander("🤝 3. PILAR I: BIENVENIDA (LOGÍSTICA Y ORDEN)"):
             st.markdown("""
-            **Concepto:** Proyectar orden y profesionalismo. La preparación del entorno de trabajo es el primer mensaje que el colaborador recibe sobre la cultura de la empresa.
+            **Concepto:** Proyectar orden y profesionalismo. La preparación del entorno de trabajo es el primer message que el colaborador recibe sobre la cultura de la empresa.
             
             **La Acción:** Asegurarse de que el espacio físico esté impecable, las herramientas de trabajo estén configuradas y el uniforme de la talla correcta esté listo sobre su lugar antes de que el colaborador cruce la puerta (en la medida de lo posible).
             """)
@@ -351,125 +351,119 @@ with tab6:
             """)
 
 # ==============================================================================
-# --- PESTAÑA 7: NUEVA PESTAÑA DE NIVELACIÓN DE STOCK (.XLSX DESDE GITHUB) ---
+# --- PESTAÑA 7: NUEVA PESTAÑA DE NIVELACIÓN DE STOCK (CONEXIÓN AUTOMÁTICA) ---
 # ==============================================================================
 with tab7:
     st.subheader("🔄 Algoritmo Maestro de Nivelación de Inventarios (2 Meses)")
     st.write("Análisis automatizado directo por talla y estatus conectando tu repositorio maestro.")
 
-    # --- ENTORNO DE ENLACE AUTOMÁTICO DIRECTO DESDE LA PANTALLA DE LA LENOVO ---
-    c_izq, c_der = st.columns(2)
-    with c_izq:
-        USUARIO_GE = st.text_input("👤 Introduce tu Usuario de GitHub:", value="jose-estrada", key="user_git")
-    with c_der:
-        REPOSITORIO_GE = st.text_input("📁 Introduce el Nombre de tu Repositorio:", value="monitor-occidente", key="repo_git")
-    
-    # Nombre exacto de tu libro de Excel resguardado en GitHub
+    # 🎯 CREDENCIALES REALES YA CONFIGURADAS DE FÁBRICA DE JOSÉ ESTRADA CABRERA
+    USUARIO_GE = "laejmestradacabrera-tech"
+    REPOSITORIO_GE = "Flexi-Occidente-App"
     NOMBRE_ARCHIVO_GE = "ventas,existencias, pedidos.xlsx" 
     
-    # Construcción de la URL Raw limpiando comas y espacios en automático para internet
+    # URL Blindada: Traduce de forma automática comas y espacios para internet (%20)
     URL_GITHUB_MAESTRO = f"https://raw.githubusercontent.com/{USUARIO_GE}/{REPOSITORIO_GE}/main/{NOMBRE_ARCHIVO_GE}".replace(" ", "%20")
     
-    if USUARIO_GE and REPOSITORIO_GE:
-        try:
-            # Lógica ganada: Lectura nativa de Excel directo desde la nube de GitHub
-            df_niv = pd.read_excel(URL_GITHUB_MAESTRO)
-                
-            df_niv.fillna(0, inplace=True)
-            df_niv['Tienda'] = df_niv['Tienda'].astype(int)
-            df_niv = df_niv[~df_niv['Tienda'].isin([3004, 3015])]
+    try:
+        # Lógica ganada: Lectura directa y nativa del Excel desde tu repositorio de GitHub
+        df_niv = pd.read_excel(URL_GITHUB_MAESTRO)
             
-            # Reglas de negocio grabadas en memoria de José Estrada
-            tiendas_mixtas = [19, 56, 59, 125, 133]
-            tienda_outlet = [12]
-            
-            def obtener_talla_real(modelo, num_columna):
-                mod_str = str(modelo).upper()
-                if any(mod_str.startswith(pre) for pre in ['CD', 'CK', 'CY', 'MD', 'VD']):
-                    tallas_dama = {1:'22', 2:'22.5', 3:'23', 4:'23.5', 5:'24', 6:'24.5', 7:'25', 8:'25.5', 9:'26', 10:'26.5', 11:'27'}
-                    return tallas_dama.get(num_columna, "Ext.")
-                elif any(mod_str.startswith(pre) for pre in ['CH', 'MH', 'VH']):
-                    tallas_hombre = {1:'25', 2:'25.5', 3:'26', 4:'26.5', 5:'27', 6:'27.5', 7:'28', 8:'28.5', 9:'29', 10:'29.5', 11:'30', 12:'30.5', 13:'31'}
-                    return tallas_hombre.get(num_columna, "Ext.")
-                elif mod_str.startswith('NM'):
-                    tallas_nm = {1:'17', 2:'17.5', 3:'18', 4:'18.5', 5:'19', 6:'19.5', 7:'20', 8:'20.5', 9:'21'}
-                    return tallas_nm.get(num_columna, "Ext.")
-                elif mod_str.startswith('CJ'):
-                    tallas_cj = {1:'21.5', 2:'22', 3:'22.5', 4:'23', 5:'23.5', 6:'24', 7:'24.5', 8:'25', 9:'25.5', 10:'26', 11:'26.5', 12:'27'}
-                    return tallas_cj.get(num_columna, "Ext.")
-                return f"T_{num_columna}"
+        df_niv.fillna(0, inplace=True)
+        df_niv['Tienda'] = df_niv['Tienda'].astype(int)
+        df_niv = df_niv[~df_niv['Tienda'].isin([3004, 3015])]
+        
+        # Reglas operativas grabadas en memoria de la Zona Occidente
+        tiendas_mixtas = [19, 56, 59, 125, 133]
+        tienda_outlet = [12]
+        
+        def obtener_talla_real(modelo, num_columna):
+            mod_str = str(modelo).upper()
+            if any(mod_str.startswith(pre) for pre in ['CD', 'CK', 'CY', 'MD', 'VD']):
+                tallas_dama = {1:'22', 2:'22.5', 3:'23', 4:'23.5', 5:'24', 6:'24.5', 7:'25', 8:'25.5', 9:'26', 10:'26.5', 11:'27'}
+                return tallas_dama.get(num_columna, "Ext.")
+            elif any(mod_str.startswith(pre) for pre in ['CH', 'MH', 'VH']):
+                tallas_hombre = {1:'25', 2:'25.5', 3:'26', 4:'26.5', 5:'27', 6:'27.5', 7:'28', 8:'28.5', 9:'29', 10:'29.5', 11:'30', 12:'30.5', 13:'31'}
+                return tallas_hombre.get(num_columna, "Ext.")
+            elif mod_str.startswith('NM'):
+                tallas_nm = {1:'17', 2:'17.5', 3:'18', 4:'18.5', 5:'19', 6:'19.5', 7:'20', 8:'20.5', 9:'21'}
+                return tallas_nm.get(num_columna, "Ext.")
+            elif mod_str.startswith('CJ'):
+                tallas_cj = {1:'21.5', 2:'22', 3:'22.5', 4:'23', 5:'23.5', 6:'24', 7:'24.5', 8:'25', 9:'25.5', 10:'26', 11:'26.5', 12:'27'}
+                return tallas_cj.get(num_columna, "Ext.")
+            return f"T_{num_columna}"
 
-            # Unpivot horizontal a filas verticales
-            registros_desglosados = []
-            for _, fila in df_niv.iterrows():
-                modelo = fila['Modelo']
-                tienda = int(fila['Tienda'])
-                estatus = str(fila['Estatus']).upper()
+        # Unpivot horizontal a filas verticales
+        registros_desglosados = []
+        for _, fila in df_niv.iterrows():
+            modelo = fila['Modelo']
+            tienda = int(fila['Tienda'])
+            estatus = str(fila['Estatus']).upper()
+            
+            for i in range(1, 16):
+                existencia_fisica = float(fila.get(f'ex{i}', 0))
+                pedido_transito = float(fila.get(f'p{i}', 0))
+                ventas_acumuladas = float(fila.get(f'v{i}', 0))
                 
-                for i in range(1, 16):
-                    existencia_fisica = float(fila.get(f'ex{i}', 0))
-                    pedido_transito = float(fila.get(f'p{i}', 0))
-                    ventas_acumuladas = float(fila.get(f'v{i}', 0))
-                    
-                    stock_disponible = existencia_fisica + pedido_transito
-                    
-                    if existencia_fisica > 0 or ventas_acumuladas > 0:
-                        talla_nom = obtener_talla_real(modelo, i)
-                        registros_desglosados.append({
-                            'Tienda': tienda, 'Modelo': modelo, 'Estatus': estatus, 'Talla': talla_nom,
-                            'Stock_Fisico': existencia_fisica, 'Disponible': stock_disponible, 'Ventas': ventas_acumuladas
-                        })
-            
-            df_vertical = pd.DataFrame(registros_desglosados)
-            
-            # Algoritmo logístico de traspasos cruzados
-            propuestas_traspaso = []
-            for (modelo, talla), grupo in df_vertical.groupby(['Modelo', 'Talla']):
-                estatus_mod = grupo['Estatus'].iloc[0]
+                stock_disponible = existencia_fisica + pedido_transito
                 
-                if estatus_mod in ['S', 'P']:
-                    orígenes = grupo[(grupo['Stock_Fisico'] >= 1) & (~grupo['Tienda'].isin(tienda_outlet))]
-                    destinos = grupo[(grupo['Ventas'] >= 1) & (grupo['Tienda'].isin(tienda_outlet + tiendas_mixtas))]
-                else:
-                    orígenes = grupo[(grupo['Stock_Fisico'] >= 2) & (grupo['Ventas'] == 0)]
-                    destinos = grupo[(grupo['Ventas'] >= 2) & (grupo['Disponible'] == 0)]
-                
-                for _, orig_row in orígenes.iterrows():
-                    for _, dest_row in destinos.iterrows():
-                        cant_mover = min(int(orig_row['Stock_Fisico']), int(dest_row['Ventas']))
-                        if cant_mover > 0:
-                            propuestas_traspaso.append({
-                                'Tienda Origen': int(orig_row['Tienda']),
-                                'Tienda Destino': int(dest_row['Tienda']),
-                                'Modelo': modelo,
-                                'Estatus': estatus_mod,
-                                'Talla': talla,
-                                'Pares a Mover': cant_mover,
-                                'Prioridad': '🚨 CRÍTICA (Quiebre)' if estatus_mod == 'N' else '📦 EVACUACIÓN (Saldo)'
-                            })
+                if existencia_fisica > 0 or ventas_acumuladas > 0:
+                    talla_nom = obtener_talla_real(modelo, i)
+                    registros_desglosados.append({
+                        'Tienda': tienda, 'Modelo': modelo, 'Estatus': estatus, 'Talla': talla_nom,
+                        'Stock_Fisico': existencia_fisica, 'Disponible': stock_disponible, 'Ventas': ventas_acumuladas
+                    })
+        
+        df_vertical = pd.DataFrame(registros_desglosados)
+        
+        # Algoritmo logístico de traspasos cruzados
+        propuestas_traspaso = []
+        for (modelo, talla), grupo in df_vertical.groupby(['Modelo', 'Talla']):
+            estatus_mod = grupo['Estatus'].iloc[0]
             
-            df_propuestas = pd.DataFrame(propuestas_traspaso)
-            st.success(f"✅ Libro de Excel `{NOMBRE_ARCHIVO_GE}` sincronizado y balanceado al 100% desde GitHub.")
-            
-            # Selector dinámico de auditoría para las 19 tiendas activas
-            tienda_sel = st.selectbox("Selecciona sucursal para auditar sus movimientos de SALIDA de hoy:", sorted(df_vertical['Tienda'].unique()))
-            
-            if not df_propuestas.empty:
-                propuestas_tienda = df_propuestas[df_propuestas['Tienda Origen'] == tienda_sel]
-                propuestas_tienda_top10 = propuestas_tienda.head(10)
-                
-                if not propuestas_tienda_top10.empty:
-                    st.write(f"### 📋 Top 10 Movimientos de Salida Autorizados para Tienda {tienda_sel}")
-                    st.dataframe(propuestas_tienda_top10[['Tienda Destino', 'Modelo', 'Estatus', 'Talla', 'Pares a Mover', 'Prioridad']], use_container_width=True)
-                else:
-                    st.info(f"✨ La Tienda {tienda_sel} se encuentra perfectamente nivelada. No requiere salidas hoy.")
+            if estatus_mod in ['S', 'P']:
+                orígenes = grupo[(grupo['Stock_Fisico'] >= 1) & (~grupo['Tienda'].isin(tienda_outlet))]
+                destinos = grupo[(grupo['Ventas'] >= 1) & (grupo['Tienda'].isin(tienda_outlet + tiendas_mixtas))]
             else:
-                st.info("El inventario general de la zona se encuentra óptimamente distribuido.")
-                
-        except Exception as e:
-            st.error(f"⚠️ Error al conectar con GitHub.")
-            st.warning(f"Ruta web no encontrada:\n`{URL_GITHUB_MAESTRO}`")
-            st.info("Por favor, verifica que tu Usuario y Repositorio escritos en los cuadros de arriba coincidan exactamente con tu cuenta de GitHub.")
+                orígenes = grupo[(grupo['Stock_Fisico'] >= 2) & (grupo['Ventas'] == 0)]
+                destinos = grupo[(grupo['Ventas'] >= 2) & (grupo['Disponible'] == 0)]
+            
+            for _, orig_row in orígenes.iterrows():
+                for _, dest_row in destinos.iterrows():
+                    cant_mover = min(int(orig_row['Stock_Fisico']), int(dest_row['Ventas']))
+                    if cant_mover > 0:
+                        propuestas_traspaso.append({
+                            'Tienda Origen': int(orig_row['Tienda']),
+                            'Tienda Destino': int(dest_row['Tienda']),
+                            'Modelo': modelo,
+                            'Estatus': estatus_mod,
+                            'Talla': talla,
+                            'Pares a Mover': cant_mover,
+                            'Prioridad': '🚨 CRÍTICA (Quiebre)' if estatus_mod == 'N' else '📦 EVACUACIÓN (Saldo)'
+                        })
+        
+        df_propuestas = pd.DataFrame(propuestas_traspaso)
+        st.success(f"📦 ¡Acceso Directo Exitoso! Libro de Excel `{NOMBRE_ARCHIVO_GE}` conectado en tiempo real.")
+        
+        # Selector dinámico de auditoría para las 19 tiendas activas
+        tienda_sel = st.selectbox("Selecciona sucursal para auditar sus movimientos de SALIDA de hoy:", sorted(df_vertical['Tienda'].unique()))
+        
+        if not df_propuestas.empty:
+            propuestas_tienda = df_propuestas[df_propuestas['Tienda Origen'] == tienda_sel]
+            propuestas_tienda_top10 = propuestas_tienda.head(10)
+            
+            if not propuestas_tienda_top10.empty:
+                st.write(f"### 📋 Top 10 Movimientos de Salida Autorizados para Tienda {tienda_sel}")
+                st.dataframe(propuestas_tienda_top10[['Tienda Destino', 'Modelo', 'Estatus', 'Talla', 'Pares a Mover', 'Prioridad']], use_container_width=True)
+            else:
+                st.info(f"✨ La Tienda {tienda_sel} se encuentra perfectamente nivelada. No requiere salidas hoy.")
+        else:
+            st.info("El inventario general de la zona se encuentra óptimamente distribuido.")
+            
+    except Exception as e:
+        st.error(f"⚠️ Error al conectar con tu repositorio de GitHub.")
+        st.warning(f"Ruta web no localizada:\n`{URL_GITHUB_MAESTRO}`")
+        st.info("Por favor, verifica que el archivo esté subido en la carpeta principal de tu GitHub con letras minúsculas.")
 
 # PIE DE PÁGINA
 st.markdown("""
