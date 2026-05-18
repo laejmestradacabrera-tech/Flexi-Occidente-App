@@ -347,7 +347,7 @@ with tab6:
             **Concepto:** Humanizar el entorno laboral y fomentar la integración grupal.
             
             ---
-            *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada unoTolerance de estos puntos con cada nuevo integrante.*
+            *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
             """)
 
 # ==============================================================================
@@ -361,10 +361,10 @@ with tab7:
     USUARIO_GE = "laejmestradacabrera-tech"
     REPOSITORIO_GE = "Flexi-Occidente-App"
     
-    # 🎯 NOMBRE REAL EXACTO ACTUALIZADO (TAL CUAL QUEDÓ GRABADO EN GITHUB)
-    NOMBRE_ARCHIVO_GE = "ventas,existencia,pedidos al 170526 solo calzado.xlsx" 
+    # 🎯 NOMBRE REAL CONFIGURADO CON LAS MAYÚSCULAS EXACTAS DE GITHUB
+    NOMBRE_ARCHIVO_GE = "Ventas,Existencia,Pedidos al 170526 solo Calzado.xlsx" 
     
-    # URL Blindada: Traduce automáticamente comas y espacios para internet (%20)
+    # URL Blindada: Convierte los espacios y comas de forma automática para internet (%20)
     URL_GITHUB_MAESTRO = f"https://raw.githubusercontent.com/{USUARIO_GE}/{REPOSITORIO_GE}/main/{NOMBRE_ARCHIVO_GE}".replace(" ", "%20")
     
     try:
@@ -428,7 +428,7 @@ with tab7:
                 destinos = grupo[(grupo['Ventas'] >= 1) & (grupo['Tienda'].isin(tienda_outlet + tiendas_mixtas))]
             else:
                 orígenes = grupo[(grupo['Stock_Fisico'] >= 2) & (grupo['Ventas'] == 0)]
-                destinos = grupo[(grupo['Ventas'] >= 2) & (grupo['Disponible'] == 0)]
+                destinos = group[(group['Ventas'] >= 2) & (group['Disponible'] == 0)]
             
             for _, orig_row in orígenes.iterrows():
                 for _, dest_row in destinos.iterrows():
