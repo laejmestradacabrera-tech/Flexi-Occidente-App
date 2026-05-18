@@ -348,11 +348,11 @@ with tab6:
             """)
 
 # ==============================================================================
-# --- PESTAÑA 7: NUEVA PESTAÑA DE NIVELACIÓN DE STOCK (CONEXIÓN POR NUEVO CSV) ---
+# --- PESTAÑA 7: NUEVA PESTAÑA DE NIVELACIÓN CON RESTA DINÁMICA DE DEMANDA ---
 # ==============================================================================
 with tab7:
     st.subheader("🔄 Algoritmo Maestro de Nivelación de Inventarios (2 Meses)")
-    st.write("Análisis automatizado directo por talla y estatus conectando tu repositorio maestro.")
+    st.write("Análisis automatizado directo por talla y estatus con control de surtido en tiempo real.")
 
     # 🎯 CONFIGURACIÓN FIJA DE TU CUENTA DE GITHUB
     USUARIO_GE = "laejmestradacabrera-tech"
@@ -363,12 +363,10 @@ with tab7:
     
     try:
         df_niv = pd.read_csv(URL_GITHUB_MAESTRO)
-            
         df_niv.fillna(0, inplace=True)
         df_niv['Tienda'] = df_niv['Tienda'].astype(int)
         df_niv = df_niv[~df_niv['Tienda'].isin([3004, 3015])]
         
-        # Reglas operativas de la Zona Occidente
         tiendas_mixtas = [19, 56, 59, 125, 133]
         tienda_outlet = [12]
         
@@ -388,7 +386,6 @@ with tab7:
                 return tallas_cj.get(num_columna, "Ext.")
             return f"T_{num_columna}"
 
-        # Unpivot horizontal a filas verticales
         registros_desglosados = []
         for _, fila in df_niv.iterrows():
             modelo = fila['Modelo']
@@ -411,33 +408,56 @@ with tab7:
         
         df_vertical = pd.DataFrame(registros_desglosados)
         
-        # Algoritmo logístico de traspasos cruzados
+        # --- NUEVA ESTRUCTURA LOGÍSTICA CON APARTADO VIRTUAL DE SURTIDO ---
         propuestas_traspaso = []
+        
+        # Agrupamos por Modelo y por Talla para analizar la zona de forma consolidada
         for (modelo, talla), grupo in df_vertical.groupby(['Modelo', 'Talla']):
             estatus_mod = grupo['Estatus'].iloc[0]
             
-            if estatus_mod in ['S', 'P']:
-                orígenes = grupo[(grupo['Stock_Fisico'] >= 1) & (~grupo['Tienda'].isin(tienda_outlet))]
-                destinos = grupo[(grupo['Ventas'] >= 1) & (grupo['Tienda'].isin(tienda_outlet + tiendas_mixtas))]
-            else:
-                orígenes = grupo[(grupo['Stock_Fisico'] >= 2) & (grupo['Ventas'] == 0)]
-                destinos = grupo[(grupo['Ventas'] >= 2) & (grupo['Disponible'] == 0)]
+            # Creamos diccionarios dinámicos para ir restando stock y necesidades conforme asignamos
+            dict_stock = grupo.set_index('Tienda')['Stock_Fisico'].to_dict()
+            dict_ventas = grupo.set_index('Tienda')['Ventas'].to_dict()
+            dict_disponible = grupo.set_index('Tienda')['Disponible'].to_dict()
             
-            for _, orig_row in orígenes.iterrows():
-                for _, dest_row in destinos.iterrows():
-                    # 🛡️ CANDADO LOGÍSTICO ABSOLUTO: EL ORIGEN Y DESTINO DEBEN SER DIFERENTES
-                    if int(orig_row['Tienda']) != int(dest_row['Tienda']):
-                        cant_mover = min(int(orig_row['Stock_Fisico']), int(dest_row['Ventas']))
-                        if cant_mover > 0:
-                            propuestas_traspaso.append({
-                                'Tienda Origen': int(orig_row['Tienda']),
-                                'Tienda Destino': int(dest_row['Tienda']),
-                                'Modelo': modelo,
-                                'Estatus': estatus_mod,
-                                'Talla': talla,
-                                'Pares a Mover': cant_mover,
-                                'Prioridad': '🚨 CRÍTICA (Quiebre)' if estatus_mod == 'N' else '📦 EVACUACIÓN (Saldo)'
-                            })
+            # Definimos candidatos a Origen y Destino según tus reglas comerciales fijas
+            if estatus_mod in ['S', 'P']:
+                tiendas_origen = [t for t, stk in dict_stock.items() if stk >= 1 and t != 12]
+                tiendas_destino = [t for t, vta in dict_ventas.items() if vta >= 1 and t in (tienda_outlet + tiendas_mixtas)]
+            else:
+                tiendas_origen = [t for t, stk in dict_stock.items() if stk >= 2 and dict_ventas.get(t, 0) == 0]
+                tiendas_destino = [t for t, vta in dict_ventas.items() if vta >= 2 and dict_disponible.get(t, 0) == 0]
+            
+            # Ejecutamos el cruce inteligente restando la demanda atendida
+            for t_orig in tiendas_origen:
+                for t_dest in tiendas_destino:
+                    if t_orig != t_dest: # Candado absoluto de auto-traspaso
+                        
+                        stk_disponible_orig = int(dict_stock.get(t_orig, 0))
+                        vta_necesitada_dest = int(dict_ventas.get(t_dest, 0))
+                        
+                        # Si la tienda destino todavía necesita pares y el origen todavía tiene stock disponible...
+                        if vta_necesitada_dest > 0 and stk_disponible_orig > 0:
+                            if estatus_mod not in ['S', 'P']:
+                                # En línea aseguramos dejar al menos 1 par en el origen
+                                cant_mover = min(stk_disponible_orig - 1, vta_necesitada_dest)
+                            else:
+                                cant_mover = min(stk_disponible_orig, vta_necesitada_dest)
+                            
+                            if cant_mover > 0:
+                                propuestas_traspaso.append({
+                                    'Tienda Origen': t_orig,
+                                    'Tienda Destino': t_dest,
+                                    'Modelo': modelo,
+                                    'Estatus': estatus_mod,
+                                    'Talla': talla,
+                                    'Pares a Mover': cant_mover,
+                                    'Prioridad': '🚨 CRÍTICA (Quiebre)' if estatus_mod == 'N' else '📦 EVACUACIÓN (Saldo)'
+                                })
+                                
+                                # 🔥 EL CAMBIO CLAVE: Restamos virtualmente las unidades en la memoria
+                                dict_stock[t_orig] -= cant_mover
+                                dict_ventas[t_dest] -= cant_mover
         
         df_propuestas = pd.DataFrame(propuestas_traspaso)
         st.success(f"📦 ¡Enlace Perfecto! Reporte `{NOMBRE_ARCHIVO_GE}` sincronizado e integrado al monitor.")
