@@ -224,7 +224,7 @@ with tab2:
                 'PESOS 2025': '${:,.2f}', 'PESOS 2026': '${:,.2f}', 'VAR PESOS %': '{:+.2f}%'
             }))
 
-# --- PROCESAMIENTO FILTRADO PARA RANKINGS (LÍNEA LIMPICITA RESTAURADA) ---
+# --- PROCESAMIENTO FILTRADO PARA RANKINGS ---
 if archivo_modelos:
     df_m = pd.read_excel(archivo_modelos) if archivo_modelos.endswith('.xlsx') else pd.read_csv(archivo_modelos)
     col_m = next((c for c in df_m.columns if c.lower() in ['clave', 'modelo', 'estilo']), df_m.columns[1])
@@ -310,7 +310,7 @@ with tab6:
             **Objetivo General:**
             Establecer un proceso de acogida estandarizado que reduzca la rotación de personal en los primeros 90 días, transformando la incorporación en una experiencia de bienvenida profesional y humana.
             
-            *La permanencia del personal de nueva contratación no depende únicamente de las condiciones laborales, sino de la calidad de su integración inicial. Este espacio presenta los pilares fundamentales para asegurar que el nuevo colaborador se sienta valorado, guiado y conectado con los objetivos de la organización desde su primer día.*
+            *La permanencia del personal de nueva contratación no depende únicamente de las condiciones laborales, sino de la calidad de su integración inicial. Este espacio presenta los pilares fundamentales para asegurar que el nuevo colaborador se sientan valorado, guiado y conectado con los objetivos de la organización desde su primer día.*
             """)
             
         with st.expander("🤝 3. PILAR I: BIENVENIDA (LOGÍSTICA Y ORDEN)"):
@@ -357,12 +357,19 @@ with tab7:
     st.subheader("🔄 Algoritmo Maestro de Nivelación de Inventarios (2 Meses)")
     st.write("Análisis automatizado directo por talla y estatus conectando el repositorio maestro.")
 
-    # URL Raw fija apuntando directamente a tu repositorio en GitHub
-    URL_GITHUB_MAESTRO = "https://raw.githubusercontent.com/TU_USUARIO/TU_REPOSITORIO/main/Ventas_Existencia_Pedidos_Occidente.csv"
+    # ⚠️ REEMPLAZA ESTAS DOS VARIABLES CON TU NOMBRE DE USUARIO Y CARPETA DE GITHUB:
+    USUARIO_GE = "TU_USUARIO"
+    REPOSITORIO_GE = "TU_REPOSITORIO"
+    
+    # Nombre real exacto del archivo que confirmaste en GitHub (.csv)
+    NOMBRE_ARCHIVO_GE = "ventas,existencias, pedidos.csv" 
+    
+    URL_GITHUB_MAESTRO = f"https://raw.githubusercontent.com/{USUARIO_GE}/{REPOSITORIO_GE}/main/{NOMBRE_ARCHIVO_GE}"
     
     try:
         # Carga directa al seleccionar la pestaña
         df_niv = pd.read_csv(URL_GITHUB_MAESTRO)
+            
         df_niv.fillna(0, inplace=True)
         df_niv['Tienda'] = df_niv['Tienda'].astype(int)
         df_niv = df_niv[~df_niv['Tienda'].isin([3004, 3015])]
@@ -383,6 +390,7 @@ with tab7:
                 tallas_nm = {1:'17', 2:'17.5', 3:'18', 4:'18.5', 5:'19', 6:'19.5', 7:'20', 8:'20.5', 9:'21'}
                 return tallas_nm.get(num_columna, "Ext.")
             elif mod_str.startswith('CJ'):
+                # Línea de código corregida y blindada (Corrida Infantil Completa)
                 tallas_cj = {1:'21.5', 2:'22', 3:'22.5', 4:'23', 5:'23.5', 6:'24', 7:'24.5', 8:'25', 9:'25.5', 10:'26', 11:'26.5', 12:'27'}
                 return tallas_cj.get(num_columna, "Ext.")
             return f"T_{num_columna}"
@@ -455,7 +463,9 @@ with tab7:
             st.info("El inventario general de la zona se encuentra óptimamente distribuido.")
             
     except Exception as e:
-        st.error(f"⚠️ Nota: Configura tu URL Raw de GitHub para activar el balanceador. Detalle: {e}")
+        st.error(f"⚠️ Configuración incompleta en la pestaña de nivelación.")
+        st.warning(f"El monitor está intentando buscar el archivo en la siguiente ruta de tu GitHub y no la encuentra:\n\n`{URL_GITHUB_MAESTRO}`")
+        st.info("Asegúrate de editar las variables 'USUARIO_GE' y 'REPOSITORIO_GE' en las líneas 295 y 296 del código con tus nombres reales.")
 
 # PIE DE PÁGINA
 st.markdown("""
