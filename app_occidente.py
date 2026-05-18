@@ -286,10 +286,7 @@ with tab6:
         
         st.write("<br>", unsafe_allow_html=True)
         st.video(url_video)
-        
-        st.write("¿No carga el reproductor por restricciones de red locales de la sucursal?")
         st.link_button(f"🚀 Clic aquí para ver {video_seleccionado} directo en YouTube", url_video, type="primary")
-        st.caption("Nota: Todos los videos se encuentran resguardados bajo la modalidad 'No listado' para cuidar la privacidad operativa de la empresa.")
         
     with col_der:
         st.markdown("### 📘 Manual de Integración a Tiendas Flexi")
@@ -308,7 +305,7 @@ with tab6:
             **Plan de Retención de Personal y Fortalecimiento del Sentido de Pertenencia**
             
             **Objetivo General:**
-            Establecer un proceso de acogida estandarizado que reduzca la rotación de personal en los primeros 90 días, transformando la incorporación en una experiencia de bienvenida profesional y humana.
+            Establecer un process de acogida estandarizado que reduzca la rotación de personal en los primeros 90 días, transformando la incorporación en una experiencia de bienvenida profesional y humana.
             
             *La permanencia del personal de nueva contratación no depende únicamente de las condiciones laborales, sino de la calidad de su integración inicial. Este espacio presenta los pilares fundamentales para asegurar que el nuevo colaborador se sientan valorado, guiado y conectado con los objetivos de la organización desde su primer día.*
             """)
@@ -351,25 +348,25 @@ with tab6:
             """)
 
 # ==============================================================================
-# --- PESTAÑA 7: NUEVA PESTAÑA DE NIVELACIÓN DE STOCK (CONEXIÓN AUTOMÁTICA) ---
+# --- PESTAÑA 7: NUEVA PESTAÑA DE NIVELACIÓN DE STOCK (CONEXIÓN POR NUEVO CSV) ---
 # ==============================================================================
 with tab7:
     st.subheader("🔄 Algoritmo Maestro de Nivelación de Inventarios (2 Meses)")
     st.write("Análisis automatizado directo por talla y estatus conectando tu repositorio maestro.")
 
-    # 🎯 CONFIGURACIÓN DE TU CUENTA REAL DE GITHUB
+    # 🎯 CONFIGURACIÓN FIJA DE TU CUENTA DE GITHUB
     USUARIO_GE = "laejmestradacabrera-tech"
     REPOSITORIO_GE = "Flexi-Occidente-App"
     
-    # 🎯 NOMBRE REAL CONFIGURADO CON LAS MAYÚSCULAS EXACTAS DE GITHUB
-    NOMBRE_ARCHIVO_GE = "Ventas,Existencia,Pedidos al 170526 solo Calzado.xlsx" 
+    # 🎯 EL NUEVO NOMBRE CORTO, LIMPIO Y EN MINÚSCULAS QUE SUBIRÁS
+    NOMBRE_ARCHIVO_GE = "ventas_maestro.csv" 
     
-    # URL Blindada: Convierte los espacios y comas de forma automática para internet (%20)
-    URL_GITHUB_MAESTRO = f"https://raw.githubusercontent.com/{USUARIO_GE}/{REPOSITORIO_GE}/main/{NOMBRE_ARCHIVO_GE}".replace(" ", "%20")
+    # URL Directa al archivo plano sin problemas de caracteres especiales
+    URL_GITHUB_MAESTRO = f"https://raw.githubusercontent.com/{USUARIO_GE}/{REPOSITORIO_GE}/main/{NOMBRE_ARCHIVO_GE}"
     
     try:
-        # Lógica ganada: Lectura directa y nativa del Excel desde tu repositorio de GitHub
-        df_niv = pd.read_excel(URL_GITHUB_MAESTRO)
+        # Lógica optimizada: Lectura instantánea de archivo CSV plano
+        df_niv = pd.read_csv(URL_GITHUB_MAESTRO)
             
         df_niv.fillna(0, inplace=True)
         df_niv['Tienda'] = df_niv['Tienda'].astype(int)
@@ -428,7 +425,7 @@ with tab7:
                 destinos = grupo[(grupo['Ventas'] >= 1) & (grupo['Tienda'].isin(tienda_outlet + tiendas_mixtas))]
             else:
                 orígenes = grupo[(grupo['Stock_Fisico'] >= 2) & (grupo['Ventas'] == 0)]
-                destinos = group[(group['Ventas'] >= 2) & (group['Disponible'] == 0)]
+                destinos = grupo[(grupo['Ventas'] >= 2) & (grupo['Disponible'] == 0)]
             
             for _, orig_row in orígenes.iterrows():
                 for _, dest_row in destinos.iterrows():
@@ -445,7 +442,7 @@ with tab7:
                         })
         
         df_propuestas = pd.DataFrame(propuestas_traspaso)
-        st.success(f"📦 ¡Acceso Directo Exitoso! Libro de Excel `{NOMBRE_ARCHIVO_GE}` conectado en tiempo real.")
+        st.success(f"📦 ¡Enlace Perfecto! Reporte `{NOMBRE_ARCHIVO_GE}` sincronizado e integrado al monitor.")
         
         # Selector dinámico de auditoría para las 19 tiendas activas
         tienda_sel = st.selectbox("Selecciona sucursal para auditar sus movimientos de SALIDA de hoy:", sorted(df_vertical['Tienda'].unique()))
@@ -463,13 +460,13 @@ with tab7:
             st.info("El inventario general de la zona se encuentra óptimamente distribuido.")
             
     except Exception as e:
-        st.error(f"⚠️ Error al conectar con tu repositorio de GitHub.")
-        st.warning(f"Ruta web no localizada:\n`{URL_GITHUB_MAESTRO}`")
-        st.info("Por favor, verifica que el archivo esté subido en la carpeta principal de tu GitHub con letras minúsculas.")
+        st.error(f"⚠️ Esperando la sincronización con GitHub.")
+        st.warning(f"Buscando el nuevo archivo plano en la ruta:\n`{URL_GITHUB_MAESTRO}`")
+        st.info("Esta alerta se quitará sola en cuanto subas tu nuevo archivo 'ventas_maestro.csv' a tu repositorio de GitHub.")
 
 # PIE DE PÁGINA
 st.markdown("""
     <div class="footer">
-        © 2026 Gerencia Comercial Zona Occidente | KPIs Administrados por LAE. José Martín Estrada Cabrera
+        © 2026 Gerencia Commercial Zona Occidente | KPIs Administrados por LAE. José Martín Estrada Cabrera
     </div>
     """, unsafe_allow_html=True)
