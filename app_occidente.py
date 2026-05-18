@@ -305,7 +305,7 @@ with tab6:
             **Plan de Retención de Personal y Fortalecimiento del Sentido de Pertenencia**
             
             **Objetivo General:**
-            Establecer un process de acogida estandarizado que reduzca la rotación de personal en los primeros 90 días, transformando la incorporación en una experiencia de bienvenida profesional y humana.
+            Establecer un proceso de acogida estandarizado que reduzca la rotación de personal en los primeros 90 días, transformando la incorporación en una experiencia de bienvenida profesional y humana.
             
             *La permanencia del personal de nueva contratación no depende únicamente de las condiciones laborales, sino de la calidad de su integración inicial. Este espacio presenta los pilares fundamentales para asegurar que el nuevo colaborador se sientan valorado, guiado y conectado con los objetivos de la organización desde su primer día.*
             """)
@@ -357,15 +357,11 @@ with tab7:
     # 🎯 CONFIGURACIÓN FIJA DE TU CUENTA DE GITHUB
     USUARIO_GE = "laejmestradacabrera-tech"
     REPOSITORIO_GE = "Flexi-Occidente-App"
-    
-    # 🎯 EL NUEVO NOMBRE CORTO, LIMPIO Y EN MINÚSCULAS QUE SUBIRÁS
     NOMBRE_ARCHIVO_GE = "ventas_maestro.csv" 
     
-    # URL Directa al archivo plano sin problemas de caracteres especiales
     URL_GITHUB_MAESTRO = f"https://raw.githubusercontent.com/{USUARIO_GE}/{REPOSITORIO_GE}/main/{NOMBRE_ARCHIVO_GE}"
     
     try:
-        # Lógica optimizada: Lectura instantánea de archivo CSV plano
         df_niv = pd.read_csv(URL_GITHUB_MAESTRO)
             
         df_niv.fillna(0, inplace=True)
@@ -429,17 +425,19 @@ with tab7:
             
             for _, orig_row in orígenes.iterrows():
                 for _, dest_row in destinos.iterrows():
-                    cant_mover = min(int(orig_row['Stock_Fisico']), int(dest_row['Ventas']))
-                    if cant_mover > 0:
-                        propuestas_traspaso.append({
-                            'Tienda Origen': int(orig_row['Tienda']),
-                            'Tienda Destino': int(dest_row['Tienda']),
-                            'Modelo': modelo,
-                            'Estatus': estatus_mod,
-                            'Talla': talla,
-                            'Pares a Mover': cant_mover,
-                            'Prioridad': '🚨 CRÍTICA (Quiebre)' if estatus_mod == 'N' else '📦 EVACUACIÓN (Saldo)'
-                        })
+                    # 🛡️ CANDADO LOGÍSTICO ABSOLUTO: EL ORIGEN Y DESTINO DEBEN SER DIFERENTES
+                    if int(orig_row['Tienda']) != int(dest_row['Tienda']):
+                        cant_mover = min(int(orig_row['Stock_Fisico']), int(dest_row['Ventas']))
+                        if cant_mover > 0:
+                            propuestas_traspaso.append({
+                                'Tienda Origen': int(orig_row['Tienda']),
+                                'Tienda Destino': int(dest_row['Tienda']),
+                                'Modelo': modelo,
+                                'Estatus': estatus_mod,
+                                'Talla': talla,
+                                'Pares a Mover': cant_mover,
+                                'Prioridad': '🚨 CRÍTICA (Quiebre)' if estatus_mod == 'N' else '📦 EVACUACIÓN (Saldo)'
+                            })
         
         df_propuestas = pd.DataFrame(propuestas_traspaso)
         st.success(f"📦 ¡Enlace Perfecto! Reporte `{NOMBRE_ARCHIVO_GE}` sincronizado e integrado al monitor.")
@@ -467,6 +465,6 @@ with tab7:
 # PIE DE PÁGINA
 st.markdown("""
     <div class="footer">
-        © 2026 Gerencia Commercial Zona Occidente | KPIs Administrados por LAE. José Martín Estrada Cabrera
+        © 2026 Gerencia Comercial Zona Occidente | KPIs Administrados por LAE. José Martín Estrada Cabrera
     </div>
     """, unsafe_allow_html=True)
