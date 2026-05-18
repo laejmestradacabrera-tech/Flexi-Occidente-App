@@ -347,7 +347,7 @@ with tab6:
             **Concepto:** Humanizar el entorno laboral y fomentar la integración grupal.
             
             ---
-            *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
+            *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada unoTolerance de estos puntos con cada nuevo integrante.*
             """)
 
 # ==============================================================================
@@ -357,12 +357,14 @@ with tab7:
     st.subheader("🔄 Algoritmo Maestro de Nivelación de Inventarios (2 Meses)")
     st.write("Análisis automatizado directo por talla y estatus conectando tu repositorio maestro.")
 
-    # 🎯 CREDENCIALES REALES YA CONFIGURADAS DE FÁBRICA DE JOSÉ ESTRADA CABRERA
+    # 🎯 CONFIGURACIÓN DE TU CUENTA REAL DE GITHUB
     USUARIO_GE = "laejmestradacabrera-tech"
     REPOSITORIO_GE = "Flexi-Occidente-App"
-    NOMBRE_ARCHIVO_GE = "ventas,existencias, pedidos.xlsx" 
     
-    # URL Blindada: Traduce de forma automática comas y espacios para internet (%20)
+    # 🎯 NOMBRE REAL EXACTO ACTUALIZADO (TAL CUAL QUEDÓ GRABADO EN GITHUB)
+    NOMBRE_ARCHIVO_GE = "ventas,existencia,pedidos al 170526 solo calzado.xlsx" 
+    
+    # URL Blindada: Traduce automáticamente comas y espacios para internet (%20)
     URL_GITHUB_MAESTRO = f"https://raw.githubusercontent.com/{USUARIO_GE}/{REPOSITORIO_GE}/main/{NOMBRE_ARCHIVO_GE}".replace(" ", "%20")
     
     try:
@@ -373,7 +375,7 @@ with tab7:
         df_niv['Tienda'] = df_niv['Tienda'].astype(int)
         df_niv = df_niv[~df_niv['Tienda'].isin([3004, 3015])]
         
-        # Reglas operativas grabadas en memoria de la Zona Occidente
+        # Reglas operativas de la Zona Occidente
         tiendas_mixtas = [19, 56, 59, 125, 133]
         tienda_outlet = [12]
         
