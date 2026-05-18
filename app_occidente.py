@@ -106,7 +106,7 @@ def enviar_correo_por_modificacion(df_ranking, ruta_archivo, ultima_modificacion
     return None
 
 
-# --- DEFINICIÓN DE LAS 7 PESTAÑAS (INTEGRANDO TU NUEVA VARIABLE) ---
+# --- DEFINICIÓN DE LAS 7 PESTAÑAS (MANTENIENDO TUS 6 ORIGINALES INTACTAS) ---
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "📊 DESEMPEÑO COMERCIAL", 
     "📈 COMPARATIVO MENSUAL",
@@ -224,11 +224,11 @@ with tab2:
                 'PESOS 2025': '${:,.2f}', 'PESOS 2026': '${:,.2f}', 'VAR PESOS %': '{:+.2f}%'
             }))
 
-# --- PROCESAMIENTO FILTRADO PARA RANKINGS ---
+# --- PROCESAMIENTO FILTRADO PARA RANKINGS (LÍNEA LIMPICITA RESTAURADA) ---
 if archivo_modelos:
     df_m = pd.read_excel(archivo_modelos) if archivo_modelos.endswith('.xlsx') else pd.read_csv(archivo_modelos)
     col_m = next((c for c in df_m.columns if c.lower() in ['clave', 'modelo', 'estilo']), df_m.columns[1])
-    col_p = next((c for c in df_m.columns if f.lower() in ['pares', 'cantidad', 'venta'] for f in [c]), df_m.columns[2])
+    col_p = next((c for c in df_m.columns if c.lower() in ['pares', 'cantidad', 'venta']), df_m.columns[2])
     col_t = next((c for c in df_m.columns if c.lower() in ['tienda', 'sucursal']), df_m.columns[0])
     col_prov = next((c for c in df_m.columns if 'prov' in c.lower()), None)
 
@@ -269,7 +269,7 @@ with tab5:
 # --- PESTAÑA 6: PORTAL DE CAPACITACIÓN Y MANUAL DE INTEGRACIÓN ---
 with tab6:
     st.markdown("## 🎓 Centro de Capacitación y Desarrollo Operativo")
-    st.write("Bienvenido al espacio interactivo para el fortalecimiento del sentido de pertenencia.")
+    st.write("Bienvenido al espacio interactivo para el fortalecimiento del sentido de pertenencia y alineación comercial de la Zona Occidente.")
     
     col_izq, col_der = st.columns([1, 1])
     
@@ -280,32 +280,82 @@ with tab6:
             "Tutorial Vales de Zapatos": "https://youtu.be/6hB95lYcL1g",
             "Tutorial mi Flexi": "https://youtu.be/WVi8geGSeOg"
         }
+        
         video_seleccionado = st.selectbox("Selecciona el material audiovisual a reproducir:", list(opciones_video.keys()))
         url_video = opciones_video[video_seleccionado]
         
         st.write("<br>", unsafe_allow_html=True)
         st.video(url_video)
+        
+        st.write("¿No carga el reproductor por restricciones de red locales de la sucursal?")
         st.link_button(f"🚀 Clic aquí para ver {video_seleccionado} directo en YouTube", url_video, type="primary")
+        st.caption("Nota: Todos los videos se encuentran resguardados bajo la modalidad 'No listado' para cuidar la privacidad operativa de la empresa.")
         
     with col_der:
         st.markdown("### 📘 Manual de Integración a Tiendas Flexi")
+        
         with st.expander("🎯 1. PROPÓSITO DEL MONITOR COMERCIAL"):
-            st.markdown("Desarrollado bajo la dirección del **LAE. José Martín Estrada Cabrera** para auditar los KPIs de las tiendas.")
+            st.markdown("""
+            Este monitor interactivo fue desarrollado bajo la dirección del **LAE. José Martín Estrada Cabrera** con el objetivo de centralizar, automatizar y auditar los indicadores comerciales clave de las **21 tiendas físicas** de la Zona Occidente.
+            
+            **Metas Estratégicas de la Zona:**
+            * 👟 **Ticket Promedio:** Meta de 1.29 unidades (enfocado exclusivamente en calzado puro).
+            * 📊 **Conversión Mínima:** Meta de 10.90% en el piso de venta.
+            """)
+            
         with st.expander("📝 2. OBJETIVO DEL MANUAL Y FILOSOFÍA"):
-            st.markdown("Plan de Retención de Personal y Fortalecimiento del Sentido de Pertenencia.")
+            st.markdown("""
+            **Plan de Retención de Personal y Fortalecimiento del Sentido de Pertenencia**
+            
+            **Objetivo General:**
+            Establecer un proceso de acogida estandarizado que reduzca la rotación de personal en los primeros 90 días, transformando la incorporación en una experiencia de bienvenida profesional y humana.
+            
+            *La permanencia del personal de nueva contratación no depende únicamente de las condiciones laborales, sino de la calidad de su integración inicial. Este espacio presenta los pilares fundamentales para asegurar que el nuevo colaborador se sienta valorado, guiado y conectado con los objetivos de la organización desde su primer día.*
+            """)
+            
         with st.expander("🤝 3. PILAR I: BIENVENIDA (LOGÍSTICA Y ORDEN)"):
-            st.markdown("Proyectar orden y profesionalismo desde el primer día.")
+            st.markdown("""
+            **Concepto:** Proyectar orden y profesionalismo. La preparación del entorno de trabajo es el primer mensaje que el colaborador recibe sobre la cultura de la empresa.
+            
+            **La Acción:** Asegurarse de que el espacio físico esté impecable, las herramientas de trabajo estén configuradas y el uniforme de la talla correcta esté listo sobre su lugar antes de que el colaborador cruce la puerta (en la medida de lo posible).
+            """)
+            
         with st.expander("👥 4. PILAR II: ACOMPAÑAMIENTO (SISTEMA DE MENTORÍA)"):
-            st.markdown("Designar un compañero guía para la primera semana.")
-        with st.expander("👥 5. PILAR III: CLARIDAD DEL PROPÓSITO (KPIs)"):
-            st.markdown("Ticket Promedio meta 1.29 y Conversión meta 10.90%.")
+            st.markdown("""
+            **Concepto:** Eliminar la 'soledad del novato' mediante el sistema de compañero guía.
+            
+            **La Acción:** Designar a un colaborador con experiencia y actitud positiva para que actúe como mentor durante la primera semana.
+            """)
+            
+        with st.expander("🧭 5. PILAR III: CLARIDAD DEL PROPÓSITO (KPIs)"):
+            st.markdown("""
+            **Concepto:** Conectar las tareas diarias con el impacto real en el éxito de la zona y la misión de la empresa.
+            
+            **Enfoque Comercial Zona Occidente:**
+            Todo colaborador de nuevo ingreso debe comprender que cuidamos con excelencia comercial dos indicadores vitales de calzado puro:
+            * 👟 **Ticket Promedio:** Meta de 1.29 unidades por ticket.
+            * 📊 **Conversión:** Meta de 10.90% en piso de venta.
+            """)
+            
+        with st.expander("📈 6. PILAR IV: METAS DE CORTO PLAZO"):
+            st.markdown("""
+            **Concepto:** Brindar claridad absoluta sobre las expectativas de desempeño en la etapa crítica de adaptación.
+            """)
+            
+        with st.expander("🎉 7. PILAR V: VINCULACIÓN SOCIAL"):
+            st.markdown("""
+            **Concepto:** Humanizar el entorno laboral y fomentar la integración grupal.
+            
+            ---
+            *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
+            """)
 
 # ==============================================================================
 # --- PESTAÑA 7: NUEVA PESTAÑA DE NIVELACIÓN DE STOCK (INTEGRACIÓN TOTAL) ---
 # ==============================================================================
 with tab7:
     st.subheader("🔄 Algoritmo Maestro de Nivelación de Inventarios (2 Meses)")
-    st.write("Carga automática directa desde el repositorio maestro de GitHub con ceros consolidados.")
+    st.write("Análisis automatizado directo por talla y estatus conectando el repositorio maestro.")
 
     # URL Raw fija apuntando directamente a tu repositorio en GitHub
     URL_GITHUB_MAESTRO = "https://raw.githubusercontent.com/TU_USUARIO/TU_REPOSITORIO/main/Ventas_Existencia_Pedidos_Occidente.csv"
@@ -400,7 +450,7 @@ with tab7:
                 st.write(f"### 📋 Top 10 Movimientos de Salida Autorizados para Tienda {tienda_sel}")
                 st.dataframe(propuestas_tienda_top10[['Tienda Destino', 'Modelo', 'Estatus', 'Talla', 'Pares a Mover', 'Prioridad']], use_container_width=True)
             else:
-                st.info(f"✨ La Tienda {tienda_sel} se encuentra perfectamente balanceada. No requiere salidas hoy.")
+                st.info(f"✨ La Tienda {tienda_sel} se encuentra perfectamente nivelada. No requiere salidas hoy.")
         else:
             st.info("El inventario general de la zona se encuentra óptimamente distribuido.")
             
