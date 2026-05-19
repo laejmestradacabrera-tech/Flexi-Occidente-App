@@ -358,11 +358,11 @@ with tab6:
             """)
 
 # ==============================================================================
-# --- PESTAÑA 7: NUEVA NIVELACIÓN CORREGIDA CON CORRIDAS REALES DE TU ERP ---
+# --- PESTAÑA 7: NIVELACIÓN MASTER DE ALTA VELOCIDAD (VECTORIZADO) ---
 # ==============================================================================
 with tab7:
     st.subheader("🔄 Algoritmo Maestro de Nivelación de Inventarios (2 Meses)")
-    st.write("Análisis automatizado directo por talla y estatus con mapeo de corridas calibrado al 100%.")
+    st.write("Análisis automatizado directo optimizado mediante procesamiento matricial instantáneo.")
 
     USUARIO_GE = "laejmestradacabrera-tech"
     REPOSITORIO_GE = "Flexi-Occidente-App"
@@ -371,70 +371,60 @@ with tab7:
     URL_GITHUB_MAESTRO = f"https://raw.githubusercontent.com/{USUARIO_GE}/{REPOSITORIO_GE}/main/{NOMBRE_ARCHIVO_GE}"
     
     try:
-        df_niv = pd.read_csv(URL_GITHUB_MAESTRO)
-        df_niv.fillna(0, inplace=True)
-        df_niv['Tienda'] = df_niv['Tienda'].astype(int)
-        df_niv = df_niv[~df_niv['Tienda'].isin([3004, 3015])]
-        
+        # Usamos st.cache_data con tiempo de expiración corto para no perder dinamismo pero ganar velocidad salvaje
+        @st.cache_data(ttl=60, show_spinner=False)
+        def cargar_y_procesar_base_velocidad(url):
+            df = pd.read_csv(url)
+            df.fillna(0, inplace=True)
+            df['Tienda'] = df['Tienda'].astype(int)
+            df = df[~df['Tienda'].isin([3004, 3015])]
+            return df
+
+        df_niv = cargar_y_procesar_base_velocidad(URL_GITHUB_MAESTRO)
         tiendas_imanes = [19, 56, 59, 133]
         
-        # 🔥 EL CORAZÓN DE LA CORRECCIÓN: TRADUCTOR DE ENCABEZADOS DE TU ERP A TALLAS REALES
-        def obtener_talla_real(modelo, num_columna):
-            mod_str = str(modelo).upper()
-            
-            # 1. DAMA (CD, CK, CY, MD, VD) -> ex3=22, ex13=27
-            if any(mod_str.startswith(pre) for pre in ['CD', 'CK', 'CY', 'MD', 'VD']):
-                tallas_dama = {3:'22', 4:'22.5', 5:'23', 6:'23.5', 7:'24', 8:'24.5', 9:'25', 10:'25.5', 11:'26', 12:'26.5', 13:'27'}
-                return tallas_dama.get(num_columna, None)
-                
-            # 2. CABALLERO (CH, MH, VH) -> ex1=25, ex13=31
-            elif any(mod_str.startswith(pre) for pre in ['CH', 'MH', 'VH']):
-                tallas_hombre = {1:'25', 2:'25.5', 3:'26', 4:'26.5', 5:'27', 6:'27.5', 7:'28', 8:'28.5', 9:'29', 10:'29.5', 11:'30', 12:'30.5', 13:'31'}
-                return tallas_hombre.get(num_columna, None)
-                
-            # 3. NM (Niño Menor) -> ex1=17, ex10=21.5
-            elif mod_str.startswith('NM'):
-                tallas_nm = {1:'17', 2:'17.5', 3:'18', 4:'18.5', 5:'19', 6:'19.5', 7:'20', 8:'20.5', 9:'21', 10:'21.5'}
-                return tallas_nm.get(num_columna, None)
-                
-            # 4. CJ (Niño Mayor/Juvenil) -> ex1=21.5, ex12=27
-            elif mod_str.startswith('CJ'):
-                tallas_cj = {1:'21.5', 2:'22', 3:'22.5', 4:'23', 5:'23.5', 6:'24', 7:'24.5', 8:'25', 9:'25.5', 10:'26', 11:'26.5', 12:'27'}
-                return tallas_cj.get(num_columna, None)
-                
-            return None
+        # Diccionarios de mapeo estáticos optimizados para ejecución inmediata
+        mapa_dama = {3:'22', 4:'22.5', 5:'23', 6:'23.5', 7:'24', 8:'24.5', 9:'25', 10:'25.5', 11:'26', 12:'26.5', 13:'27'}
+        mapa_hombre = {1:'25', 2:'25.5', 3:'26', 4:'26.5', 5:'27', 6:'27.5', 7:'28', 8:'28.5', 9:'29', 10:'29.5', 11:'30', 12:'30.5', 13:'31'}
+        mapa_nm = {1:'17', 2:'17.5', 3:'18', 4:'18.5', 5:'19', 6:'19.5', 7:'20', 8:'20.5', 9:'21', 10:'21.5'}
+        mapa_cj = {1:'21.5', 2:'22', 3:'22.5', 4:'23', 5:'23.5', 6:'24', 7:'24.5', 8:'25', 9:'25.5', 10:'26', 11:'26.5', 12:'27'}
 
-        # Unpivot horizontal a filas verticales saltando columnas inválidas para cada tipo
-        registros_desglosados = []
-        for _, fila in df_niv.iterrows():
-            modelo = fila['Modelo']
-            tienda = int(fila['Tienda'])
-            estatus = str(fila['Estatus']).upper()
+        # Vectorización: Desglosamos las 15 columnas usando arreglos de Pandas en lugar de bucles iterativos
+        filas_desglosadas = []
+        for i in range(1, 16):
+            df_temp = df_niv[['Tienda', 'Modelo', 'Estatus', f'ex{i}', f'p{i}', f'v{i}']].copy()
+            df_temp.columns = ['Tienda', 'Modelo', 'Estatus', 'Stock_Fisico', 'Pedido', 'Ventas']
+            df_temp['Col_Num'] = i
+            filas_desglosadas.append(df_temp)
             
-            for i in range(1, 16):
-                talla_nom = obtener_talla_real(modelo, i)
-                
-                # Si la columna no pertenece a la corrida de ese modelo, la ignoramos por completo
-                if talla_nom is None:
-                    continue
-                    
-                existencia_fisica = float(fila.get(f'ex{i}', 0))
-                pedido_transito = float(fila.get(f'p{i}', 0))
-                ventas_acumuladas = float(fila.get(f'v{i}', 0))
-                
-                stock_disponible = existencia_fisica + pedido_transito
-                
-                if existencia_fisica > 0 or ventas_acumuladas > 0:
-                    registros_desglosados.append({
-                        'Tienda': tienda, 'Modelo': modelo, 'Estatus': estatus, 'Talla': talla_nom,
-                        'Stock_Fisico': existencia_fisica, 'Disponible': stock_disponible, 'Ventas': ventas_acumuladas
-                    })
+        df_master_vert = pd.concat(filas_desglosadas, ignore_index=True)
+        df_master_vert = df_master_vert[(df_master_vert['Stock_Fisico'] > 0) | (df_master_vert['Ventas'] > 0)].copy()
+        df_master_vert['Modelo_Upper'] = df_master_vert['Modelo'].astype(str).str.upper()
+
+        # Asignación de tallas vectorizada mediante máscaras booleanas ultrarrápidas
+        df_master_vert['Talla'] = None
         
-        df_vertical = pd.DataFrame(registros_desglosados)
+        mask_dama = df_master_vert['Modelo_Upper'].str.startswith(('CD', 'CK', 'CY', 'MD', 'VD'))
+        df_master_vert.loc[mask_dama, 'Talla'] = df_master_vert.loc[mask_dama, 'Col_Num'].map(mapa_dama)
+        
+        mask_hom = df_master_vert['Modelo_Upper'].str.startswith(('CH', 'MH', 'VH'))
+        df_master_vert.loc[mask_hom, 'Talla'] = df_master_vert.loc[mask_hom, 'Col_Num'].map(mapa_hombre)
+        
+        mask_nm = df_master_vert['Modelo_Upper'].str.startswith('NM')
+        df_master_vert.loc[mask_nm, 'Talla'] = df_master_vert.loc[mask_nm, 'Col_Num'].map(mapa_nm)
+        
+        mask_cj = df_master_vert['Modelo_Upper'].str.startswith('CJ')
+        df_master_vert.loc[mask_cj, 'Talla'] = df_master_vert.loc[mask_cj, 'Col_Num'].map(mapa_cj)
+        
+        # Limpiamos registros que no tengan mapeo válido de talla
+        df_master_vert = df_master_vert.dropna(subset=['Talla']).copy()
+        df_master_vert['Disponible'] = df_master_vert['Stock_Fisico'] + df_master_vert['Pedido']
+
+        # --- MOTOR LOGÍSTICO DE ALTA VELOCIDAD CON MATRICES DE CRUCE ---
         propuestas_traspaso = []
         
-        # --- PROCESAMIENTO MATEMÁTICO BAJO TUS 5 PILARES ---
-        for (modelo, talla), grupo in df_vertical.groupby(['Modelo', 'Talla']):
+        # Agrupamos en bloques compactos de memoria
+        for (modelo, talla), grupo in df_master_vert.groupby(['Modelo', 'Talla']):
             estatus_mod = grupo['Estatus'].iloc[0]
             
             dict_stock_fisico = grupo.set_index('Tienda')['Stock_Fisico'].to_dict()
@@ -442,18 +432,18 @@ with tab7:
             
             total_ventas_zona = sum(dict_ventas.values())
             
-            # REGLA ESPECIAL: MODELOS SIN MOVIMIENTO EN LA ZONA (SE VAN SÓLO A TIENDAS IMÁN)
+            # REGLA 1: MODELOS SIN MOVIMIENTO EN LA ZONA (DIRECCIÓN EXCLUSIVA A TIENDAS IMÁN)
             if total_ventas_zona == 0:
-                tiendas_origen = [t for t, stk in dict_stock_fisico.items() if stk >= 1]
-                tiendas_destino = [t for t in tiendas_imanes if dict_stock_fisico.get(t, -1) == 0]
+                origenes = [t for t, stk in dict_stock_fisico.items() if stk >= 1]
+                destinos = [t for t in tiendas_imanes if dict_stock_fisico.get(t, -1) == 0]
                 
-                for t_orig in tiendas_origen:
-                    for t_dest in tiendas_destino:
+                for t_orig in origenes:
+                    for t_dest in destinos:
                         if t_orig != t_dest:
                             stk_real = int(dict_stock_fisico.get(t_orig, 0))
                             if stk_real > 0:
                                 if estatus_mod not in ['S', 'P'] and stk_real < 2:
-                                    continue # En línea no permitimos dejar en 0 el origen
+                                    continue
                                 cant_mover = 1
                                 propuestas_traspaso.append({
                                     'Tienda Origen': t_orig, 'Tienda Destino': t_dest, 'Modelo': modelo,
@@ -463,26 +453,26 @@ with tab7:
                                 dict_stock_fisico[t_orig] -= cant_mover
                                 dict_stock_fisico[t_dest] += cant_mover
             
-            # REGLA GENERAL: CRITERIOS DIRECTOS DE LÍNEA Y SALDOS
+            # REGLA 2: CALZADO CON VENTA ACTIVA EN LA ZONA (TUS 5 PILARES STRICT)
             else:
                 if estatus_mod in ['S', 'P']:
-                    tiendas_origen = [t for t, stk in dict_stock_fisico.items() if stk >= 1] # Saldos: origen puede quedar en 0
-                    tiendas_destino = [t for t, vta in dict_ventas.items() if vta >= 1 and dict_stock_fisico.get(t, -1) == 0] # Destino forzoso en 0 físico
+                    origenes = [t for t, stk in dict_stock_fisico.items() if stk >= 1]
+                    destinos = [t for t, vta in dict_ventas.items() if vta >= 1 and dict_stock_fisico.get(t, -1) == 0]
                 else:
-                    tiendas_origen = [t for t, stk in dict_stock_fisico.items() if stk >= 2] # Línea: origen requiere min 2 pares (no queda en 0)
-                    tiendas_destino = [t for t, vta in dict_ventas.items() if vta >= 1 and dict_stock_fisico.get(t, -1) == 0] # Destino forzoso en 0 físico
+                    origenes = [t for t, stk in dict_stock_fisico.items() if stk >= 2]
+                    destinos = [t for t, vta in dict_ventas.items() if vta >= 1 and dict_stock_fisico.get(t, -1) == 0]
                 
-                for t_orig in tiendas_origen:
-                    for t_dest in tiendas_destino:
+                for t_orig in origenes:
+                    for t_dest in destinos:
                         if t_orig != t_dest:
                             stk_real = int(dict_stock_fisico.get(t_orig, 0))
                             vta_dest = int(dict_ventas.get(t_dest, 0))
                             
                             if vta_dest > 0 and stk_real > 0:
                                 if estatus_mod not in ['S', 'P']:
-                                    cant_mover = min(stk_real - 1, vta_dest) # Candado: Línea deja min 1 par físico en origen
+                                    cant_mover = min(stk_real - 1, vta_dest)
                                 else:
-                                    cant_mover = min(stk_real, vta_dest) # Candado: Saldos evacuan completo
+                                    cant_mover = min(stk_real, vta_dest)
                                 
                                 if cant_mover > 0:
                                     propuestas_traspaso.append({
@@ -492,12 +482,11 @@ with tab7:
                                     })
                                     dict_stock_fisico[t_orig] -= cant_mover
                                     dict_ventas[t_dest] -= cant_mover
-        
+
         df_propuestas = pd.DataFrame(propuestas_traspaso)
-        st.success(f"📦 ¡Enlace Perfecto! Reporte `{NOMBRE_ARCHIVO_GE}` alineado a las corridas reales.")
+        st.success(f"⚡ ¡Sincronización Relámpago Completa! Reporte analizado instantáneamente.")
         
-        # Selector dinámico de auditoría para las 19 tiendas activas
-        tienda_sel = st.selectbox("Selecciona sucursal para auditar sus movimientos de SALIDA de hoy:", sorted(df_vertical['Tienda'].unique()))
+        tienda_sel = st.selectbox("Selecciona sucursal para auditar sus movimientos de SALIDA de hoy:", sorted(df_master_vert['Tienda'].unique()))
         
         if not df_propuestas.empty:
             propuestas_tienda = df_propuestas[df_propuestas['Tienda Origen'] == tienda_sel]
