@@ -266,12 +266,13 @@ with tab5:
     else:
         st.warning("⚠️ La imagen 'RC Zona Occidente.png' aún no se encuentra en GitHub.")
 
-# --- PESTAÑA 6: PORTAL DE CAPACITACIÓN ---
+# --- PESTAÑA 6: PORTAL DE CAPACITACIÓN Y MANUAL DE INTEGRACIÓN ---
 with tab6:
     st.markdown("## 🎓 Centro de Capacitación y Desarrollo Operativo")
     st.write("Bienvenido al espacio interactivo para el fortalecimiento del sentido de pertenencia y alineación comercial de la Zona Occidente.")
     
     col_izq, col_der = st.columns([1, 1])
+    
     with col_izq:
         st.markdown("### 📹 Videos de Capacitación para el Personal")
         opciones_video = {
@@ -279,173 +280,94 @@ with tab6:
             "Tutorial Vales de Zapatos": "https://youtu.be/6hB95lYcL1g",
             "Tutorial mi Flexi": "https://youtu.be/WVi8geGSeOg"
         }
+        
         video_seleccionado = st.selectbox("Selecciona el material audiovisual a reproducir:", list(opciones_video.keys()))
-        st.video(opciones_video[video_seleccionado])
-        st.link_button(f"🚀 Clic aquí para ver {video_seleccionado} directo en YouTube", opciones_video[video_seleccionado], type="primary")
+        url_video = opciones_video[video_seleccionado]
+        
+        st.write("<br>", unsafe_allow_html=True)
+        st.video(url_video)
+        st.link_button(f"🚀 Clic aquí para ver {video_seleccionado} directo en YouTube", url_video, type="primary")
         
     with col_der:
         st.markdown("### 📘 Manual de Integración a Tiendas Flexi")
+        
         with st.expander("🎯 1. PROPÓSITO DEL MONITOR COMERCIAL"):
-            st.markdown("Monitor interactivo desarrollado bajo la dirección del **LAE. José Martín Estrada Cabrera** para centralizar las **21 tiendas físicas** de la Zona Occidente.\n\n* **Ticket Promedio:** Meta 1.29 unidades (calzado puro).\n* **Conversión Mínima:** Meta 10.90% en piso de venta.")
+            st.markdown("""
+            Este monitor interactivo fue desarrollado bajo la dirección del **LAE. José Martín Estrada Cabrera** con el objetivo de centralizar, automatizar y auditar los indicadores comerciales clave de las tiendas de la Zona Occidente.
+            
+            **Metas Estratégicas de la Zona:**
+            * 👟 **Ticket Promedio:** Meta de 1.29 unidades (enfocado exclusivamente en calzado puro).
+            * 📊 **Conversión Mínima:** Meta de 10.90% en el piso de venta.
+            """)
+            
         with st.expander("📝 2. OBJETIVO DEL MANUAL Y FILOSOFÍA"):
-            st.markdown("Establecer un proceso de acogida estandarizado que reduzca la rotación de personal en los primeros 90 días, transformando la incorporación en una experiencia profesional y humana.")
+            st.markdown("""
+            **Plan de Retención de Personal y Fortalecimiento del Sentido de Pertenencia**
+            
+            **Objetivo General:**
+            Establecer un proceso de acogida estandarizado que reduzca la rotación de personal en los primeros 90 días, transformando la incorporación en una experiencia de bienvenida profesional y humana.
+            
+            *La permanencia del personal de nueva contratación no depende únicamente de las condiciones laborales, sino de la calidad de su integración inicial. Este espacio presenta los pilares fundamentales para asegurar que el nuevo colaborador se sienta valorado, guiado y conectado con los objetivos de la organización desde su primer día.*
+            """)
+            
         with st.expander("🤝 3. PILAR I: BIENVENIDA (LOGÍSTICA Y ORDEN)"):
-            st.markdown("Proyectar orden y profesionalismo. Asegurar uniforme correcto y herramientas listas antes de que el colaborador ingrese.")
-        with st.expander("👥 4. PILAR II: ACOMPAÑAMIENTO (SISTEMA DE MENTORÍA)"):
-            st.markdown("Designar a un colaborador con experiencia y actitud positiva como mentor durante la primera semana.")
+            st.markdown("""
+            **Concepto:** Proyectar orden y profesionalismo. La preparación del entorno de trabajo es el primer mensaje que el colaborador recibe sobre la cultura de la empresa.
+            
+            **La Acción:** Asegurarse de que el espacio físico esté impecable, las herramientas de trabajo (computadora, accesos, sistemas) estén configuradas y el uniforme de la talla correcta esté listo sobre su lugar antes de que el colaborador cruce la puerta (en la medida de lo posible).
+            
+            **El Impacto:** Elimina la ansiedad e incertidumbre del primer día. Comunica de forma implícita: "Te estábamos esperando y tu llegada es importante para nosotros".
+            """)
+            
+        with st.expander("👥 4. PILAR II: ACOMPAÑAMIENTO (MENTORÍA)"):
+            st.markdown("""
+            **Concepto:** Eliminar la "soledad del novato" mediante el sistema de compañero guía.
+            
+            **La Acción:** Designar a un colaborador con experiencia y actitud positiva para que actúe como mentor durante la primera semana.
+            """)
+            
         with st.expander("🧭 5. PILAR III: CLARIDAD DEL PROPÓSITO (KPIs)"):
-            st.markdown("Todo colaborador de nuevo ingreso debe comprender las metas vitales de la zona:\n\n* 👟 **Ticket Promedio:** 1.29 unidades.\n* 📊 **Conversión:** 10.90% en piso.")
+            st.markdown("""
+            **Concepto:** Conectar las tareas diarias con el impacto real en el éxito de la zona y la misión de la empresa. Genera compromiso emocional. Un colaborador que encuentra propósito en su trabajo desarrolla una lealtad que va más allá de la oferta económica.
+            
+            **Enfoque Comercial Zona Occidente:**
+            Todo colaborador de nuevo ingreso debe comprender que cuidamos con excelencia comercial dos indicadores vitales de calzado puro:
+            * 👟 **Ticket Promedio:** Meta de 1.29 unidades por ticket.
+            * 📊 **Conversión:** Meta de 10.90% en piso de venta.
+            """)
+            
+        with st.expander("📈 6. PILAR IV: METAS DE CORTO PLAZO"):
+            st.markdown("""
+            **Concepto:** Brindar claridad absoluta sobre las expectativas de desempeño en la etapa crítica.
+            
+            **La Acción:** Establecer objetivos específicos, medibles y alcanzables para la primera semana, los primeros 15 días y el primer mes. Brindar retroalimentación constructiva al finalizar cada etapa.
+            
+            **El Impacto:** Reduce la frustración causada por la ambigüedad. Permite que el colaborador celebre victorias tempranas y desarrolle la autoconfianza necesaria para su profesionalización.
+            """)
+            
+        with st.expander("🎉 7. PILAR V: VINCULACIÓN SOCIAL"):
+            st.markdown("""
+            **Concepto:** Humanizar el entorno laboral y fomentar la integración grupal.
+            
+            **La Acción:** Organizar activamente momentos de convivencia (como una dinámica de presentación) donde el equipo actual reciba formalmente al nuevo integrante.
+            
+            **El Impacto:** Rompe las barreras invisibles entre el personal antiguo y el nuevo. El sentido de pertenencia a un grupo social es el factor de retención más potente ante ofertas de la competencia.
+            
+            ---
+            *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
+            """)
 
 # ==============================================================================
-# --- PESTAÑA 7: NIVELACIÓN CON PARÁMETROS DIRECTOS EN CÓDIGO ---
+# --- PESTAÑA 7: ESTRUCTURA LIMPIA PARA AUDITORÍA DE TALLAS ---
 # ==============================================================================
 with tab7:
     st.subheader("🔄 Algoritmo Maestro de Nivelación de Inventarios (2 Meses)")
-    st.write("Análisis automatizado directo por talla y estatus corriendo bajo tus criterios de negocio.")
-
-    USUARIO_GE = "laejmestradacabrera-tech"
-    REPOSITORIO_GE = "Flexi-Occidente-App"
-    NOMBRE_ARCHIVO_GE = "ventas_maestro.csv" 
+    st.info("Paso 1 del Plan: Pestaña congelada temporalmente en modo Auditoría para calibrar las columnas de tallas reales.")
+    st.write("Por favor, proporciona el orden de tus columnas en el chat para activar los traspasos sin errores.")
     
-    URL_GITHUB_MAESTRO = f"https://raw.githubusercontent.com/{USUARIO_GE}/{REPOSITORIO_GE}/main/{NOMBRE_ARCHIVO_GE}"
-    
-    try:
-        df_niv = pd.read_csv(URL_GITHUB_MAESTRO)
-        df_niv.fillna(0, inplace=True)
-        df_niv['Tienda'] = df_niv['Tienda'].astype(int)
-        df_niv = df_niv[~df_niv['Tienda'].isin([3004, 3015])]
-        
-        tiendas_imanes = [19, 56, 59, 133]
-        tienda_outlet = [12]
-        
-        def obtener_talla_real(modelo, num_columna):
-            mod_str = str(modelo).upper()
-            if any(mod_str.startswith(pre) for pre in ['CD', 'CK', 'CY', 'MD', 'VD']):
-                tallas_dama = {1:'22', 2:'22.5', 3:'23', 4:'23.5', 5:'24', 6:'24.5', 7:'25', 8:'25.5', 9:'26', 10:'26.5', 11:'27'}
-                return tallas_dama.get(num_columna, "Ext.")
-            elif any(mod_str.startswith(pre) for pre in ['CH', 'MH', 'VH']):
-                tallas_hombre = {1:'25', 2:'25.5', 3:'26', 4:'26.5', 5:'27', 6:'27.5', 7:'28', 8:'28.5', 9:'29', 10:'29.5', 11:'30', 12:'30.5', 13:'31'}
-                return tallas_hombre.get(num_columna, "Ext.")
-            elif mod_str.startswith('NM'):
-                tallas_nm = {1:'17', 2:'17.5', 3:'18', 4:'18.5', 5:'19', 6:'19.5', 7:'20', 8:'20.5', 9:'21'}
-                return tallas_nm.get(num_columna, "Ext.")
-            elif mod_str.startswith('CJ'):
-                tallas_cj = {1:'21.5', 2:'22', 3:'22.5', 4:'23', 5:'23.5', 6:'24', 7:'24.5', 8:'25', 9:'25.5', 10:'26', 11:'26.5', 12:'27'}
-                return tallas_cj.get(num_columna, "Ext.")
-            return f"T_{num_columna}"
-
-        # Unpivot horizontal a filas verticales
-        registros_desglosados = []
-        for _, fila in df_niv.iterrows():
-            modelo = fila['Modelo']
-            tienda = int(fila['Tienda'])
-            estatus = str(fila['Estatus']).upper()
-            
-            for i in range(1, 16):
-                existencia_fisica = float(fila.get(f'ex{i}', 0))
-                pedido_transito = float(fila.get(f'p{i}', 0))
-                ventas_acumuladas = float(fila.get(f'v{i}', 0))
-                
-                stock_disponible = existencia_fisica + pedido_transito
-                
-                if existencia_fisica > 0 or ventas_acumuladas > 0:
-                    talla_nom = obtener_talla_real(modelo, i)
-                    registros_desglosados.append({
-                        'Tienda': tienda, 'Modelo': modelo, 'Estatus': estatus, 'Talla': talla_nom,
-                        'Stock_Fisico': existencia_fisica, 'Disponible': stock_disponible, 'Ventas': ventas_acumuladas
-                    })
-        
-        df_vertical = pd.DataFrame(registros_desglosados)
-        propuestas_traspaso = []
-        
-        # --- PROCESAMIENTO DIRECTO BAJO TUS PARÁMETROS ---
-        for (modelo, talla), grupo in df_vertical.groupby(['Modelo', 'Talla']):
-            estatus_mod = grupo['Estatus'].iloc[0]
-            
-            # Copias de control dinámico en memoria
-            dict_stock_fisico = grupo.set_index('Tienda')['Stock_Fisico'].to_dict()
-            dict_ventas = grupo.set_index('Tienda')['Ventas'].to_dict()
-            
-            # Suma de ventas en la zona para saber si es un modelo "Sin Movimiento"
-            total_ventas_zona = sum(dict_ventas.values())
-            
-            # CASO A: MODELOS SIN MOVIMIENTO EN LA ZONA (VENTAS GENERALES = 0)
-            if total_ventas_zona == 0:
-                tiendas_origen = [t for t, stk in dict_stock_fisico.items() if stk >= 1]
-                tiendas_destino = [t for t in tiendas_imanes if dict_stock_fisico.get(t, -1) == 0]
-                
-                for t_orig in tiendas_origen:
-                    for t_dest in tiendas_destino:
-                        if t_orig != t_dest:
-                            stk_real = int(dict_stock_fisico.get(t_orig, 0))
-                            if stk_real > 0:
-                                # Si es Línea (N) protegemos que no se quede en 0
-                                if estatus_mod not in ['S', 'P'] and stk_real < 2:
-                                    continue
-                                cant_mover = 1
-                                propuestas_traspaso.append({
-                                    'Tienda Origen': t_orig, 'Tienda Destino': t_dest, 'Modelo': modelo,
-                                    'Estatus': estatus_mod, 'Talla': talla, 'Pares a Mover': cant_mover,
-                                    'Prioridad': '🔄 REACTIVACIÓN (Sin Venta)'
-                                })
-                                dict_stock_fisico[t_orig] -= cant_mover
-                                dict_stock_fisico[t_dest] += cant_mover
-            
-            # CASO B: MODELOS CON VENTA NORMAL (ANÁLISIS BAJO TUS 5 PILARES)
-            else:
-                if estatus_mod in ['S', 'P']:
-                    tiendas_origen = [t for t, stk in dict_stock_fisico.items() if stk >= 1]
-                    tiendas_destino = [t for t, vta in dict_ventas.items() if vta >= 1 and dict_stock_fisico.get(t, -1) == 0]
-                else:
-                    tiendas_origen = [t for t, stk in dict_stock_fisico.items() if stk >= 2]
-                    tiendas_destino = [t for t, vta in dict_ventas.items() if vta >= 1 and dict_stock_fisico.get(t, -1) == 0]
-                
-                for t_orig in tiendas_origen:
-                    for t_dest in tiendas_destino:
-                        if t_orig != t_dest:
-                            stk_real = int(dict_stock_fisico.get(t_orig, 0))
-                            vta_dest = int(dict_ventas.get(t_dest, 0))
-                            
-                            if vta_dest > 0 and stk_real > 0:
-                                if estatus_mod not in ['S', 'P']:
-                                    cant_mover = min(stk_real - 1, vta_dest) # Deja mínimo 1 par físico en origen
-                                else:
-                                    cant_mover = min(stk_real, vta_dest) # Puede evacuar hasta quedar en 0
-                                
-                                if cant_mover > 0:
-                                    propuestas_traspaso.append({
-                                        'Tienda Origen': t_orig, 'Tienda Destino': t_dest, 'Modelo': modelo,
-                                        'Estatus': estatus_mod, 'Talla': talla, 'Pares a Mover': cant_mover,
-                                        'Prioridad': '🚨 CRÍTICA (Quiebre)' if estatus_mod == 'N' else '📦 EVACUACIÓN (Saldo)'
-                                    })
-                                    dict_stock_fisico[t_orig] -= cant_mover
-                                    dict_ventas[t_dest] -= cant_mover
-        
-        df_propuestas = pd.DataFrame(propuestas_traspaso)
-        st.success(f"📦 ¡Enlace Perfecto! Reporte `{NOMBRE_ARCHIVO_GE}` analizado de forma directa.")
-        
-        # Selector dinámico de auditoría para las 19 tiendas activas
-        tienda_sel = st.selectbox("Selecciona sucursal para auditar sus movimientos de SALIDA de hoy:", sorted(df_vertical['Tienda'].unique()))
-        
-        if not df_propuestas.empty:
-            propuestas_tienda = df_propuestas[df_propuestas['Tienda Origen'] == tienda_sel]
-            propuestas_tienda_top10 = propuestas_tienda.head(10)
-            
-            if not propuestas_tienda_top10.empty:
-                st.write(f"### 📋 Top 10 Movimientos de Salida Autorizados para Tienda {tienda_sel}")
-                st.dataframe(propuestas_tienda_top10[['Tienda Destino', 'Modelo', 'Estatus', 'Talla', 'Pares a Mover', 'Prioridad']], use_container_width=True)
-            else:
-                st.info(f"✨ La Tienda {tienda_sel} se encuentra perfectamente nivelada bajo tus parámetros. No requiere salidas.")
-        else:
-            st.info("El inventario general de la zona se encuentra óptimamente distribuido.")
-            
-    except Exception as e:
-        st.error(f"⚠️ Esperando la sincronización con GitHub.")
-        st.warning(f"Buscando el nuevo archivo plano en la ruta:\n`{URL_GITHUB_MAESTRO}`")
-
-# PIE DE PÁGINA
-st.markdown("""
-    <div class="footer">
-        © 2026 Gerencia Comercial Zona Occidente | KPIs Administrados por LAE. José Martín Estrada Cabrera
-    </div>
-    """, unsafe_allow_html=True)
+    # Pie de página fijo
+    st.markdown("""
+        <div class="footer">
+            © 2026 Gerencia Comercial Zona Occidente | KPIs Administrados por LAE. José Martín Estrada Cabrera
+        </div>
+        """, unsafe_allow_html=True)
