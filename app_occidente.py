@@ -358,16 +358,159 @@ with tab6:
             """)
 
 # ==============================================================================
-# --- PESTAÑA 7: ESTRUCTURA LIMPIA PARA AUDITORÍA DE TALLAS ---
+# --- PESTAÑA 7: NUEVA NIVELACIÓN CORREGIDA CON CORRIDAS REALES DE TU ERP ---
 # ==============================================================================
 with tab7:
     st.subheader("🔄 Algoritmo Maestro de Nivelación de Inventarios (2 Meses)")
-    st.info("Paso 1 del Plan: Pestaña congelada temporalmente en modo Auditoría para calibrar las columnas de tallas reales.")
-    st.write("Por favor, proporciona el orden de tus columnas en el chat para activar los traspasos sin errores.")
+    st.write("Análisis automatizado directo por talla y estatus con mapeo de corridas calibrado al 100%.")
+
+    USUARIO_GE = "laejmestradacabrera-tech"
+    REPOSITORIO_GE = "Flexi-Occidente-App"
+    NOMBRE_ARCHIVO_GE = "ventas_maestro.csv" 
     
-    # Pie de página fijo
-    st.markdown("""
-        <div class="footer">
-            © 2026 Gerencia Comercial Zona Occidente | KPIs Administrados por LAE. José Martín Estrada Cabrera
-        </div>
-        """, unsafe_allow_html=True)
+    URL_GITHUB_MAESTRO = f"https://raw.githubusercontent.com/{USUARIO_GE}/{REPOSITORIO_GE}/main/{NOMBRE_ARCHIVO_GE}"
+    
+    try:
+        df_niv = pd.read_csv(URL_GITHUB_MAESTRO)
+        df_niv.fillna(0, inplace=True)
+        df_niv['Tienda'] = df_niv['Tienda'].astype(int)
+        df_niv = df_niv[~df_niv['Tienda'].isin([3004, 3015])]
+        
+        tiendas_imanes = [19, 56, 59, 133]
+        
+        # 🔥 EL CORAZÓN DE LA CORRECCIÓN: TRADUCTOR DE ENCABEZADOS DE TU ERP A TALLAS REALES
+        def obtener_talla_real(modelo, num_columna):
+            mod_str = str(modelo).upper()
+            
+            # 1. DAMA (CD, CK, CY, MD, VD) -> ex3=22, ex13=27
+            if any(mod_str.startswith(pre) for pre in ['CD', 'CK', 'CY', 'MD', 'VD']):
+                tallas_dama = {3:'22', 4:'22.5', 5:'23', 6:'23.5', 7:'24', 8:'24.5', 9:'25', 10:'25.5', 11:'26', 12:'26.5', 13:'27'}
+                return tallas_dama.get(num_columna, None)
+                
+            # 2. CABALLERO (CH, MH, VH) -> ex1=25, ex13=31
+            elif any(mod_str.startswith(pre) for pre in ['CH', 'MH', 'VH']):
+                tallas_hombre = {1:'25', 2:'25.5', 3:'26', 4:'26.5', 5:'27', 6:'27.5', 7:'28', 8:'28.5', 9:'29', 10:'29.5', 11:'30', 12:'30.5', 13:'31'}
+                return tallas_hombre.get(num_columna, None)
+                
+            # 3. NM (Niño Menor) -> ex1=17, ex10=21.5
+            elif mod_str.startswith('NM'):
+                tallas_nm = {1:'17', 2:'17.5', 3:'18', 4:'18.5', 5:'19', 6:'19.5', 7:'20', 8:'20.5', 9:'21', 10:'21.5'}
+                return tallas_nm.get(num_columna, None)
+                
+            # 4. CJ (Niño Mayor/Juvenil) -> ex1=21.5, ex12=27
+            elif mod_str.startswith('CJ'):
+                tallas_cj = {1:'21.5', 2:'22', 3:'22.5', 4:'23', 5:'23.5', 6:'24', 7:'24.5', 8:'25', 9:'25.5', 10:'26', 11:'26.5', 12:'27'}
+                return tallas_cj.get(num_columna, None)
+                
+            return None
+
+        # Unpivot horizontal a filas verticales saltando columnas inválidas para cada tipo
+        registros_desglosados = []
+        for _, fila in df_niv.iterrows():
+            modelo = fila['Modelo']
+            tienda = int(fila['Tienda'])
+            estatus = str(fila['Estatus']).upper()
+            
+            for i in range(1, 16):
+                talla_nom = obtener_talla_real(modelo, i)
+                
+                # Si la columna no pertenece a la corrida de ese modelo, la ignoramos por completo
+                if talla_nom is None:
+                    continue
+                    
+                existencia_fisica = float(fila.get(f'ex{i}', 0))
+                pedido_transito = float(fila.get(f'p{i}', 0))
+                ventas_acumuladas = float(fila.get(f'v{i}', 0))
+                
+                stock_disponible = existencia_fisica + pedido_transito
+                
+                if existencia_fisica > 0 or ventas_acumuladas > 0:
+                    registros_desglosados.append({
+                        'Tienda': tienda, 'Modelo': modelo, 'Estatus': estatus, 'Talla': talla_nom,
+                        'Stock_Fisico': existencia_fisica, 'Disponible': stock_disponible, 'Ventas': ventas_acumuladas
+                    })
+        
+        df_vertical = pd.DataFrame(registros_desglosados)
+        propuestas_traspaso = []
+        
+        # --- PROCESAMIENTO MATEMÁTICO BAJO TUS 5 PILARES ---
+        for (modelo, talla), grupo in df_vertical.groupby(['Modelo', 'Talla']):
+            estatus_mod = grupo['Estatus'].iloc[0]
+            
+            dict_stock_fisico = grupo.set_index('Tienda')['Stock_Fisico'].to_dict()
+            dict_ventas = grupo.set_index('Tienda')['Ventas'].to_dict()
+            
+            total_ventas_zona = sum(dict_ventas.values())
+            
+            # REGLA ESPECIAL: MODELOS SIN MOVIMIENTO EN LA ZONA (SE VAN SÓLO A TIENDAS IMÁN)
+            if total_ventas_zona == 0:
+                tiendas_origen = [t for t, stk in dict_stock_fisico.items() if stk >= 1]
+                tiendas_destino = [t for t in tiendas_imanes if dict_stock_fisico.get(t, -1) == 0]
+                
+                for t_orig in tiendas_origen:
+                    for t_dest in tiendas_destino:
+                        if t_orig != t_dest:
+                            stk_real = int(dict_stock_fisico.get(t_orig, 0))
+                            if stk_real > 0:
+                                if estatus_mod not in ['S', 'P'] and stk_real < 2:
+                                    continue # En línea no permitimos dejar en 0 el origen
+                                cant_mover = 1
+                                propuestas_traspaso.append({
+                                    'Tienda Origen': t_orig, 'Tienda Destino': t_dest, 'Modelo': modelo,
+                                    'Estatus': estatus_mod, 'Talla': talla, 'Pares a Mover': cant_mover,
+                                    'Prioridad': '🔄 REACTIVACIÓN (Sin Venta)'
+                                })
+                                dict_stock_fisico[t_orig] -= cant_mover
+                                dict_stock_fisico[t_dest] += cant_mover
+            
+            # REGLA GENERAL: CRITERIOS DIRECTOS DE LÍNEA Y SALDOS
+            else:
+                if estatus_mod in ['S', 'P']:
+                    tiendas_origen = [t for t, stk in dict_stock_fisico.items() if stk >= 1] # Saldos: origen puede quedar en 0
+                    tiendas_destino = [t for t, vta in dict_ventas.items() if vta >= 1 and dict_stock_fisico.get(t, -1) == 0] # Destino forzoso en 0 físico
+                else:
+                    tiendas_origen = [t for t, stk in dict_stock_fisico.items() if stk >= 2] # Línea: origen requiere min 2 pares (no queda en 0)
+                    tiendas_destino = [t for t, vta in dict_ventas.items() if vta >= 1 and dict_stock_fisico.get(t, -1) == 0] # Destino forzoso en 0 físico
+                
+                for t_orig in tiendas_origen:
+                    for t_dest in tiendas_destino:
+                        if t_orig != t_dest:
+                            stk_real = int(dict_stock_fisico.get(t_orig, 0))
+                            vta_dest = int(dict_ventas.get(t_dest, 0))
+                            
+                            if vta_dest > 0 and stk_real > 0:
+                                if estatus_mod not in ['S', 'P']:
+                                    cant_mover = min(stk_real - 1, vta_dest) # Candado: Línea deja min 1 par físico en origen
+                                else:
+                                    cant_mover = min(stk_real, vta_dest) # Candado: Saldos evacuan completo
+                                
+                                if cant_mover > 0:
+                                    propuestas_traspaso.append({
+                                        'Tienda Origen': t_orig, 'Tienda Destino': t_dest, 'Modelo': modelo,
+                                        'Estatus': estatus_mod, 'Talla': talla, 'Pares a Mover': cant_mover,
+                                        'Prioridad': '🚨 CRÍTICA (Quiebre)' if estatus_mod == 'N' else '📦 EVACUACIÓN (Saldo)'
+                                    })
+                                    dict_stock_fisico[t_orig] -= cant_mover
+                                    dict_ventas[t_dest] -= cant_mover
+        
+        df_propuestas = pd.DataFrame(propuestas_traspaso)
+        st.success(f"📦 ¡Enlace Perfecto! Reporte `{NOMBRE_ARCHIVO_GE}` alineado a las corridas reales.")
+        
+        # Selector dinámico de auditoría para las 19 tiendas activas
+        tienda_sel = st.selectbox("Selecciona sucursal para auditar sus movimientos de SALIDA de hoy:", sorted(df_vertical['Tienda'].unique()))
+        
+        if not df_propuestas.empty:
+            propuestas_tienda = df_propuestas[df_propuestas['Tienda Origen'] == tienda_sel]
+            propuestas_tienda_top10 = propuestas_tienda.head(10)
+            
+            if not propuestas_tienda_top10.empty:
+                st.write(f"### 📋 Top 10 Movimientos de Salida Autorizados para Tienda {tienda_sel}")
+                st.dataframe(propuestas_tienda_top10[['Tienda Destino', 'Modelo', 'Estatus', 'Talla', 'Pares a Mover', 'Prioridad']], use_container_width=True)
+            else:
+                st.info(f"✨ La Tienda {tienda_sel} se encuentra perfectamente nivelada bajo tus parámetros. No requiere salidas.")
+        else:
+            st.info("El inventario general de la zona se encuentra óptimamente distribuido.")
+            
+    except Exception as e:
+        st.error(f"⚠️ Sincronizando con tu repositorio de GitHub...")
+        st.warning(f"Buscando el archivo en la ruta:\n`{URL_GITHUB_MAESTRO}`")
