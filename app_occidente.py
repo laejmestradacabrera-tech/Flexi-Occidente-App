@@ -307,7 +307,7 @@ with tab6:
             **Objetivo General:**
             Establecer un proceso de acogida estandarizado que reduzca la rotación de personal en los primeros 90 días, transformando la incorporación en una experiencia de bienvenida profesional y humana.
             
-            *La permanencia del personal de nueva contratación no depende únicamente de las condiciones laborales, sino de la calidad de su integración inicial. Este espacio presenta los pilares fundamentales para asegurar que el nuevo colaborador se sienta valorado, guiado y conectado con los objetivos de la organización desde su primer día.*
+            *La permanencia del personal de nueva contratación no depende únicamente de las condiciones laborales, sino de la calidad de su integración inicial. Este espacio presents los pilares fundamentales para asegurar que el nuevo colaborador se sienta valorado, guiado y conectado con los objetivos de la organización desde su primer día.*
             """)
             
         with st.expander("🤝 3. PILAR I: BIENVENIDA (LOGÍSTICA Y ORDEN)"):
@@ -358,11 +358,11 @@ with tab6:
             """)
 
 # ==============================================================================
-# --- PESTAÑA 7: NIVELACIÓN RECONSTRUIDA SIN ERRORES DE PROGRAMACIÓN ---
+# --- PESTAÑA 7: NIVELACIÓN TOTALMENTE PROTEGIDA CONTRA TIENDAS VACÍAS ---
 # ==============================================================================
 with tab7:
     st.subheader("🔄 Algoritmo Maestro de Nivelación de Inventarios (2 Meses)")
-    st.write("Análisis automatizado directo por talla y estatus con control estricto de existencias.")
+    st.write("Análisis automatizado directo por talla y estatus con control de stock físico real.")
 
     USUARIO_GE = "laejmestradacabrera-tech"
     REPOSITORIO_GE = "Flexi-Occidente-App"
@@ -378,7 +378,7 @@ with tab7:
         
         tiendas_imanes = [19, 56, 59, 133]
         
-        # Mapeo de columnas exacto de tu ERP
+        # Mapeo exacto de columnas de tu ERP calibrado por ti
         def obtener_talla_real(modelo, num_columna):
             mod_str = str(modelo).upper()
             if any(mod_str.startswith(pre) for pre in ['CD', 'CK', 'CY', 'MD', 'VD']):
@@ -395,7 +395,7 @@ with tab7:
                 return tallas_cj.get(num_columna, None)
             return None
 
-        # Desglose vertical seguro fila por fila sin sumar registros ciegamente
+        # Desglose vertical seguro fila por fila sin consolidaciones previas ciegas
         registros_desglosados = []
         for idx, fila in df_niv.iterrows():
             modelo = fila['Modelo']
@@ -417,7 +417,7 @@ with tab7:
         if registros_desglosados:
             df_vertical = pd.DataFrame(registros_desglosados)
             
-            # Agrupación por llave única para evitar duplicidades
+            # Agrupación por llave estricta para consolidar stock real de la zona
             df_agrupado = df_vertical.groupby(['Tienda', 'Modelo', 'Estatus', 'Talla']).agg({
                 'Stock_Fisico': 'sum',
                 'Ventas': 'sum'
@@ -425,17 +425,19 @@ with tab7:
 
             propuestas_traspaso = []
             
-            # Análisis por combinación de calzado
+            # Procesamiento por modelo y talla individuales
             for (modelo, talla), grupo in df_agrupado.groupby(['Modelo', 'Talla']):
                 estatus_mod = grupo['Estatus'].iloc[0]
                 
+                # Diccionarios dinámicos
                 dict_stock_fisico = grupo.set_index('Tienda')['Stock_Fisico'].to_dict()
                 dict_ventas = grupo.set_index('Tienda')['Ventas'].to_dict()
                 total_ventas_zona = sum(dict_ventas.values())
                 
-                # REGLA A: SIN MOVIMIENTO EN LA ZONA (DIRECCIÓN A TIENDAS IMÁN)
+                # REGLA A: CALZADO SIN MOVIMIENTO EN LA ZONA (VENTAS GENERALES = 0)
                 if total_ventas_zona == 0:
                     tiendas_origen = [t for t, stk in dict_stock_fisico.items() if stk >= 1]
+                    # BLINDAJE LOGÍSTICO COMPLETO: Verificamos con .get() de forma segura contra tiendas inexistentes
                     tiendas_destino = [t for t in tiendas_imanes if dict_stock_fisico.get(t, 0) == 0]
                     
                     for t_orig in tiendas_origen:
@@ -444,7 +446,7 @@ with tab7:
                                 stk_real = int(dict_stock_fisico.get(t_orig, 0))
                                 if stk_real > 0:
                                     if estatus_mod not in ['S', 'P'] and stk_real < 2:
-                                        continue
+                                        continue # En línea cuidamos que el origen no quede en 0
                                     cant_mover = 1
                                     propuestas_traspaso.append({
                                         'Tienda Origen': t_orig, 'Tienda Destino': t_dest, 'Modelo': modelo,
@@ -452,11 +454,11 @@ with tab7:
                                         'Prioridad': '🔄 REACTIVACIÓN (Sin Venta)'
                                     })
                                     dict_stock_fisico[t_orig] -= cant_mover
-                                    dict_stock_fisico[t_dest] += cant_mover
+                                    dict_stock_fisico[t_dest] = dict_stock_fisico.get(t_dest, 0) + cant_mover
                 
-                # REGLA B: CALZADO CON VENTAS REALES (TUS 5 PARAMETROS FIJOS)
+                # REGLA B: CALZADO CON HISTORIAL DE VENTA ACTIVO (TUS PARAMETROS RECONSTRUIDOS)
                 else:
-                    # FILTRO ORIGEN: Línea requiere >= 2 pares para no quedar jamás en cero
+                    # FILTRO ORIGEN: Línea requiere >= 2 pares para conservar mínimo 1 físico (NUNCA EN CEROS)
                     if estatus_mod in ['S', 'P']:
                         tiendas_origen = [t for t, stk in dict_stock_fisico.items() if stk >= 1]
                     else:
@@ -473,7 +475,7 @@ with tab7:
                                 
                                 if vta_dest > 0 and stk_real > 0:
                                     if estatus_mod not in ['S', 'P']:
-                                        cant_mover = min(stk_real - 1, vta_dest) # No permite dejar en cero al origen
+                                        cant_mover = min(stk_real - 1, vta_dest) # El origen se queda con mínimo 1 par físico
                                     else:
                                         cant_mover = min(stk_real, vta_dest) # Saldos evacuan completo
                                     
