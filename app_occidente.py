@@ -340,7 +340,7 @@ with tab6:
             st.markdown("""
             **Concepto:** Brindar claridad absoluta sobre las expectativas de desempeño en la etapa crítica.
             
-            **La Acción:** Establecer objetivos específicos, medibles and alcanzables para la primera semana, los primeros 15 días y el primer mes. Brindar retroalimentación constructiva al finalizar cada etapa.
+            **La Acción:** Establecer objetivos específicos, medibles y alcanzables para la primera semana, los primeros 15 días y el primer mes. Brindar retroalimentación constructiva al finalizar cada etapa.
             
             **El Impacto:** Reduce la frustración causada por la ambigüedad. Permite que el colaborador celebre victorias tempranas y desarrolle la autoconfianza necesaria para su profesionalización.
             """)
@@ -358,11 +358,11 @@ with tab6:
             """)
 
 # ==============================================================================
-# --- PESTAÑA 7: NIVELACIÓN TOTALMENTE BLINDADA A TUS PARAMETROS OPERATIVOS ---
+# --- PESTAÑA 7: NIVELACIÓN RECONSTRUIDA SIN ERRORES DE PROGRAMACIÓN ---
 # ==============================================================================
 with tab7:
     st.subheader("🔄 Algoritmo Maestro de Nivelación de Inventarios (2 Meses)")
-    st.write("Análisis automatizado directo por talla y estatus con candados operativos de control estricto.")
+    st.write("Análisis automatizado directo por talla y estatus con control estricto de existencias.")
 
     USUARIO_GE = "laejmestradacabrera-tech"
     REPOSITORIO_GE = "Flexi-Occidente-App"
@@ -378,7 +378,7 @@ with tab7:
         
         tiendas_imanes = [19, 56, 59, 133]
         
-        # Sincronizador exacto de equivalencias de columnas de tu ERP
+        # Mapeo de columnas exacto de tu ERP
         def obtener_talla_real(modelo, num_columna):
             mod_str = str(modelo).upper()
             if any(mod_str.startswith(pre) for pre in ['CD', 'CK', 'CY', 'MD', 'VD']):
@@ -395,7 +395,7 @@ with tab7:
                 return tallas_cj.get(num_columna, None)
             return None
 
-        # Procesamiento granular por fila original para evitar la duplicidad de stock
+        # Desglose vertical seguro fila por fila sin sumar registros ciegamente
         registros_desglosados = []
         for idx, fila in df_niv.iterrows():
             modelo = fila['Modelo']
@@ -404,119 +404,114 @@ with tab7:
             
             for i in range(1, 16):
                 talla_nom = obtener_talla_real(modelo, i)
-                if talla_nom is None:
-                    continue
+                if talla_nom is not None:
+                    existencia_fisica = float(fila.get(f'ex{i}', 0))
+                    ventas_acumuladas = float(fila.get(f'v{i}', 0))
                     
-                existencia_fisica = float(fila.get(f'ex{i}', 0))
-                ventas_acumuladas = float(fila.get(f'v{i}', 0))
-                
-                if existencia_fisica > 0 or ventas_acumuladas > 0:
-                    registros_desglosados.append({
-                        'Tienda': tienda, 'Modelo': modelo, 'Estatus': estatus, 'Talla': talla_nom,
-                        'Stock_Fisico': existencia_fisica, 'Ventas': ventas_acumuladas
-                    })
+                    if existencia_fisica > 0 or ventas_acumuladas > 0:
+                        registros_desglosados.append({
+                            'Tienda': tienda, 'Modelo': modelo, 'Estatus': estatus, 'Talla': talla_nom,
+                            'Stock_Fisico': existencia_fisica, 'Ventas': ventas_acumuladas
+                        })
         
-        df_vertical = pd.DataFrame(registros_desglosados)
-        
-        # Aseguramos una agregación limpia por Tienda-Modelo-Talla antes de aplicar las reglas directas
-        df_agrupado = df_vertical.groupby(['Tienda', 'Modelo', 'Estatus', 'Talla']).agg({
-            'Stock_Fisico': 'sum',
-            'Ventas': 'sum'
-        }).reset_index()
+        if registros_desglosados:
+            df_vertical = pd.DataFrame(registros_desglosados)
+            
+            # Agrupación por llave única para evitar duplicidades
+            df_agrupado = df_vertical.groupby(['Tienda', 'Modelo', 'Estatus', 'Talla']).agg({
+                'Stock_Fisico': 'sum',
+                'Ventas': 'sum'
+            }).reset_index()
 
-        propuestas_traspaso = []
-        
-        # Agrupamos por combinación de calzado en la zona para cruzar ofertas y demandas
-        for (modelo, talla), grupo in df_agrupado.groupby(['Modelo', 'Talla']):
-            estatus_mod = grupo['Estatus'].iloc[0]
+            propuestas_traspaso = []
             
-            # Diccionarios maestros de consulta por Tienda en tiempo real
-            dict_stock_fisico = grupo.set_index('Tienda')['Stock_Fisico'].to_dict()
-            dict_ventas = grupo.set_index('Tienda')['Ventas'].to_dict()
-            
-            total_ventas_zona = sum(dict_ventas.values())
-            
-            # REGLA A: CALZADO SIN MOVIMIENTO EN LA ZONA (DIRECCIÓN EXCLUSIVA A TIENDAS IMÁN)
-            if total_ventas_zona == 0:
-                # Origen: Debe tener stock físico
-                tiendas_origen = [t for t, stk in dict_stock_fisico.items() if stk >= 1]
-                # Destino: Exclusivamente tiendas imán que tengan CERO FÍSICO REAL en esa talla
-                tiendas_destino = [t for t in tiendas_imanes if dict_stock_fisico.get(t, 0) == 0]
+            # Análisis por combinación de calzado
+            for (modelo, talla), grupo in df_agrupado.groupby(['Modelo', 'Talla']):
+                estatus_mod = grupo['Estatus'].iloc[0]
                 
-                for t_orig in tiendas_origen:
-                    for t_dest in tiendas_destino:
-                        if t_orig != t_dest:
-                            stk_real = int(dict_stock_fisico.get(t_orig, 0))
-                            if stk_real > 0:
-                                # Candado estricto: Si es línea, el origen NO puede quedar en cero absoluto
-                                if estatus_mod not in ['S', 'P'] and stk_real < 2:
-                                    continue
-                                    
-                                cant_mover = 1
-                                propuestas_traspaso.append({
-                                    'Tienda Origen': t_orig, 'Tienda Destino': t_dest, 'Modelo': modelo,
-                                    'Estatus': estatus_mod, 'Talla': talla, 'Pares a Mover': cant_mover,
-                                    'Prioridad': '🔄 REACTIVACIÓN (Sin Venta)'
-                                })
-                                dict_stock_fisico[t_orig] -= cant_mover
-                                dict_stock_fisico[t_dest] += cant_mover
-            
-            # REGLA B: CALZADO CON HISTORIAL DE VENTA ACTIVO (TUS PARAMETROS RECONSTRUIDOS)
-            else:
-                # FILTRO ORIGEN: 
-                # - Si es saldo (S o P) puede mandar desde 1 par.
-                # - Si es línea (N) requiere estrictamente 2 o más pares para no quedarse nunca en cero.
-                if estatus_mod in ['S', 'P']:
+                dict_stock_fisico = grupo.set_index('Tienda')['Stock_Fisico'].to_dict()
+                dict_ventas = grupo.set_index('Tienda')['Ventas'].to_dict()
+                total_ventas_zona = sum(dict_ventas.values())
+                
+                # REGLA A: SIN MOVIMIENTO EN LA ZONA (DIRECCIÓN A TIENDAS IMÁN)
+                if total_ventas_zona == 0:
                     tiendas_origen = [t for t, stk in dict_stock_fisico.items() if stk >= 1]
-                else:
-                    tiendas_origen = [t for t, stk in dict_stock_fisico.items() if stk >= 2]
-                
-                # 🔥 FILTRO DESTINO RADICAL: La tienda destino DEBE tener CERO absoluto físico en inventario
-                # Y debe registrar al menos 1 venta para garantizar desplazamiento.
-                tiendas_destino = [t for t, vta in dict_ventas.items() if vta >= 1 and dict_stock_fisico.get(t, 0) == 0]
-                
-                for t_orig in tiendas_origen:
-                    for t_dest in tiendas_destino:
-                        if t_orig != t_dest:
-                            stk_real = int(dict_stock_fisico.get(t_orig, 0))
-                            vta_dest = int(dict_ventas.get(t_dest, 0))
-                            
-                            if vta_dest > 0 and stk_real > 0:
-                                if estatus_mod not in ['S', 'P']:
-                                    # Candado matemático: Deja mínimo 1 par físico libre en el anaquel de origen
-                                    cant_mover = min(stk_real - 1, vta_dest)
-                                else:
-                                    # Saldos limpia bodega por completo hasta quedar en cero
-                                    cant_mover = min(stk_real, vta_dest)
-                                
-                                if cant_mover > 0:
+                    tiendas_destino = [t for t in tiendas_imanes if dict_stock_fisico.get(t, 0) == 0]
+                    
+                    for t_orig in tiendas_origen:
+                        for t_dest in tiendas_destino:
+                            if t_orig != t_dest:
+                                stk_real = int(dict_stock_fisico.get(t_orig, 0))
+                                if stk_real > 0:
+                                    if estatus_mod not in ['S', 'P'] and stk_real < 2:
+                                        continue
+                                    cant_mover = 1
                                     propuestas_traspaso.append({
                                         'Tienda Origen': t_orig, 'Tienda Destino': t_dest, 'Modelo': modelo,
                                         'Estatus': estatus_mod, 'Talla': talla, 'Pares a Mover': cant_mover,
-                                        'Prioridad': '🚨 CRÍTICA (Quiebre)' if estatus_mod == 'N' else '📦 EVACUACIÓN (Saldo)'
+                                        'Prioridad': '🔄 REACTIVACIÓN (Sin Venta)'
                                     })
-                                    # Restamos dinámicamente en memoria para no duplicar órdenes
                                     dict_stock_fisico[t_orig] -= cant_mover
-                                    dict_ventas[t_dest] -= cant_mover
-        
-        df_propuestas = pd.DataFrame(propuestas_traspaso)
-        st.success(f"📦 ¡Enlace Perfecto! Reporte `{NOMBRE_ARCHIVO_GE}` auditado bajo tus 5 pilares operativos.")
-        
-        # Selector de sucursales para auditar salidas
-        tienda_sel = st.selectbox("Selecciona sucursal para auditar sus movimientos de SALIDA de hoy:", sorted(df_agrupado['Tienda'].unique()))
-        
-        if not df_propuestas.empty:
-            propuestas_tienda = df_propuestas[df_propuestas['Tienda Origen'] == tienda_sel]
-            propuestas_tienda_top10 = propuestas_tienda.head(10)
+                                    dict_stock_fisico[t_dest] += cant_mover
+                
+                # REGLA B: CALZADO CON VENTAS REALES (TUS 5 PARAMETROS FIJOS)
+                else:
+                    # FILTRO ORIGEN: Línea requiere >= 2 pares para no quedar jamás en cero
+                    if estatus_mod in ['S', 'P']:
+                        tiendas_origen = [t for t, stk in dict_stock_fisico.items() if stk >= 1]
+                    else:
+                        tiendas_origen = [t for t, stk in dict_stock_fisico.items() if stk >= 2]
+                    
+                    # 🔥 CANDADO ESTRICTO DESTINO: Solo tiendas cuyo stock físico actual sea CERO absoluto
+                    tiendas_destino = [t for t, vta in dict_ventas.items() if vta >= 1 and dict_stock_fisico.get(t, 0) == 0]
+                    
+                    for t_orig in tiendas_origen:
+                        for t_dest in tiendas_destino:
+                            if t_orig != t_dest:
+                                stk_real = int(dict_stock_fisico.get(t_orig, 0))
+                                vta_dest = int(dict_ventas.get(t_dest, 0))
+                                
+                                if vta_dest > 0 and stk_real > 0:
+                                    if estatus_mod not in ['S', 'P']:
+                                        cant_mover = min(stk_real - 1, vta_dest) # No permite dejar en cero al origen
+                                    else:
+                                        cant_mover = min(stk_real, vta_dest) # Saldos evacuan completo
+                                    
+                                    if cant_mover > 0:
+                                        propuestas_traspaso.append({
+                                            'Tienda Origen': t_orig, 'Tienda Destino': t_dest, 'Modelo': modelo,
+                                            'Estatus': estatus_mod, 'Talla': talla, 'Pares a Mover': cant_mover,
+                                            'Prioridad': '🚨 CRÍTICA (Quiebre)' if estatus_mod == 'N' else '📦 EVACUACIÓN (Saldo)'
+                                        })
+                                        dict_stock_fisico[t_orig] -= cant_mover
+                                        dict_ventas[t_dest] -= cant_mover
             
-            if not propuestas_tienda_top10.empty:
-                st.write(f"### 📋 Top 10 Movimientos de Salida Autorizados para Tienda {tienda_sel}")
-                st.dataframe(propuestas_tienda_top10[['Tienda Destino', 'Modelo', 'Estatus', 'Talla', 'Pares a Mover', 'Prioridad']], use_container_width=True)
+            df_propuestas = pd.DataFrame(propuestas_traspaso)
+            st.success(f"📦 ¡Enlace Perfecto! Reporte `{NOMBRE_ARCHIVO_GE}` analizado bajo tus 5 pilares operativos.")
+            
+            tienda_sel = st.selectbox("Selecciona sucursal para auditar sus movimientos de SALIDA de hoy:", sorted(df_agrupado['Tienda'].unique()))
+            
+            if not df_propuestas.empty:
+                propuestas_tienda = df_propuestas[df_propuestas['Tienda Origen'] == tienda_sel]
+                propuestas_tienda_top10 = propuestas_tienda.head(10)
+                
+                if not propuestas_tienda_top10.empty:
+                    st.write(f"### 📋 Top 10 Movimientos de Salida Autorizados para Tienda {tienda_sel}")
+                    st.dataframe(propuestas_tienda_top10[['Tienda Destino', 'Modelo', 'Estatus', 'Talla', 'Pares a Mover', 'Prioridad']], use_container_width=True)
+                else:
+                    st.info(f"✨ La Tienda {tienda_sel} se encuentra perfectamente nivelada bajo tus parámetros. No requiere salidas.")
             else:
-                st.info(f"✨ La Tienda {tienda_sel} se encuentra perfectamente nivelada bajo tus parámetros. No requiere salidas.")
+                st.info("El inventario general de la zona se encuentra óptimamente distribuido.")
         else:
-            st.info("El inventario general de la zona se encuentra óptimamente distribuido.")
+            st.info("No se encontraron registros procesables en el archivo maestro.")
             
     except Exception as e:
-        st.error(f"⚠️ Sincronizando con tu repositorio de GitHub...")
-        st.warning(f"Buscando el archivo en la ruta:\n`{URL_GITHUB_MAESTRO}`")
+        st.error(f"⚠️ Error interno en la compilación del código.")
+        st.info(f"Detalle técnico del error: {e}")
+
+# PIE DE PÁGINA
+st.markdown("""
+    <div class="footer">
+        © 2026 Gerencia Comercial Zona Occidente | KPIs Administrados por LAE. José Martín Estrada Cabrera
+    </div>
+    """, unsafe_allow_html=True)
