@@ -58,6 +58,7 @@ def enviar_correo_por_modificacion(df_ranking, ruta_archivo, ultima_modificacion
         
         meta_conv = 10.9
         meta_ticket = 1.29
+        
         logro_conv = conversion_actual >= meta_conv
         logro_ticket = ticket_actual >= meta_ticket
         
@@ -104,6 +105,7 @@ def enviar_correo_por_modificacion(df_ranking, ruta_archivo, ultima_modificacion
             return f"❌ Error al enviar el correo: {e}"
     return None
 
+
 # --- DEFINICIÓN DE LAS 7 PESTAÑAS ---
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "📊 DESEMPEÑO COMERCIAL", 
@@ -115,103 +117,257 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "🔄 NIVELACIÓN DE STOCK"
 ])
 
-# --- PESTAÑAS DEL MONITOR MANTEINDAS AL 100% ---
+# --- PESTAÑA 1: DESEMPEÑO COMERCIAL ---
 with tab1:
     if archivo_conv:
         df_c = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
         df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
+        
         col_tienda = next((c for c in df_c.columns if 'Tienda' in c or 'TIENDA' in c), df_c.columns[0])
         col_conv_real = next((c for c in df_c.columns if 'Conv' in c and 'Actual' in c), None)
         col_tkt_real = next((c for c in df_c.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
+        
         if col_conv_real and col_tkt_real:
+            meta_conv, meta_tkt = 10.9, 1.29
             df_c['CONVERSIÓN'] = df_c[col_conv_real].apply(lambda x: x*100 if x < 1 else x)
             df_c['TICKET PROMEDIO'] = df_c[col_tkt_real]
+            
             ranking = df_c[[col_tienda, 'CONVERSIÓN', 'TICKET PROMEDIO']].sort_values(by='CONVERSIÓN', ascending=False).reset_index(drop=True)
             ranking.insert(0, 'POS', range(1, len(ranking) + 1))
             ranking.columns = ['#', 'TIENDA', 'CONVERSIÓN', 'TICKET PROMEDIO']
+
             def color_semaforo(row):
-                if row['CONVERSIÓN'] >= 10.9 and row['TICKET PROMEDIO'] >= 1.29: return ['background-color: #d4edda; color: #155724'] * 4
-                elif row['CONVERSIÓN'] >= 10.9 or row['TICKET PROMEDIO'] >= 1.29: return ['background-color: #fff3cd; color: #856404'] * 4
+                c_conv = row['CONVERSIÓN'] >= meta_conv
+                c_tkt = row['TICKET PROMEDIO'] >= meta_tkt
+                if c_conv and c_tkt: return ['background-color: #d4edda; color: #155724'] * 4
+                elif c_conv or c_tkt: return ['background-color: #fff3cd; color: #856404'] * 4
                 else: return ['background-color: #f8d7da; color: #721c24'] * 4
+
             st.table(ranking.style.apply(color_semaforo, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))
+            
             mod_time = os.path.getmtime(archivo_conv)
             resultado_alerta = enviar_correo_por_modificacion(ranking, archivo_conv, mod_time, tienda_objetivo="56")
-            if resultado_alerta: st.success(resultado_alerta) if "✅" in resultado_alerta else st.error(resultado_alerta)
+            
+            if resultado_alerta:
+                if "✅" in resultado_alerta: st.success(resultado_alerta)
+                else: st.error(resultado_alerta)
 
+# --- PESTAÑA 2: COMPARATIVO MENSUAL ---
 with tab2:
     if archivo_comp:
         st.subheader("📊 Análisis Comparativo de Calzado Mensual")
         df_op = pd.read_excel(archivo_comp) if archivo_comp.endswith('.xlsx') else pd.read_csv(archivo_comp)
+        
         c_ano = next((c for c in df_op.columns if 'año' in c.lower() or 'ano' in c.lower()), df_op.columns[0])
         c_tda = next((c for c in df_op.columns if 'tienda' in c.lower() or 'sucursal' in c.lower()), df_op.columns[2])
         c_prs = next((c for c in df_op.columns if 'pares' in c.lower() or 'cant' in c.lower()), None)
         c_imp = next((c for c in df_op.columns if 'importe' in c.lower() or 'peso' in c.lower() or 'monto' in c.lower()), None)
+        c_prov = next((c for c in df_op.columns if 'prov' in c.lower()), None)
+        c_tipo = next((c for c in df_op.columns if 'tipo' in c.lower() or 'concepto' in c.lower()), None)
+        
         if c_prs and c_imp:
             df_op[c_tda] = df_op[c_tda].astype(str).str.strip()
             df_op = df_op[~df_op[c_tda].str.contains('3004|3015', na=False)]
+            if c_prov:
+                df_op = df_op[~df_op[c_prov].astype(str).str.strip().isin(['415', '426', '427'])]
+            if c_tipo:
+                df_op = df_op[~df_op[c_tipo].astype(str).str.contains('BOLSA|REUSABLE|BOLSO', case=False, na=False)]
+            
             resumen = df_op.groupby([c_tda, c_ano])[[c_prs, c_imp]].sum().unstack(fill_value=0)
             resumen.columns = ['Pares 2025', 'Pares 2026', 'Pesos 2025', 'Pesos 2026']
             resumen = resumen.reset_index()
             resumen.columns = ['TIENDA', 'PARES 2025', 'PARES 2026', 'PESOS 2025', 'PESOS 2026']
+            
             resumen['VAR PARES %'] = ((resumen['PARES 2026'] - resumen['PARES 2025']) / resumen['PARES 2025']) * 100
             resumen['VAR PESOS %'] = ((resumen['PESOS 2026'] - resumen['PESOS 2025']) / resumen['PESOS 2025']) * 100
-            st.table(resumen.sort_values(by='VAR PARES %', ascending=False).reset_index(drop=True).style.format({
+            
+            tot_p25, tot_p26 = resumen['PARES 2025'].sum(), resumen['PARES 2026'].sum()
+            tot_w25, tot_w26 = resumen['PESOS 2025'].sum(), resumen['PESOS 2026'].sum()
+            var_p_global = ((tot_p26 - tot_p25) / tot_p25) * 100
+            var_w_global = ((tot_w26 - tot_w25) / tot_w25) * 100
+            
+            c1, c2 = st.columns(2)
+            with c1:
+                signo_p = "+" if var_p_global >= 0 else ""
+                col_p = "#155724" if var_p_global >= 0 else "#721c24"
+                st.markdown(f"""
+                    <div class="kpi-box">
+                        <div class="kpi-title">📦 Total Pares Zona Occidente</div>
+                        <div class="kpi-value">{tot_p26:,.0f} Pares</div>
+                        <div class="kpi-delta" style="color: {col_p};">Variación: {signo_p}{var_p_global:.2f}% vs 2025</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            with c2:
+                signo_w = "+" if var_w_global >= 0 else ""
+                col_w = "#155724" if var_w_global >= 0 else "#721c24"
+                st.markdown(f"""
+                    <div class="kpi-box">
+                        <div class="kpi-title">💰 Total Ventas ($) Zona Occidente</div>
+                        <div class="kpi-value">${tot_w26:,.2f} MXN</div>
+                        <div class="kpi-delta" style="color: {col_w};">Variación: {signo_w}{var_w_global:.2f}% vs 2025</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            
+            st.write("<br>", unsafe_allow_html=True)
+            
+            tabla_comp = resumen[['TIENDA', 'PARES 2025', 'PARES 2026', 'VAR PARES %', 'PESOS 2025', 'PESOS 2026', 'VAR PESOS %']].sort_values(by='VAR PARES %', ascending=False).reset_index(drop=True)
+            
+            def color_variacion(val):
+                if isinstance(val, (int, float)):
+                    color = '#d4edda' if val >= 0 else '#f8d7da'
+                    texto = '#155724' if val >= 0 else '#721c24'
+                    return f'background-color: {color}; color: {texto}; font-weight: bold;'
+                return ''
+
+            st.table(tabla_comp.style.map(color_variacion, subset=['VAR PARES %', 'VAR PESOS %']).format({
                 'PARES 2025': '{:,.0f}', 'PARES 2026': '{:,.0f}', 'VAR PARES %': '{:+.2f}%',
                 'PESOS 2025': '${:,.2f}', 'PESOS 2026': '${:,.2f}', 'VAR PESOS %': '{:+.2f}%'
             }))
 
+# --- PROCESAMIENTO FILTRADO PARA RANKINGS ---
 if archivo_modelos:
     df_m = pd.read_excel(archivo_modelos) if archivo_modelos.endswith('.xlsx') else pd.read_csv(archivo_modelos)
     col_m = next((c for c in df_m.columns if c.lower() in ['clave', 'modelo', 'estilo']), df_m.columns[1])
     col_p = next((c for c in df_m.columns if c.lower() in ['pares', 'cantidad', 'venta']), df_m.columns[2])
     col_t = next((c for c in df_m.columns if c.lower() in ['tienda', 'sucursal']), df_m.columns[0])
+    col_prov = next((c for c in df_m.columns if 'prov' in c.lower()), None)
+
     df_m = df_m[~df_m[col_t].astype(str).str.contains('3004|3015', na=False)]
+    if col_prov:
+        df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])]
+    df_m = df_m[~df_m[col_m].astype(str).str.contains('BOLSA|REUSABLE', case=False, na=False)]
+
+    def resaltar_top_5(data):
+        estilo = pd.DataFrame('', index=data.index, columns=data.columns)
+        estilo.iloc[0:5, :] = 'background-color: #d1e7dd; color: #0f5132; font-weight: bold'
+        return estilo
+
     with tab3:
-        t_sel = st.selectbox("Selecciona Tienda:", sorted(df_m[col_t].unique()))
-        st.table(df_m[df_m[col_t] == t_sel].groupby(col_m)[col_p].sum().reset_index().sort_values(by=col_p, ascending=False).head(20).reset_index(drop=True))
+        tiendas = sorted(df_m[col_t].unique())
+        t_sel = st.selectbox("Selecciona Tienda:", tiendas)
+        df_tienda_data = df_m[df_m[col_t] == t_sel].groupby(col_m)[col_p].sum().reset_index()
+        top_t = df_tienda_data.sort_values(by=col_p, ascending=False).head(20).reset_index(drop=True)
+        top_t.columns = ['MODELO', 'PARES VENDIDOS']
+        st.table(top_t.style.apply(resaltar_top_5, axis=None))
+
     with tab4:
         st.subheader("🌍 Consolidado Zona Occidente")
-        st.table(df_m.groupby(col_m)[col_p].sum().reset_index().sort_values(by=col_p, ascending=False).head(20).reset_index(drop=True))
+        df_z = df_m.groupby(col_m)[col_p].sum().reset_index()
+        top_z = df_z.sort_values(by=col_p, ascending=False).head(20).reset_index(drop=True)
+        top_z.columns = ['MODELO', 'PARES VENDIDOS']
+        st.table(top_z.style.apply(resaltar_top_5, axis=None))
 
+# --- PESTAÑA 5: RUTA DEL CLIENTE ---
 with tab5:
     st.subheader("🧭 Protocolo Operativo en Piso de Venta")
-    if os.path.exists("RC Zona Occidente.png"): st.image("RC Zona Occidente.png", use_container_width=True)
+    nombre_imagen = "RC Zona Occidente.png"
+    if os.path.exists(nombre_imagen):
+        st.image(nombre_imagen, use_container_width=True)
+    else:
+        st.warning("⚠️ La imagen 'RC Zona Occidente.png' aún no se encuentra en GitHub.")
 
-# --- PESTAÑA 6: PORTAL DE CAPACITACIÓN RESPALDADO AL 100% ---
+# --- PESTAÑA 6: PORTAL DE CAPACITACIÓN Y MANUAL DE INTEGRACIÓN ---
 with tab6:
     st.markdown("## 🎓 Centro de Capacitación y Desarrollo Operativo")
-    c_izq, c_der = st.columns([1, 1])
-    with c_izq:
-        opciones_video = {"Mi Nómina Flexi": "https://youtu.be/688Bi49rI30", "Tutorial Vales de Zapatos": "https://youtu.be/6hB95lYcL1g", "Tutorial mi Flexi": "https://youtu.be/WVi8geGSeOg"}
-        v_sel = st.selectbox("Selecciona material a reproducir:", list(opciones_video.keys()))
-        st.video(opciones_video[v_sel])
-    with c_der:
+    st.write("Bienvenido al espacio interactivo para el fortalecimiento del sentido de pertenencia y alineación comercial de la Zona Occidente.")
+    
+    col_izq, col_der = st.columns([1, 1])
+    
+    with col_izq:
+        st.markdown("### 📹 Videos de Capacitación para el Personal")
+        opciones_video = {
+            "Mi Nómina Flexi": "https://youtu.be/688Bi49rI30",
+            "Tutorial Vales de Zapatos": "https://youtu.be/6hB95lYcL1g",
+            "Tutorial mi Flexi": "https://youtu.be/WVi8geGSeOg"
+        }
+        
+        video_seleccionado = st.selectbox("Selecciona el material audiovisual a reproducir:", list(opciones_video.keys()))
+        url_video = opciones_video[video_seleccionado]
+        
+        st.write("<br>", unsafe_allow_html=True)
+        st.video(url_video)
+        st.link_button(f"🚀 Clic aquí para ver {video_seleccionado} directo en YouTube", url_video, type="primary")
+        
+    with col_der:
         st.markdown("### 📘 Manual de Integración a Tiendas Flexi")
+        
         with st.expander("🎯 1. PROPÓSITO DEL MONITOR COMERCIAL"):
-            st.markdown("Monitor interactivo bajo la dirección del **LAE. José Martín Estrada Cabrera**.\n* 👟 **Ticket Promedio:** Meta 1.29 unidades.\n* 📊 **Conversión Mínima:** Meta 10.90%.")
+            st.markdown("""
+            Este monitor interactivo fue desarrollado bajo la dirección del **LAE. José Martín Estrada Cabrera** con el objetivo de centralizar, automatizar y auditar los indicadores comerciales clave de las tiendas de la Zona Occidente.
+            
+            **Metas Estratégicas de la Zona:**
+            * 👟 **Ticket Promedio:** Meta de 1.29 unidades (enfocado exclusivamente en calzado puro).
+            * 📊 **Conversión Mínima:** Meta de 10.90% en el piso de venta.
+            """)
+            
         with st.expander("📝 2. OBJETIVO DEL MANUAL Y FILOSOFÍA"):
-            st.markdown("**Plan de Retención de Personal**\n\n*Objetivo:* Reducir la rotación en los primeros 90 días con un proceso de acogida profesional y humano. La permanencia depende de la calidad de la integración inicial.")
+            st.markdown("""
+            **Plan de Retención de Personal y Fortalecimiento del Sentido de Pertenencia**
+            
+            **Objetivo General:**
+            Establecer un proceso de acogida estandarizado que reduzca la rotación de personal en los primeros 90 días, transformando la incorporación en una experiencia de bienvenida profesional y humana.
+            
+            *La permanencia del personal de nueva contratación no depende únicamente de las condiciones laborales, sino de la calidad de su integración inicial. Este espacio presents los pilares fundamentales para asegurar que el nuevo colaborador se sienta valorado, guiado y conectado con los objetivos de la organización desde su primer día.*
+            """)
+            
         with st.expander("🤝 3. PILAR I: BIENVENIDA (LOGÍSTICA Y ORDEN)"):
-            st.markdown("**Concepto:** Proyectar orden. Enviar uniforme de talla correcta y estación impecable antes de su llegada.\n**Impacto:** Elimina la ansiedad del primer día.")
+            st.markdown("""
+            **Concepto:** Proyectar orden y profesionalismo. La preparación del entorno de trabajo es el primer mensaje que el colaborador recibe sobre la cultura de la empresa.
+            
+            **La Acción:** Asegurarse de que el espacio físico esté impecable, las herramientas de trabajo (computadora, accesos, sistemas) estén configuradas y el uniforme de la talla correcta esté listo sobre su lugar antes de que el colaborador cruce la puerta (en la medida de lo posible).
+            
+            **El Impacto:** Elimina la ansiedad e incertidumbre del primer día. Comunica de forma implícita: "Te estábamos esperando y tu llegada es importante para nosotros".
+            """)
+            
         with st.expander("👥 4. PILAR II: ACOMPAÑAMIENTO (MENTORÍA)"):
-            st.markdown("**Concepto:** Sistema de compañero guía contra la soledad del novato.\n**Acción:** Mentor asignado la primera semana para resolver dudas cotidianas.")
-        with st.expander("🧭 5. PILAR III: CLARIDAD DEL PROPÓSITO"):
-            st.markdown("**Concepto:** Conectar tareas diarias con la misión general de la zona. Explicar las metas de calzado puro (Ticket Promedio 1.29 y Conversión 10.90%) para generar lealtad emocional.")
+            st.markdown("""
+            **Concepto:** Eliminar la "soledad del novato" mediante el sistema de compañero guía.
+            
+            **La Acción:** Designar a un colaborador con experiencia y actitud positiva para que actúe como mentor durante la primera semana.
+            """)
+            
+        with st.expander("🧭 5. PILAR III: CLARIDAD DEL PROPÓSITO (KPIs)"):
+            st.markdown("""
+            **Concepto:** Conectar las tareas diarias con el impacto real en el éxito de la zona y la misión de la empresa. Genera compromiso emocional. Un colaborador que encuentra propósito en su trabajo desarrolla una lealtad que va más allá de la oferta económica.
+            
+            **Enfoque Comercial Zona Occidente:**
+            Todo colaborador de nuevo ingreso debe comprender que cuidamos con excelencia comercial dos indicadores vitales de calzado puro:
+            * 👟 **Ticket Promedio:** Meta de 1.29 unidades por ticket.
+            * 📊 **Conversión:** Meta de 10.90% en piso de venta.
+            """)
+            
         with st.expander("📈 6. PILAR IV: METAS DE CORTO PLAZO"):
-            st.markdown("**Concepto:** Expectativas claras en periodos críticos.\n**Acción:** Objetivos específicos para la primera semana, 15 días y primer mes con retroalimentación constructiva.\n**Impacto:** El colaborador celebra victorias tempranas.")
+            st.markdown("""
+            **Concepto:** Brindar claridad absoluta sobre las expectativas de desempeño en la etapa crítica.
+            
+            **La Acción:** Establecer objetivos específicos, medibles y alcanzables para la primera semana, los primeros 15 días y el primer mes. Brindar retroalimentación constructiva al finalizar cada etapa.
+            
+            **El Impacto:** Reduce la frustración causada por la ambigüedad. Permite que el colaborador celebre victorias tempranas y desarrolle la autoconfianza necesaria para su profesionalización.
+            """)
+            
         with st.expander("🎉 7. PILAR V: VINCULACIÓN SOCIAL"):
-            st.markdown("**Concepto:** Humanizar la integración grupal.\n**Acción:** Dinámicas de presentación formal con el equipo completo.\n**Impacto:** Sentido de pertenencia potente ante ofertas de la competencia.")
+            st.markdown("""
+            **Concepto:** Humanizar el entorno laboral y fomentar la integración grupal.
+            
+            **La Acción:** Organizar activamente momentos de convivencia (como una dinámica de presentación) donde el equipo actual reciba formalmente al nuevo integrante.
+            
+            **El Impacto:** Rompe las barreras invisibles entre el personal antiguo y el nuevo. El sentido de pertenencia a un grupo social es el factor de retención más potente ante ofertas de la competencia.
+            
+            ---
+            *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
+            """)
 
 # ==============================================================================
-# --- PESTAÑA 7: ALGORITMO MAESTRO DE NIVELACIÓN DE ACUERDO A TU CRITERIO ---
+# --- PESTAÑA 7: NIVELACIÓN TOTALMENTE PROTEGIDA CONTRA TIENDAS VACÍAS ---
 # ==============================================================================
 with tab7:
     st.subheader("🔄 Algoritmo Maestro de Nivelación de Inventarios (2 Meses)")
-    st.write("Análisis directo basado en la base de datos de GitHub: Encontrar surtido óptimo para la tienda en cero sin dejar a nadie en ceros.")
+    st.write("Análisis automatizado directo por talla y estatus con control de stock físico real.")
 
     USUARIO_GE = "laejmestradacabrera-tech"
     REPOSITORIO_GE = "Flexi-Occidente-App"
     NOMBRE_ARCHIVO_GE = "ventas_maestro.csv" 
+    
     URL_GITHUB_MAESTRO = f"https://raw.githubusercontent.com/{USUARIO_GE}/{REPOSITORIO_GE}/main/{NOMBRE_ARCHIVO_GE}"
     
     try:
@@ -221,8 +377,8 @@ with tab7:
         df_niv = df_niv[~df_niv['Tienda'].isin([3004, 3015])]
         
         tiendas_imanes = [19, 56, 59, 133]
-
-        # Mapeo exacto de columnas de tu ERP según la auditoría de tallas
+        
+        # Mapeo exacto de columnas de tu ERP calibrado por ti
         def obtener_talla_real(modelo, num_columna):
             mod_str = str(modelo).upper()
             if any(mod_str.startswith(pre) for pre in ['CD', 'CK', 'CY', 'MD', 'VD']):
@@ -239,7 +395,7 @@ with tab7:
                 return tallas_cj.get(num_columna, None)
             return None
 
-        # Desglose vertical estricto basado en la base de datos de GitHub
+        # Desglose vertical seguro fila por fila sin consolidaciones previas ciegas
         registros_desglosados = []
         for idx, fila in df_niv.iterrows():
             modelo = fila['Modelo']
@@ -260,102 +416,100 @@ with tab7:
         
         if registros_desglosados:
             df_vertical = pd.DataFrame(registros_desglosados)
+            
+            # Agrupación por llave estricta para consolidar stock real de la zona
             df_agrupado = df_vertical.groupby(['Tienda', 'Modelo', 'Estatus', 'Talla']).agg({
-                'Stock_Fisico': 'sum', 'Ventas': 'sum'
+                'Stock_Fisico': 'sum',
+                'Ventas': 'sum'
             }).reset_index()
 
-            # INTERFAZ DIRECTA: La encargada o tú seleccionan la tienda que tiene el quiebre (La tienda de ABAJO)
-            tienda_solicitante = st.selectbox(
-                "Selecciona la sucursal que deseas abastacer o auditar sus quiebres (Destino):", 
-                sorted(df_agrupado['Tienda'].unique())
-            )
-            
             propuestas_traspaso = []
             
-            # Filtramos los quiebres de la tienda seleccionada (Tiene 0 existencias físicas pero vende)
-            df_destino_tda = df_agrupado[(df_agrupado['Tienda'] == tienda_solicitante) & (df_agrupado['Stock_Fisico'] == 0) & (df_agrupado['Ventas'] >= 1)]
-            
-            for _, fila_destino in df_destino_tda.iterrows():
-                modelo = fila_destino['Modelo']
-                talla = fila_destino['Talla']
-                estatus_mod = fila_destino['Estatus']
-                vta_dest = int(fila_destino['Ventas'])
+            # Procesamiento por modelo y talla individuales
+            for (modelo, talla), grupo in df_agrupado.groupby(['Modelo', 'Talla']):
+                estatus_mod = grupo['Estatus'].iloc[0]
                 
-                # Buscamos en el resto de las tiendas de la zona quién puede surtir este hueco de forma segura
-                grupo_origenes_potenciales = df_agrupado[(df_agrupado['Modelo'] == modelo) & (df_agrupado['Talla'] == talla) & (df_agrupado['Tienda'] != tienda_solicitante)]
+                # Diccionarios dinámicos
+                dict_stock_fisico = grupo.set_index('Tienda')['Stock_Fisico'].to_dict()
+                dict_ventas = grupo.set_index('Tienda')['Ventas'].to_dict()
+                total_ventas_zona = sum(dict_ventas.values())
                 
-                for _, fila_origen in grupo_origenes_potenciales.iterrows():
-                    t_orig = int(fila_origen['Tienda'])
-                    stk_real_orig = int(fila_origen['Stock_Fisico'])
+                # REGLA A: CALZADO SIN MOVIMIENTO EN LA ZONA (VENTAS GENERALES = 0)
+                if total_ventas_zona == 0:
+                    tiendas_origen = [t for t, stk in dict_stock_fisico.items() if stk >= 1]
+                    # BLINDAJE LOGÍSTICO COMPLETO: Verificamos con .get() de forma segura contra tiendas inexistentes
+                    tiendas_destino = [t for t in tiendas_imanes if dict_stock_fisico.get(t, 0) == 0]
                     
-                    # 🔥 CANDADO PILAR 5 DEL ORIGEN: 
-                    # Solo se le puede quitar calzado si tiene 2 o más en inventario. Ninguna tienda se queda en 0.
-                    # Excepción en Saldos/Promoción: se permite sacar si tiene >= 1 par.
-                    if estatus_mod not in ['S', 'P'] and stk_real_orig < 2:
-                        continue
-                    if estatus_mod in ['S', 'P'] and stk_real_orig < 1:
-                        continue
-                        
-                    if vta_dest > 0 and stk_real_orig > 0:
-                        if estatus_mod not in ['S', 'P']:
-                            cant_mover = min(stk_real_orig - 1, vta_dest) # Se queda con mínimo 1 par físico en stock
-                        else:
-                            cant_mover = min(stk_real_orig, vta_dest) # Saldos vacían bodega completo
-                            
-                        if cant_mover > 0:
-                            propuestas_traspaso.append({
-                                'Tienda que Envia (Origen)': t_orig,
-                                'Modelo': modelo,
-                                'Estatus': estatus_mod,
-                                'Talla': talla,
-                                'Pares a Traspasar': cant_mover,
-                                'Prioridad': '🚨 CRÍTICA (Quiebre)' if estatus_mod == 'N' else '📦 EVACUACIÓN (Saldo)'
-                            })
-                            vta_dest -= cant_mover
-            
-            # --- CASO COMPLEMENTARIO: MODELOS COMPLETAMENTE NUEVOS SIN MOVIMIENTO EN LA ZONA ---
-            df_destino_sin_mov = df_agrupado[(df_agrupado['Tienda'] == tienda_solicitante) & (df_agrupado['Stock_Fisico'] == 0)]
-            if tienda_solicitante in tiendas_imanes:
-                for _, fila_destino in df_destino_sin_mov.iterrows():
-                    modelo = fila_destino['Modelo']
-                    talla = fila_destino['Talla']
-                    estatus_mod = fila_destino['Estatus']
+                    for t_orig in tiendas_origen:
+                        for t_dest in tiendas_destino:
+                            if t_orig != t_dest:
+                                stk_real = int(dict_stock_fisico.get(t_orig, 0))
+                                if stk_real > 0:
+                                    if estatus_mod not in ['S', 'P'] and stk_real < 2:
+                                        continue # En línea cuidamos que el origen no quede en 0
+                                    cant_mover = 1
+                                    propuestas_traspaso.append({
+                                        'Tienda Origen': t_orig, 'Tienda Destino': t_dest, 'Modelo': modelo,
+                                        'Estatus': estatus_mod, 'Talla': talla, 'Pares a Mover': cant_mover,
+                                        'Prioridad': '🔄 REACTIVACIÓN (Sin Venta)'
+                                    })
+                                    dict_stock_fisico[t_orig] -= cant_mover
+                                    dict_stock_fisico[t_dest] = dict_stock_fisico.get(t_dest, 0) + cant_mover
+                
+                # REGLA B: CALZADO CON HISTORIAL DE VENTA ACTIVO (TUS PARAMETROS RECONSTRUIDOS)
+                else:
+                    # FILTRO ORIGEN: Línea requiere >= 2 pares para conservar mínimo 1 físico (NUNCA EN CEROS)
+                    if estatus_mod in ['S', 'P']:
+                        tiendas_origen = [t for t, stk in dict_stock_fisico.items() if stk >= 1]
+                    else:
+                        tiendas_origen = [t for t, stk in dict_stock_fisico.items() if stk >= 2]
                     
-                    grupo_resto = df_agrupado[(df_agrupado['Modelo'] == modelo) & (df_agrupado['Talla'] == talla) & (df_agrupado['Tienda'] != tienda_solicitante)]
-                    total_ventas_zona = grupo_resto['Ventas'].sum()
+                    # 🔥 CANDADO ESTRICTO DESTINO: Solo tiendas cuyo stock físico actual sea CERO absoluto
+                    tiendas_destino = [t for t, vta in dict_ventas.items() if vta >= 1 and dict_stock_fisico.get(t, 0) == 0]
                     
-                    if total_ventas_zona == 0: # Nadie lo ha vendido
-                        for _, fila_origen in grupo_resto.iterrows():
-                            t_orig = int(fila_origen['Tienda'])
-                            stk_real_orig = int(fila_origen['Stock_Fisico'])
-                            
-                            if estatus_mod not in ['S', 'P'] and stk_real_orig < 2:
-                                continue
-                            if estatus_mod in ['S', 'P'] and stk_real_orig < 1:
-                                continue
+                    for t_orig in tiendas_origen:
+                        for t_dest in tiendas_destino:
+                            if t_orig != t_dest:
+                                stk_real = int(dict_stock_fisico.get(t_orig, 0))
+                                vta_dest = int(dict_ventas.get(t_dest, 0))
                                 
-                            if stk_real_orig > 0:
-                                propuestas_traspaso.append({
-                                    'Tienda que Envia (Origen)': t_orig, 'Modelo': modelo, 'Estatus': estatus_mod,
-                                    'Talla': talla, 'Pares a Traspasar': 1, 'Prioridad': '🔄 REACTIVACIÓN (Sin Venta)'
-                                })
-                                break
-
+                                if vta_dest > 0 and stk_real > 0:
+                                    if estatus_mod not in ['S', 'P']:
+                                        cant_mover = min(stk_real - 1, vta_dest) # El origen se queda con mínimo 1 par físico
+                                    else:
+                                        cant_mover = min(stk_real, vta_dest) # Saldos evacuan completo
+                                    
+                                    if cant_mover > 0:
+                                        propuestas_traspaso.append({
+                                            'Tienda Origen': t_orig, 'Tienda Destino': t_dest, 'Modelo': modelo,
+                                            'Estatus': estatus_mod, 'Talla': talla, 'Pares a Mover': cant_mover,
+                                            'Prioridad': '🚨 CRÍTICA (Quiebre)' if estatus_mod == 'N' else '📦 EVACUACIÓN (Saldo)'
+                                        })
+                                        dict_stock_fisico[t_orig] -= cant_mover
+                                        dict_ventas[t_dest] -= cant_mover
+            
             df_propuestas = pd.DataFrame(propuestas_traspaso)
-            st.success(f"📦 ¡Enlace Perfecto! Base de datos de GitHub analizada bajo tus 5 pilares operativos.")
+            st.success(f"📦 ¡Enlace Perfecto! Reporte `{NOMBRE_ARCHIVO_GE}` analizado bajo tus 5 pilares operativos.")
+            
+            tienda_sel = st.selectbox("Selecciona sucursal para auditar sus movimientos de SALIDA de hoy:", sorted(df_agrupado['Tienda'].unique()))
             
             if not df_propuestas.empty:
-                st.write(f"### 📋 Propuestas de Surtido Autorizadas para la Tienda {tienda_solicitante}")
-                st.write(f"Para cubrir los quiebres de la Tienda {tienda_solicitante}, solicita retirar calzado de las siguientes sucursales con excedentes:")
-                st.dataframe(df_propuestas[['Tienda que Envia (Origen)', 'Modelo', 'Estatus', 'Talla', 'Pares a Traspasar', 'Prioridad']], use_container_width=True)
+                propuestas_tienda = df_propuestas[df_propuestas['Tienda Origen'] == tienda_sel]
+                propuestas_tienda_top10 = propuestas_tienda.head(10)
+                
+                if not propuestas_tienda_top10.empty:
+                    st.write(f"### 📋 Top 10 Movimientos de Salida Autorizados para Tienda {tienda_sel}")
+                    st.dataframe(propuestas_tienda_top10[['Tienda Destino', 'Modelo', 'Estatus', 'Talla', 'Pares a Mover', 'Prioridad']], use_container_width=True)
+                else:
+                    st.info(f"✨ La Tienda {tienda_sel} se encuentra perfectamente nivelada bajo tus parámetros. No requiere salidas.")
             else:
-                st.info(f"✨ Con base en tus archivos de GitHub, la Tienda {tienda_solicitante} se encuentra perfectamente nivelada (No hay tiendas en la zona con stock $\ge$ 2 en tus tallas en quiebre).")
+                st.info("El inventario general de la zona se encuentra óptimamente distribuido.")
         else:
             st.info("No se encontraron registros procesables en el archivo maestro.")
             
     except Exception as e:
-        st.error(f"⚠️ Esperando la sincronización con tu repositorio de GitHub...")
-        st.info(f"Buscando el archivo plano en la ruta:\n`{URL_GITHUB_MAESTRO}`")
+        st.error(f"⚠️ Error interno en la compilación del código.")
+        st.info(f"Detalle técnico del error: {e}")
 
 # PIE DE PÁGINA
 st.markdown("""
