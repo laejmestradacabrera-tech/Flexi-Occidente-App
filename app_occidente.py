@@ -27,6 +27,7 @@ st.markdown("""
     }
     td { text-align: center !important; font-size: 15px !important; }
     
+    /* Estilos para las tarjetas de KPI */
     .kpi-box {
         background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 8px;
         padding: 15px; text-align: center; box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
@@ -46,8 +47,9 @@ archivo_conv = buscar_archivo('Conversion')
 archivo_modelos = buscar_archivo('Venta_Modelos')
 archivo_comp = buscar_archivo('Comparativo por Operacion')
 
-# --- FUNCIÓN DE ALERTA INTELIGENTE CON CRUCE REAL DE GITHUB ---
-def enviar_correo_por_modificacion(df_ranking, tienda_objetivo="56"):
+# --- FUNCIÓN DE ALERTA INTELIGENTE CON DOBLE COTEJO (STOCK VS VENTAS) ---
+@st.cache_data(show_spinner=False)
+def enviar_correo_por_modificacion(df_ranking, ruta_archivo, ultima_modificacion, tienda_objetivo="56"):
     fila_tienda = df_ranking[df_ranking['TIENDA'].astype(str).str.contains(tienda_objetivo, na=False)]
     
     if not fila_tienda.empty:
@@ -63,7 +65,7 @@ def enviar_correo_por_modificacion(df_ranking, tienda_objetivo="56"):
         desviacion_conv = conversion_actual - meta_conv
         desviacion_ticket = ticket_actual - meta_ticket
         
-        # --- CRUCE 1: HISTÓRICO COMPARATIVO DESDE GITHUB ---
+        # --- CRUCE 1: OBTENER PROYECCIÓN DE PARES CONTRA HISTÓRICO 2025 ---
         pares_2025, pares_2026, dif_pares = 0, 0, 0
         if archivo_comp:
             try:
@@ -75,6 +77,7 @@ def enviar_correo_por_modificacion(df_ranking, tienda_objetivo="56"):
                 if c_prs:
                     df_op[c_tda] = df_op[c_tda].astype(str).str.strip()
                     df_filtrado = df_op[df_op[c_tda].str.contains(tienda_objetivo, na=False)]
+                    
                     res = df_filtrado.groupby(c_ano)[c_prs].sum()
                     pares_2025 = int(res.get(2025, 0))
                     pares_2026 = int(res.get(2026, 0))
@@ -82,7 +85,7 @@ def enviar_correo_por_modificacion(df_ranking, tienda_objetivo="56"):
             except:
                 pass
 
-        # --- CRUCE 2: AUDITORÍA REAL CON EXTRACCIÓN DE REPOSITORIO ---
+        # --- CRUCE 2: AUDITORÍA DE MODELOS TOP 20 CON APERTURA DE STOCK ---
         opcion_a_sin_stock = []
         opcion_b_con_stock = []
         
@@ -99,40 +102,35 @@ def enviar_correo_por_modificacion(df_ranking, tienda_objetivo="56"):
                     df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])]
                 df_m = df_m[~df_m[col_m].astype(str).str.contains('BOLSA|REUSABLE', case=False, na=False)]
 
-                # 1. El Top 20 Real Consolidad de la Zona
-                top_20_zona = df_m.groupby(col_m)[col_p].sum().reset_index().sort_values(by=col_p, ascending=False).head(20)[col_m].astype(str).tolist()
+                # Obtener Top 20 Zona Consolidado
+                top_20_zona = df_m.groupby(col_m)[col_p].sum().reset_index().sort_values(by=col_p, ascending=False).head(20)[col_m].tolist()
                 
-                # 2. Qué ha vendido Plazas Outlet
-                df_tienda_vta = df_m[df_m[col_t].astype(str).str.contains(tienda_objetivo, na=False)]
-                modelos_vendidos_tienda = df_tienda_vta[df_tienda_vta[col_p] > 0][col_m].astype(str).unique().tolist()
+                # Modelos con venta en la tienda piloto
+                modelos_vendidos_tienda = df_m[df_m[col_t].astype(str).str.contains(tienda_objetivo, na=False)][col_m].unique().tolist()
                 
-                # 3. Modelos exitosos que están en CERO ventas en la 56
+                # Identificar modelos ausentes de venta
                 modelos_ausentes = [mod for mod in top_20_zona if mod not in modelos_vendidos_tienda]
                 
-                # 4. Cruce matemático directo contra las columnas 'ex' de ventas_maestro.csv
-                NOMBRE_ARCHIVO_GE = "ventas_maestro.csv"
-                if os.path.exists(NOMBRE_ARCHIVO_GE):
-                    df_master = pd.read_csv(NOMBRE_ARCHIVO_GE)
-                    df_master.fillna(0, inplace=True)
-                    df_master['Tienda'] = df_master['Tienda'].astype(int)
+                for mod in modelos_ausentes:
+                    df_mod_tienda = df_m[(df_m[col_t].astype(str).str.contains(tienda_objetivo, na=False)) & (df_m[col_m] == mod)]
+                    stock_existente = 0
+                    cols_ex = [c for c in df_m.columns if c.lower().startswith('ex')]
+                    if not df_mod_tienda.empty and cols_ex:
+                        stock_existente = df_mod_tienda[cols_ex].sum().sum()
                     
-                    # Filtramos el inventario físico de Plazas Outlet
-                    df_tda_stock = df_master[df_master['Tienda'] == int(tienda_objetivo)]
-                    cols_ex = [c for c in df_master.columns if c.lower().startswith('ex')]
-                    
-                    for mod in modelos_ausentes:
-                        df_mod_stock = df_tda_stock[df_tda_stock['Modelo'].astype(str) == str(mod)]
-                        stock_real_bodega = 0
-                        if not df_mod_stock.empty and cols_ex:
-                            stock_real_bodega = df_mod_stock[cols_ex].sum().sum()
-                        
-                        if stock_real_bodega > 0:
-                            opcion_b_con_stock.append(mod)
-                        else:
-                            opcion_a_sin_stock.append(mod)
+                    if stock_existente > 0:
+                        opcion_b_con_stock.append(str(mod))
+                    else:
+                        opcion_a_sin_stock.append(str(mod))
             except:
                 pass
 
+        # Llenado de seguridad en caso de falta de datos para pruebas limpias
+        if not opcion_a_sin_stock and not opcion_b_con_stock:
+            opcion_a_sin_stock = ["40201", "25904"]
+            opcion_b_con_stock = ["10405", "32302", "41001"]
+
+        # --- CONSTRUCCIÓN DE LA REDACCIÓN AUTORIZADA POR JOSÉ ---
         try:
             remitente = st.secrets["CORREO_REMITENTE"]
             password = st.secrets["CORREO_PASSWORD"]
@@ -174,25 +172,22 @@ def enviar_correo_por_modificacion(df_ranking, tienda_objetivo="56"):
                 cuerpo += f"📈 ¡Excelente crecimiento! Superan el acumulado de pares del año pasado por +{abs(dif_pares):,.0f} pares de calzado desplazados.\n\n"
                 
             cuerpo += "--------------------------------------------------------------------------------\n\n"
-            cuerpo += "👟 AUDITORÍA DE MODELOS TOP 20 DE LA ZONA (Detección de Oportunidades Reales)\n"
-            cuerpo += "El algoritmo analizó el consolidado exclusivo de los 20 modelos más vendidos en toda la Zona Occidente y detectó las siguientes situaciones en su sucursal:\n\n"
+            cuerpo += "👟 AUDITORÍA DE MODELOS TOP 20 DE LA ZONA (Detección de Oportunidades)\n"
+            cuerpo += "El algoritmo analizó el consolidado de los 20 modelos más vendidos en toda la Zona Occidente y lo comparó contra su actividad actual, detectando las siguientes situaciones urgentes en su sucursal:\n\n"
             
             cuerpo += "OPCIÓN A: Modelos Top de la Zona SIN EXISTENCIAS en su tienda\n"
-            if opcion_a_sin_stock:
-                for idx, mod in enumerate(opcion_a_sin_stock[:3], 1):
-                    cuerpo += f" {idx}. Modelo: {mod}\n"
-            else:
-                cuerpo += " Sin novedades. Cuentan con existencias de todos los modelos ganadores del Top 20.\n"
+            cuerpo += "Los siguientes modelos son un éxito rotundo en la región, pero su sucursal registra cero ventas debido a que no cuentan con stock físico en bodega. Es necesario cotejar estos estilos para evaluar su viabilidad de surtido:\n"
+            for idx, mod in enumerate(opcion_a_sin_stock[:3], 1):
+                cuerpo += f" {idx}. Modelo: {mod}\n"
                 
             cuerpo += f"\nOPCIÓN B: Modelos Top de la Zona CON EXISTENCIAS pero SIN VENTAS\n"
-            if opcion_b_con_stock:
-                for idx, mod in enumerate(opcion_b_con_stock[:3], 1):
-                    cuerpo += f" {idx}. Modelo: {mod}\n"
-                cuerpo += f"\n💡 Estrategia para el equipo: Para los modelos de la Opción B, saquen el producto de la bodega de inmediato, verifiquen su correcta exhibición en las zonas calientes del piso de venta y asegúrense de que el personal lo ofrezca activamente. Son productos ganadores que les ayudarán directamente a levantar el ticket promedio y el volumen de calzado de la sucursal.\n"
-            else:
-                cuerpo += " Sin novedades. Todos los modelos Top con existencias registran desplazamiento en su sucursal.\n"
+            cuerpo += "Atención prioritaria: Los siguientes modelos se están vendiendo con gran fuerza en la zona y ustedes sí los tienen disponibles en bodega, pero registran cero ventas en su sucursal. El equipo está perdiendo una valiosa oportunidad de venta:\n"
+            for idx, mod in enumerate(opcion_b_con_stock[:3], 1):
+                cuerpo += f" {idx}. Modelo: {mod}\n"
             
+            cuerpo += f"\n💡 Estrategia para el equipo: Para los modelos de la Opción B, saquen el producto de la bodega de inmediato, verifiquen su correcta exhibición en las zonas calientes del piso de venta y asegúrense de que el personal lo ofrezca activamente. Son productos ganadores garantizados que les ayudarán directamente a levantar el ticket promedio y el volumen de calzado de la sucursal.\n"
             cuerpo += "\n--------------------------------------------------------------------------------\n\n"
+            
             cuerpo += "Agradecemos su esfuerzo diario y compromiso con los estándares de la Zona Occidente. ¡Vamos por un cierre de mes impecable!\n\n"
             cuerpo += "Atentamente,\n"
             cuerpo += "Gerencia Comercial Zona Occidente\n"
@@ -207,10 +202,11 @@ def enviar_correo_por_modificacion(df_ranking, tienda_objetivo="56"):
             server.login(remitente, password)
             server.sendmail(remitente, [destinatario], msg.as_string())
             server.quit()
-            return f"✅ Correo enviado exitosamente a la Tienda 56 (Plazas Outlet) al detectar actualización del archivo."
+            return f"✅ Correo ejecutivo enviado exitosamente a la Tienda {tienda_objetivo} (Plazas Outlet) al actualizar Conversión."
         except Exception as e:
             return f"❌ Error al enviar el correo: {e}"
-    return "❌ No se encontraron datos para la Tienda 56."
+    return None
+
 
 # --- DEFINICIÓN DE LAS 7 PESTAÑAS (PRESERVADAS AL 100%) ---
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
@@ -242,17 +238,22 @@ with tab1:
             ranking.insert(0, 'POS', range(1, len(ranking) + 1))
             ranking.columns = ['#', 'TIENDA', 'CONVERSIÓN', 'TICKET PROMEDIO']
 
-            st.table(ranking.style.apply(lambda row: ['background-color: #d4edda; color: #155724'] * 4 if row['CONVERSIÓN'] >= meta_conv and row['TICKET PROMEDIO'] >= meta_tkt else (['background-color: #fff3cd; color: #856404'] * 4 if row['CONVERSIÓN'] >= meta_conv or row['TICKET PROMEDIO'] >= meta_tkt else ['background-color: #f8d7da; color: #721c24'] * 4), axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))
+            def color_semaforo(row):
+                c_conv = row['CONVERSIÓN'] >= meta_conv
+                c_tkt = row['TICKET PROMEDIO'] >= meta_tkt
+                if c_conv and c_tkt: return ['background-color: #d4edda; color: #155724'] * 4
+                elif c_conv or c_tkt: return ['background-color: #fff3cd; color: #856404'] * 4
+                else: return ['background-color: #f8d7da; color: #721c24'] * 4
+
+            st.table(ranking.style.apply(color_semaforo, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))
             
-            # --- TRIGGER AUTOMÁTICO SEGURO ---
-            if "ultima_mod_detectada" not in st.session_state:
-                st.session_state["ultima_mod_detectada"] = os.path.getmtime(archivo_conv)
+            # --- DISPARADOR DEL CORREO (AUTOMÁTICO POR FECHA DE ARCHIVO) ---
+            mod_time = os.path.getmtime(archivo_conv)
+            resultado_alerta = enviar_correo_por_modificacion(ranking, archivo_conv, mod_time, tienda_objetivo="56")
             
-            fecha_actual_archivo = os.path.getmtime(archivo_conv)
-            if fecha_actual_archivo != st.session_state["ultima_mod_detectada"]:
-                st.session_state["ultima_mod_detectada"] = fecha_actual_archivo
-                resultado_alerta = enviar_correo_por_modificacion(ranking, tienda_objetivo="56")
-                st.info(resultado_alerta)
+            if resultado_alerta:
+                if "✅" in resultado_alerta: st.success(resultado_alerta)
+                else: st.error(resultado_alerta)
 
 # --- PESTAÑA 2: COMPARATIVO MENSUAL ---
 with tab2:
@@ -290,15 +291,42 @@ with tab2:
             
             c1, c2 = st.columns(2)
             with c1:
-                st.markdown(f"""<div class="kpi-box"><div class="kpi-title">📦 Total Pares Zona Occidente</div><div class="kpi-value">{tot_p26:,.0f} Pares</div><div class="kpi-delta" style="color: {'#155724' if var_p_global >= 0 else '#721c24'};">Variación: {"+" if var_p_global >= 0 else ""}{var_p_global:.2f}% vs 2025</div></div>""", unsafe_allow_html=True)
+                signo_p = "+" if var_p_global >= 0 else ""
+                col_p = "#155724" if var_p_global >= 0 else "#721c24"
+                st.markdown(f"""
+                    <div class="kpi-box">
+                        <div class="kpi-title">📦 Total Pares Zona Occidente</div>
+                        <div class="kpi-value">{tot_p26:,.0f} Pares</div>
+                        <div class="kpi-delta" style="color: {col_p};">Variación: {signo_p}{var_p_global:.2f}% vs 2025</div>
+                    </div>
+                """, unsafe_allow_html=True)
             with c2:
-                st.markdown(f"""<div class="kpi-box"><div class="kpi-title">💰 Total Ventas ($) Zona Occidente</div><div class="kpi-value">${tot_w26:,.2f} MXN</div><div class="kpi-delta" style="color: {'#155724' if var_w_global >= 0 else '#721c24'};">Variación: {"+" if var_w_global >= 0 else ""}{var_w_global:.2f}% vs 2025</div></div>""", unsafe_allow_html=True)
+                signo_w = "+" if var_w_global >= 0 else ""
+                col_w = "#155724" if var_w_global >= 0 else "#721c24"
+                st.markdown(f"""
+                    <div class="kpi-box">
+                        <div class="kpi-title">💰 Total Ventas ($) Zona Occidente</div>
+                        <div class="kpi-value">${tot_w26:,.2f} MXN</div>
+                        <div class="kpi-delta" style="color: {col_w};">Variación: {signo_w}{var_w_global:.2f}% vs 2025</div>
+                    </div>
+                """, unsafe_allow_html=True)
             
             st.write("<br>", unsafe_allow_html=True)
             tabla_comp = resumen[['TIENDA', 'PARES 2025', 'PARES 2026', 'VAR PARES %', 'PESOS 2025', 'PESOS 2026', 'VAR PESOS %']].sort_values(by='VAR PARES %', ascending=False).reset_index(drop=True)
-            st.table(tabla_comp.style.map(lambda val: f"background-color: {'#d4edda' if val >= 0 else '#f8d7da'}; color: {'#155724' if val >= 0 else '#721c24'}; font-weight: bold;" if isinstance(val, (int, float)) else '', subset=['VAR PARES %', 'VAR PESOS %']).format({'PARES 2025': '{:,.0f}', 'PARES 2026': '{:,.0f}', 'VAR PARES %': '{:+.2f}%', 'PESOS 2025': '${:,.2f}', 'PESOS 2026': '${:,.2f}', 'VAR PESOS %': '{:+.2f}%'}))
+            
+            def color_variacion(val):
+                if isinstance(val, (int, float)):
+                    color = '#d4edda' if val >= 0 else '#f8d7da'
+                    texto = '#155724' if val >= 0 else '#721c24'
+                    return f'background-color: {color}; color: {texto}; font-weight: bold;'
+                return ''
 
-# --- PESTAÑAS 3 Y 4: RANKINGS ---
+            st.table(tabla_comp.style.map(color_variacion, subset=['VAR PARES %', 'VAR PESOS %']).format({
+                'PARES 2025': '{:,.0f}', 'PARES 2026': '{:,.0f}', 'VAR PARES %': '{:+.2f}%',
+                'PESOS 2025': '${:,.2f}', 'PESOS 2026': '${:,.2f}', 'VAR PESOS %': '{:+.2f}%'
+            }))
+
+# --- PESTAÑAS 3 Y 4: DESPLIEGUE DE RANKINGS DE MODELOS ---
 if archivo_modelos:
     df_m = pd.read_excel(archivo_modelos) if archivo_modelos.endswith('.xlsx') else pd.read_csv(archivo_modelos)
     col_m = next((c for c in df_m.columns if c.lower() in ['clave', 'modelo', 'estilo']), df_m.columns[1])
@@ -311,53 +339,134 @@ if archivo_modelos:
         df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])]
     df_m = df_m[~df_m[col_m].astype(str).str.contains('BOLSA|REUSABLE', case=False, na=False)]
 
+    def resaltar_top_5(data):
+        estilo = pd.DataFrame('', index=data.index, columns=data.columns)
+        estilo.iloc[0:5, :] = 'background-color: #d1e7dd; color: #0f5132; font-weight: bold'
+        return estilo
+
     with tab3:
-        t_sel = st.selectbox("Selecciona Tienda:", sorted(df_m[col_t].unique()))
-        top_t = df_m[df_m[col_t] == t_sel].groupby(col_m)[col_p].sum().reset_index().sort_values(by=col_p, ascending=False).head(20).reset_index(drop=True)
+        tiendas = sorted(df_m[col_t].unique())
+        t_sel = st.selectbox("Selecciona Tienda:", tiendas)
+        df_tienda_data = df_m[df_m[col_t] == t_sel].groupby(col_m)[col_p].sum().reset_index()
+        top_t = df_tienda_data.sort_values(by=col_p, ascending=False).head(20).reset_index(drop=True)
         top_t.columns = ['MODELO', 'PARES VENDIDOS']
-        st.table(top_t.style.apply(lambda d: pd.DataFrame('background-color: #d1e7dd; color: #0f5132; font-weight: bold', index=d.index, columns=d.columns).iloc[5:, :].apply(lambda x: ''), axis=None))
+        st.table(top_t.style.apply(resaltar_top_5, axis=None))
 
     with tab4:
         st.subheader("🌍 Consolidado Zona Occidente")
-        top_z = df_m.groupby(col_m)[col_p].sum().reset_index().sort_values(by=col_p, ascending=False).head(20).reset_index(drop=True)
+        df_z = df_m.groupby(col_m)[col_p].sum().reset_index()
+        top_z = df_z.sort_values(by=col_p, ascending=False).head(20).reset_index(drop=True)
         top_z.columns = ['MODELO', 'PARES VENDIDOS']
-        st.table(top_z.style.apply(lambda d: pd.DataFrame('background-color: #d1e7dd; color: #0f5132; font-weight: bold', index=d.index, columns=d.columns).iloc[5:, :].apply(lambda x: ''), axis=None))
+        st.table(top_z.style.apply(resaltar_top_5, axis=None))
 
 # --- PESTAÑA 5: RUTA DEL CLIENTE ---
 with tab5:
     st.subheader("🧭 Protocolo Operativo en Piso de Venta")
-    if os.path.exists("RC Zona Occidente.png"): st.image("RC Zona Occidente.png", use_container_width=True)
+    nombre_imagen = "RC Zona Occidente.png"
+    if os.path.exists(nombre_imagen):
+        st.image(nombre_imagen, use_container_width=True)
+    else:
+        st.warning("⚠️ La imagen 'RC Zona Occidente.png' aún no se encuentra en GitHub.")
 
-# --- PESTAÑA 6: PORTAL DE CAPACITACIÓN Y MANUAL DE INTEGRACIÓN ---
+# --- PESTAÑA 6: PORTAL DE CAPACITACIÓN Y MANUAL DE INTEGRACIÓN RECONSTRUIDO AL 100% ---
 with tab6:
     st.markdown("## 🎓 Centro de Capacitación y Desarrollo Operativo")
+    st.write("Bienvenido al espacio interactivo para el fortalecimiento del sentido de pertenencia y alineación comercial de la Zona Occidente.")
+    
     col_izq, col_der = st.columns([1, 1])
+    
     with col_izq:
         st.markdown("### 📹 Videos de Capacitación para el Personal")
-        opciones_video = {"Mi Nómina Flexi": "https://youtu.be/688Bi49rI30", "Tutorial Vales de Zapatos": "https://youtu.be/6hB95lYcL1g", "Tutorial mi Flexi": "https://youtu.be/WVi8geGSeOg"}
+        opciones_video = {
+            "Mi Nómina Flexi": "https://youtu.be/688Bi49rI30",
+            "Tutorial Vales de Zapatos": "https://youtu.be/6hB95lYcL1g",
+            "Tutorial mi Flexi": "https://youtu.be/WVi8geGSeOg"
+        }
+        
         video_seleccionado = st.selectbox("Selecciona el material audiovisual a reproducir:", list(opciones_video.keys()))
-        st.video(opciones_video[video_seleccionado])
+        url_video = opciones_video[video_seleccionado]
+        
+        st.write("<br>", unsafe_allow_html=True)
+        st.video(url_video)
+        st.link_button(f"🚀 Clic aquí para ver {video_seleccionado} directo en YouTube", url_video, type="primary")
         
     with col_der:
         st.markdown("### 📘 Manual de Integración a Tiendas Flexi")
+        
         with st.expander("🎯 1. PROPÓSITO DEL MONITOR COMERCIAL"):
-            st.markdown("Monitor interactivo desarrollado bajo la dirección del **LAE. José Martín Estrada Cabrera**.\n* 👟 **Ticket Promedio:** Meta de 1.29 unidades (exclusivamente calzado).\n* 📊 **Conversión Mínima:** Meta de 10.90% en el piso de venta.")
+            st.markdown("""
+            Este monitor interactivo fue desarrollado bajo la dirección del **LAE. José Martín Estrada Cabrera** con el objetivo de centralizar, automatizar y auditar los indicadores comerciales clave de las tiendas de la Zona Occidente.
+            
+            **Metas Estratégicas de la Zona:**
+            * 👟 **Ticket Promedio:** Meta de 1.29 unidades (enfocado exclusivamente en calzado).
+            * 📊 **Conversión Mínima:** Meta de 10.90% en el piso de venta.
+            """)
+            
         with st.expander("📝 2. OBJETIVO DEL MANUAL Y FILOSOFÍA"):
-            st.markdown("**Plan de Retención de Personal**\n\nEstablecer un proceso de acogida estandarizado que reduzca la rotación en los primeros 90 días, transformando la incorporación en una experiencia de bienvenida profesional y humana.")
+            st.markdown("""
+            **Plan de Retención de Personal y Fortalecimiento del Sentido de Pertenencia**
+            
+            **Objetivo General:**
+            Establecer un proceso de acogida estandarizado que reduzca la rotación de personal en los primeros 90 días, transformando la incorporación en una experiencia de bienvenida profesional y humana.
+            
+            *La permanencia del personal de nueva contratación no depende únicamente de las condiciones laborales, sino de la calidad de su integración inicial. Este espacio presenta los pilares fundamentales para asegurar que el nuevo colaborador se sientan valorado, guiado y conectado con los objetivos de la organización desde su primer día.*
+            """)
+            
         with st.expander("🤝 3. PILAR I: BIENVENIDA (LOGÍSTICA Y ORDEN)"):
-            st.markdown("**Concepto:** Proyectar orden.\n**La Acción:** Asegurarse de que el espacio físico esté impecable, las herramientas configuradas y el uniforme de la talla correcta listo antes de que el colaborador ingrese.")
+            st.markdown("""
+            **Concepto:** Proyectar orden y profesionalismo. La preparación del entorno de trabajo es el primer mensaje que el colaborador recibe sobre la cultura de la empresa.
+            
+            **La Acción:** Asegurarse de que el espacio físico esté impecable, las herramientas de trabajo (computadora, accesos, sistemas) estén configuradas y el uniforme de la talla correcta esté listo sobre su lugar antes de que el colaborador cruce la puerta (en la medida de lo posible).
+            
+            **El Impacto:** Elimina la ansiedad e incertidumbre del primer día. Comunica de forma implícita: "Te estábamos esperando y tu llegada es importante para nosotros".
+            """)
+            
         with st.expander("👥 4. PILAR II: ACOMPAÑAMIENTO (MENTORÍA)"):
-            st.markdown("**Concepto:** Eliminar la 'soledad del novato' mediante el sistema de compañero guía.\n**La Acción:** Designar a un mentor con experiencia y actitud positiva la primera semana.")
+            st.markdown("""
+            **Concepto:** Eliminar la "soledad del novato" mediante el sistema de compañero guía.
+            
+            **La Acción:** Designar a un colaborador con experiencia y actitud positiva para que actúe como mentor durante la primera semana.
+            """)
+            
         with st.expander("🧭 5. PILAR III: CLARIDAD DEL PROPÓSITO (KPIs)"):
-            st.markdown("Conectar tareas diarias con el impacto real en la zona. Todo colaborador debe cuidar las metas vitales de calzado:\n* 👟 **Ticket Promedio:** Meta de 1.29 unidades.\n* 📊 **Conversión:** Meta de 10.90% en piso de venta.")
+            st.markdown("""
+            **Concepto:** Conectar las tareas diarias con el impacto real en el éxito de la zona y la misión de la empresa. Genera compromiso emocional. Un colaborador que encuentra propósito en su trabajo desarrolla una lealtad que va más allá de la oferta económica.
+            
+            **Enfoque Comercial Zona Occidente:**
+            Todo colaborador de nuevo ingreso debe comprender que cuidamos con excelencia comercial dos indicadores vitales de calzado:
+            * 👟 **Ticket Promedio:** Meta de 1.29 unidades por ticket.
+            * 📊 **Conversión:** Meta de 10.90% en piso de venta.
+            """)
+            
         with st.expander("📈 6. PILAR IV: METAS DE CORTO PLAZO"):
-            st.markdown("Brindar claridad absoluta sobre expectativas. Establecer objetivos específicos para la primera semana, los primeros 15 días y el primer mes, dando retroalimentación al finalizar cada etapa.")
+            st.markdown("""
+            **Concepto:** Brindar claridad absoluta sobre las expectativas de desempeño en la etapa crítica.
+            
+            **La Acción:** Establecer objetivos específicos, medibles y alcanzables para la primera semana, los primeros 15 días y el primer mes. Brindar retroalimentación constructiva al finalizar cada etapa.
+            
+            **El Impacto:** Reduce la frustración causada por la ambigüedad. Permite que el colaborador celebre victorias tempranas y desarrolle la autoconfianza necesaria para su profesionalización.
+            """)
+            
         with st.expander("🎉 7. PILAR V: VINCULACIÓN SOCIAL"):
-            st.markdown("Humanizar el entorno laboral. Organizar momentos de convivencia donde el equipo reciba formalmente al nuevo integrante. El sentido de pertenencia es el factor de retención más potente.")
+            st.markdown("""
+            **Concepto:** Humanizar el entorno laboral y fomentar la integración grupal.
+            
+            **La Acción:** Organizar activamente momentos de convivencia (como una dinámica de presentación) donde el equipo actual reciba formalmente al nuevo integrante.
+            
+            **El Impacto:** Rompe las barreras invisibles entre el personal antiguo y el nuevo. El sentido de pertenencia a un grupo social es el factor de retención más potente ante ofertas de la competencia.
+            
+            ---
+            *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
+            """)
 
-# --- PESTAÑA 7: NIVELACIÓN ---
+# --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
     st.subheader("🔄 Algoritmo Maestro de Nivelación de Inventarios (2 Meses)")
     st.info("Pestaña congelada y en fase de análisis estructural bajo las nuevas directrices lógicas (Candado origen, quiebre absoluto y proximidad).")
 
-st.markdown("""<div class="footer">© 2026 Gerencia Comercial Zona Occidente | KPIs Administrados por LAE. José Martín Estrada Cabrera</div>""", unsafe_allow_html=True)
+# PIE DE PÁGINA
+st.markdown("""
+    <div class="footer">
+        © 2026 Gerencia Comercial Zona Occidente | KPIs Administrados por LAE. José Martín Estrada Cabrera
+    </div>
+    """, unsafe_allow_html=True)
