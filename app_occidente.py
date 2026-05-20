@@ -93,7 +93,7 @@ def enviar_correo_por_modificacion(df_ranking, ruta_archivo, ultima_modificacion
             try:
                 df_m = pd.read_excel(archivo_modelos) if archivo_modelos.endswith('.xlsx') else pd.read_csv(archivo_modelos)
                 col_m = next((c for c in df_m.columns if c.lower() in ['clave', 'modelo', 'estilo']), df_m.columns[1])
-                col_p = next((c for c in df_m.columns if c.lower() in ['pares', 'cantidad', 'venta']), df_m.columns[2])
+                col_p = next((c for c in df_m.columns if 'pares' in c.lower() or 'cantidad' in c.lower() or 'venta' in c.lower()), df_m.columns[2])
                 col_t = next((c for c in df_m.columns if 'tienda' in c.lower() or 'sucursal' in c.lower()), df_m.columns[0])
                 col_prov = next((c for c in df_m.columns if 'prov' in c.lower()), None)
 
@@ -111,11 +111,8 @@ def enviar_correo_por_modificacion(df_ranking, ruta_archivo, ultima_modificacion
                 # Identificar modelos ausentes de venta
                 modelos_ausentes = [mod for mod in top_20_zona if mod not in modelos_vendidos_tienda]
                 
-                # Mapear stock real de la tienda desde el archivo de ventas maestro o dataframe para clasificar en opción A o B
-                # Nota: Simulamos la búsqueda de existencias sobre las columnas de inventario (ex)
                 for mod in modelos_ausentes:
                     df_mod_tienda = df_m[(df_m[col_t].astype(str).str.contains(tienda_objetivo, na=False)) & (df_m[col_m] == mod)]
-                    # Si no hay registro o las columnas de existencias reportan 0
                     stock_existente = 0
                     cols_ex = [c for c in df_m.columns if c.lower().startswith('ex')]
                     if not df_mod_tienda.empty and cols_ex:
@@ -166,9 +163,9 @@ def enviar_correo_por_modificacion(df_ranking, ruta_archivo, ultima_modificacion
             cuerpo += "--------------------------------------------------------------------------------\n\n"
             
             cuerpo += "📦 PROYECCIÓN CONTRA HISTÓRICO 2025\n"
-            cuerpo += "Para medir el verdadero crecimiento de la sucursal, el monitor cruzó sus cifras actuales acumuladas contra el mismo periodo del año anterior (excluyendo mermas y accesorios):\n"
-            cuerpo += f" * Pares acumulados vendidos en 2025: {pares_2025:,.0f}\n"
-            cuerpo += f" * Pares acumulados vendidos en 2026: {pares_2026:,.0f}\n\n"
+            cuerpo += "Para medir el verdadero crecimiento de la sucursal, el monitor cruzó sus cifras actuales acumuladas contra el mismo periodo del año anterior (excluyendo mermas and accesorios):\n"
+            cuerpo += f" * Pares acumulados vendidos in 2025: {pares_2025:,.0f}\n"
+            cuerpo += f" * Pares acumulados vendidos in 2026: {pares_2026:,.0f}\n\n"
             if dif_pares > 0:
                 cuerpo += f"📉 Reto Comercial: Al día de hoy, les hace falta desplazar exactamente {dif_pares:,.0f} pares de calzado para igualar y superar el volumen histórico del año pasado. Cada cliente que cruza la puerta cuenta para cerrar esta brecha.\n\n"
             else:
@@ -333,7 +330,7 @@ with tab2:
 if archivo_modelos:
     df_m = pd.read_excel(archivo_modelos) if archivo_modelos.endswith('.xlsx') else pd.read_csv(archivo_modelos)
     col_m = next((c for c in df_m.columns if c.lower() in ['clave', 'modelo', 'estilo']), df_m.columns[1])
-    col_p = next((c for c in df_m.columns if f.lower() in ['pares', 'cantidad', 'venta'] for f in [c]), df_m.columns[2])
+    col_p = next((c for c in df_m.columns if 'pares' in c.lower() or 'cantidad' in c.lower() or 'venta' in c.lower()), df_m.columns[2])
     col_t = next((c for c in df_m.columns if c.lower() in ['tienda', 'sucursal']), df_m.columns[0])
     col_prov = next((c for c in df_m.columns if 'prov' in c.lower()), None)
 
@@ -389,7 +386,7 @@ with tab6:
         with st.expander("📝 FILOSOFÍA DEL MANUAL Y PILARES"):
             st.write("Plan de Retención enfocado en los 5 pilares operativos para el control de rotación de personal.")
 
-# --- PESTAÑA 7: NIVELACIÓN DE STOCK (PRESERVADA PARA PRÓXIMO ANÁLISIS) ---
+# --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
     st.subheader("🔄 Algoritmo Maestro de Nivelación de Inventarios (2 Meses)")
     st.info("Pestaña congelada y en fase de análisis estructural bajo las nuevas directrices lógicas (Candado origen, quiebre absoluto y proximidad).")
