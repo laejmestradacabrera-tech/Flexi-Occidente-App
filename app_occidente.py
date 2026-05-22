@@ -406,7 +406,6 @@ with tab2:
                 'PARES 2025': '{:,.0f}', 'PARES 2026': '{:,.0f}', 'VAR PARES %': '{:+.2f}%',
                 'PESOS 2025': '${:,.2f}', 'PESOS 2026': '${:,.2f}', 'VAR PESOS %': '{:+.2f}%'
             }))
-
 # --- PESTAÑAS 3 Y 4: DESPLIEGUE DE RANKINGS DE MODELOS ---
 if archivo_modelos:
     df_m = pd.read_excel(archivo_modelos) if archivo_modelos.endswith('.xlsx') else pd.read_csv(archivo_modelos)
@@ -433,22 +432,7 @@ if archivo_modelos:
         top_t.columns = ['MODELO', 'PARES VENDIDOS']
         st.table(top_t.style.apply(resaltar_top_5, axis=None))
 
-    with tab4:
-        st.subheader("🌍 Consolidado Zona Occidente")
-        df_z = df_m.groupby(col_m)[col_p].sum().reset_index()
-        top_z = df_z.sort_values(by=col_p, ascending=False).head(20).reset_index(drop=True)
-        top_z.columns = ['MODELO', 'PARES VENDIDOS']
-        st.table(top_z.style.apply(resaltar_top_5, axis=None))
-        with tab3:
-        tiendas = sorted(df_m[col_t].unique())
-        t_sel = st.selectbox("Selecciona Tienda:", tiendas)
-        df_tienda_data = df_m[df_m[col_t] == t_sel].groupby(col_m)[col_p].sum().reset_index()
-        top_t = df_tienda_data.sort_values(by=col_p, ascending=False).head(20).reset_index(drop=True)
-        top_t.columns = ['MODELO', 'PARES VENDIDOS']
-        st.table(top_t.style.apply(resaltar_top_5, axis=None))
-        
         # --- BOTÓN DE DESCARGA DE REPORTE EN PDF ---
-        # FÍJATE COMO AQUÍ HAY 8 ESPACIOS ANTES DE LA PALABRA pdf_bytes
         pdf_bytes = generar_reporte_top20_pdf(
             df_top20=top_t, 
             nombre_sucursal=str(t_sel)
