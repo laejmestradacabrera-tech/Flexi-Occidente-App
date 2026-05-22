@@ -439,18 +439,18 @@ if archivo_modelos:
         top_z = df_z.sort_values(by=col_p, ascending=False).head(20).reset_index(drop=True)
         top_z.columns = ['MODELO', 'PARES VENDIDOS']
         st.table(top_z.style.apply(resaltar_top_5, axis=None))
-# --- BOTÓN DE DESCARGA DE REPORTE ---
-        txt_reporte = generar_reporte_top20_txt(
+        # --- BOTÓN DE DESCARGA DE REPORTE EN PDF ---
+        pdf_bytes = generar_reporte_top20_pdf(
             df_top20=top_t, 
             nombre_sucursal=str(t_sel)
         )
 
         st.write("<br>", unsafe_allow_html=True)
         st.download_button(
-            label="📄 Descargar Formato de Auditoría (Para Imprimir en Tamaño Carta)",
-            data=txt_reporte,
-            file_name=f"Auditoria_Top20_{t_sel}.txt",
-            mime="text/plain",
+            label="📄 Descargar Formato de Auditoría (PDF Oficial)",
+            data=pdf_bytes,
+            file_name=f"Auditoria_Top20_{t_sel}.pdf",
+            mime="application/pdf",
             type="primary"
         )
 # --- PESTAÑA 5: RUTA DEL CLIENTE ---
