@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import smtplib
 from email.mime.text import MIMEText
-
+import datetime
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(page_title="Monitor Comercial Occidente", layout="wide")
 
