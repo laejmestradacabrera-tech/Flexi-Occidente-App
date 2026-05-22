@@ -207,47 +207,88 @@ def enviar_correo_por_modificacion(df_ranking, ruta_archivo, ultima_modificacion
         except Exception as e:
             return f"❌ Error al enviar el correo: {e}"
     return None
-
-# --- GENERADOR DEL REPORTE TOP 20 EN TEXTO PLANO ---
-def generar_reporte_top20_txt(df_top20, nombre_sucursal):
+# --- GENERADOR DEL REPORTE TOP 20 EN PDF ---
+def generar_reporte_top20_pdf(df_top20, nombre_sucursal):
     fecha_actual = datetime.datetime.now().strftime("%d/%m/%Y")
     
-    reporte =  "================================================================================\n"
-    reporte += "🔴 FLEXI - ZONA OCCIDENTE\n"
-    reporte += "AUDITORIA COMERCIAL: TOP 20 MODELOS DE LA SUCURSAL\n"
-    reporte += "================================================================================\n\n"
-    reporte += f"Fecha de Reporte: {fecha_actual}\n"
-    reporte += f"Sucursal:         {nombre_sucursal}\n"
-    reporte += "Encargada:        _______________________\n"
-    reporte += "Gerente Comercial: LAE. Jose Martin Estrada Cabrera\n\n"
+    # Configuración de hoja tamaño Carta
+    pdf = FPDF(orientation='P', unit='mm', format='Letter')
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
     
-    reporte += "--------------------------------------------------------------------------------\n"
-    reporte += "#   | MODELO     | PARES VENDIDOS | DESEMPENO EN LA ZONA OCCIDENTE\n"
-    reporte += "--------------------------------------------------------------------------------\n"
+    # 1. ENCABEZADO INSTITUCIONAL
+    pdf.set_font("Arial", 'B', 16)
+    pdf.set_text_color(227, 6, 19) # Rojo Flexi
+    pdf.cell(0, 8, "FLEXI - ZONA OCCIDENTE", ln=True, align="C")
     
+    pdf.set_font("Arial", 'B', 12)
+    pdf.set_text_color(50, 50, 50)
+    pdf.cell(0, 8, "AUDITORIA COMERCIAL: TOP 20 MODELOS DE LA SUCURSAL", ln=True, align="C")
+    pdf.line(10, 28, 205, 28)
+    pdf.ln(8)
+    
+    # 2. DATOS DE LA SUCURSAL
+    pdf.set_font("Arial", '', 10)
+    pdf.cell(40, 6, "Fecha de Reporte:", 0, 0)
+    pdf.cell(60, 6, fecha_actual, 0, 0)
+    pdf.cell(35, 6, "Encargada:", 0, 0)
+    pdf.cell(60, 6, "_______________________", 0, 1)
+    
+    pdf.cell(40, 6, "Sucursal:", 0, 0)
+    pdf.cell(60, 6, nombre_sucursal, 0, 0)
+    pdf.cell(35, 6, "Gerente Comercial:", 0, 0)
+    pdf.cell(60, 6, "LAE. Jose Martin Estrada Cabrera", 0, 1)
+    pdf.ln(8)
+    
+    # 3. ENCABEZADO DE LA TABLA
+    pdf.set_font("Arial", 'B', 9)
+    pdf.set_fill_color(227, 6, 19)
+    pdf.set_text_color(255, 255, 255)
+    pdf.cell(15, 8, "#", 1, 0, 'C', fill=True)
+    pdf.cell(30, 8, "MODELO", 1, 0, 'C', fill=True)
+    pdf.cell(40, 8, "PARES VENDIDOS", 1, 0, 'C', fill=True)
+    pdf.cell(110, 8, "DESEMPENO EN LA ZONA OCCIDENTE", 1, 1, 'C', fill=True)
+    
+    # 4. LLENADO DE DATOS
+    pdf.set_font("Arial", '', 9)
+    pdf.set_text_color(0, 0, 0)
     for i, row in df_top20.iterrows():
         posicion = i + 1
-        modelo = str(row.get('MODELO', 'S/D')).ljust(10)
-        pares = str(row.get('PARES VENDIDOS', '0')).ljust(14)
+        modelo = str(row.get('MODELO', 'S/D'))
+        pares = str(row.get('PARES VENDIDOS', '0'))
         
-        if posicion <= 5:
-            desempeno = "Top 5 mas vendido en la region"
-        elif posicion <= 10:
-            desempeno = "Alta demanda en la zona"
-        else:
-            desempeno = "Desplazamiento regular"
+        if posicion <= 5: desempeno = "Top 5 mas vendido en la region"
+        elif posicion <= 10: desempeno = "Alta demanda en la zona"
+        else: desempeno = "Desplazamiento regular"
             
-        reporte += f"{posicion:02d}  | {modelo} | {pares} | {desempeno}\n"
+        pdf.cell(15, 7, f"{posicion:02d}", 1, 0, 'C')
+        pdf.cell(30, 7, modelo, 1, 0, 'C')
+        pdf.cell(40, 7, pares, 1, 0, 'C')
+        pdf.cell(110, 7, desempeno, 1, 1, 'L')
         
-    reporte += "--------------------------------------------------------------------------------\n\n"
-    reporte += "Nota: Este documento sirve como guia visual para que el equipo en piso valide \n"
-    reporte += "fisicamente en su bodega que estos modelos ganadores esten exhibidos.\n\n\n\n"
-    reporte += "    _______________________                         _______________________\n"
-    reporte += "     Firma de la Encargada                           LAE. Jose Martin Estrada\n"
-    reporte += "                                                       Gerente Comercial\n\n\n"
-    reporte += "================================================================================\n"
+    pdf.ln(10)
     
-    return reporte
+    # 5. FIRMAS
+    pdf.set_font("Arial", 'I', 9)
+    pdf.set_text_color(80, 80, 80)
+    pdf.multi_cell(0, 5, "Nota: Este documento sirve como guia visual para que el equipo en piso valide fisicamente en su bodega que estos modelos ganadores esten exhibidos.")
+    pdf.ln(25)
+    
+    pdf.set_font("Arial", '', 10)
+    pdf.set_text_color(0, 0, 0)
+    pdf.cell(90, 5, "_______________________", 0, 0, 'C')
+    pdf.cell(15, 5, "", 0, 0)
+    pdf.cell(90, 5, "_______________________", 0, 1, 'C')
+    
+    pdf.cell(90, 5, "Firma de la Encargada", 0, 0, 'C')
+    pdf.cell(15, 5, "", 0, 0)
+    pdf.cell(90, 5, "LAE. Jose Martin Estrada", 0, 1, 'C')
+    
+    pdf.cell(90, 5, "Responsable de Sucursal", 0, 0, 'C')
+    pdf.cell(15, 5, "", 0, 0)
+    pdf.cell(90, 5, "Gerente Comercial", 0, 1, 'C')
+    
+    return bytes(pdf.output(dest='S').encode('latin1'))
 # --- DEFINICIÓN DE LAS 7 PESTAÑAS (PRESERVADAS AL 100%) ---
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "📊 DESEMPEÑO COMERCIAL", 
