@@ -207,7 +207,46 @@ def enviar_correo_por_modificacion(df_ranking, ruta_archivo, ultima_modificacion
             return f"❌ Error al enviar el correo: {e}"
     return None
 
-
+# --- GENERADOR DEL REPORTE TOP 20 EN TEXTO PLANO ---
+def generar_reporte_top20_txt(df_top20, nombre_sucursal):
+    fecha_actual = datetime.datetime.now().strftime("%d/%m/%Y")
+    
+    reporte =  "================================================================================\n"
+    reporte += "🔴 FLEXI - ZONA OCCIDENTE\n"
+    reporte += "AUDITORIA COMERCIAL: TOP 20 MODELOS DE LA SUCURSAL\n"
+    reporte += "================================================================================\n\n"
+    reporte += f"Fecha de Reporte: {fecha_actual}\n"
+    reporte += f"Sucursal:         {nombre_sucursal}\n"
+    reporte += "Encargada:        _______________________\n"
+    reporte += "Gerente Comercial: LAE. Jose Martin Estrada Cabrera\n\n"
+    
+    reporte += "--------------------------------------------------------------------------------\n"
+    reporte += "#   | MODELO     | PARES VENDIDOS | DESEMPENO EN LA ZONA OCCIDENTE\n"
+    reporte += "--------------------------------------------------------------------------------\n"
+    
+    for i, row in df_top20.iterrows():
+        posicion = i + 1
+        modelo = str(row.get('MODELO', 'S/D')).ljust(10)
+        pares = str(row.get('PARES VENDIDOS', '0')).ljust(14)
+        
+        if posicion <= 5:
+            desempeno = "Top 5 mas vendido en la region"
+        elif posicion <= 10:
+            desempeno = "Alta demanda en la zona"
+        else:
+            desempeno = "Desplazamiento regular"
+            
+        reporte += f"{posicion:02d}  | {modelo} | {pares} | {desempeno}\n"
+        
+    reporte += "--------------------------------------------------------------------------------\n\n"
+    reporte += "Nota: Este documento sirve como guia visual para que el equipo en piso valide \n"
+    reporte += "fisicamente en su bodega que estos modelos ganadores esten exhibidos.\n\n\n\n"
+    reporte += "    _______________________                         _______________________\n"
+    reporte += "     Firma de la Encargada                           LAE. Jose Martin Estrada\n"
+    reporte += "                                                       Gerente Comercial\n\n\n"
+    reporte += "================================================================================\n"
+    
+    return reporte
 # --- DEFINICIÓN DE LAS 7 PESTAÑAS (PRESERVADAS AL 100%) ---
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "📊 DESEMPEÑO COMERCIAL", 
