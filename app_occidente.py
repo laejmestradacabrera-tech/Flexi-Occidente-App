@@ -209,8 +209,9 @@ def enviar_correo_por_modificacion(df_ranking, ruta_archivo, ultima_modificacion
     return None
 # --- GENERADOR DEL REPORTE TOP 20 EN PDF ---
 def generar_reporte_top20_pdf(df_top20, nombre_sucursal):
-    fecha_actual = datetime.datetime.now().strftime("%d/%m/%Y")
-    
+    # Ajuste de reloj para la Zona Occidente (UTC - 6 horas)
+    hora_mexico = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
+    fecha_actual = hora_mexico.strftime("%d/%m/%Y")    
     # Configuración de hoja tamaño Carta
     pdf = FPDF(orientation='P', unit='mm', format='Letter')
     pdf.add_page()
