@@ -87,12 +87,19 @@ def enviar_correo_ejecutivo(tienda_objetivo, conversion, ticket, meta_conv, meta
         
         cuerpo += "--------------------------------------------------------------------------------\n"
         cuerpo += "📊 ANÁLISIS COMPARATIVO MENSUAL (RETO ACUMULADO)\n"
-        cuerpo += "Para igualar y superar el comparativo histórico del año pasado, al día de hoy el reto es el siguiente:\n\n"
+        cuerpo += "Para igualar y superar el comparativo histórico del año pasado, al día de hoy el estatus es el siguiente:\n\n"
         
-        cuerpo += f" 👟 Te faltan: {faltan_pares:,.0f} pares de calzado.\n"
-        cuerpo += f" 💰 Te faltan: ${faltan_pesos:,.2f} MXN en importe.\n\n"
+        if faltan_pares > 0:
+            cuerpo += f" 👟 Te faltan: {faltan_pares:,.0f} pares de calzado.\n"
+        else:
+            cuerpo += f" 👟 Llevas a favor: {abs(faltan_pares):,.0f} pares de calzado.\n"
+            
+        if faltan_pesos > 0:
+            cuerpo += f" 💰 Te faltan: ${faltan_pesos:,.2f} MXN en importe.\n\n"
+        else:
+            cuerpo += f" 💰 Llevas a favor: ${abs(faltan_pesos):,.2f} MXN en importe.\n\n"
         
-        cuerpo += "¡Cada cliente que cruza la puerta cuenta para cerrar esta brecha! Éxito en sus ventas.\n"
+        cuerpo += "¡Cada cliente que cruza la puerta cuenta para superar esta marca! Éxito en sus ventas.\n"
         cuerpo += "--------------------------------------------------------------------------------\n\n"
         
         cuerpo += "Atentamente,\n"
