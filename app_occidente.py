@@ -233,20 +233,46 @@ with tab1:
                 else: return ['background-color: #f8d7da; color: #721c24'] * 4
 
             st.table(ranking.style.apply(color_semaforo, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))
-            # --- 2. PREPARACIÓN DE DATOS Y DISPARADOR DEL CORREO ---
+            # --- 2. PREPARACIÓN DE DATOS Y DISPARADOR DEL CORREO AUTOMÁTICO ---
             tienda_obj = "56"
             fila_tienda = ranking[ranking['TIENDA'].astype(str).str.contains(tienda_obj, na=False)]
             
             if not fila_tienda.empty:
-                # Sacamos los datos de conversión y ticket de la tabla
+                # 1. Sacamos los datos de conversión y ticket de la tabla de la Pestaña 1
                 conv_actual = float(fila_tienda.iloc[0]['CONVERSIÓN'])
                 tkt_actual = float(fila_tienda.iloc[0]['TICKET PROMEDIO'])
                 
-                # Variables exactas del comparativo proporcionadas por Gerencia
-                faltan_pares_calc = 245
-                faltan_pesos_calc = 213307.98
+                # 2. CALCULO AUTOMÁTICO DEL RETO (CONECTADO AL ARCHIVO COMPARATIVO)
+                faltan_pares_calc = 0
+                faltan_pesos_calc = 0.0
                 
-                # Le entregamos el paquete al cartero ligero
+                if archivo_comp:
+                    try:
+                        df_op = pd.read_excel(archivo_comp) if archivo_comp.endswith('.xlsx') else pd.read_csv(archivo_comp)
+                        c_ano = next((c for c in df_op.columns if 'año' in c.lower() or 'ano' in c.lower()), df_op.columns[0])
+                        c_tda = next((c for c in df_op.columns if 'tienda' in c.lower() or 'sucursal' in c.lower()), df_op.columns[2])
+                        c_prs = next((c for c in df_op.columns if 'pares' in c.lower() or 'cant' in c.lower()), None)
+                        c_imp = next((c for c in df_op.columns if 'importe' in c.lower() or 'peso' in c.lower() or 'monto' in c.lower()), None)
+                        
+                        if c_prs and c_imp:
+                            df_op[c_tda] = df_op[c_tda].astype(str).str.strip()
+                            df_filtrado = df_op[df_op[c_tda].str.contains(tienda_obj, na=False)]
+                            
+                            # Agrupamos los datos por año para la tienda específica
+                            res = df_filtrado.groupby(c_ano)[[c_prs, c_imp]].sum()
+                            
+                            pares_2025 = int(res.get(c_prs).get(2025, 0))
+                            pares_2026 = int(res.get(c_prs).get(2026, 0))
+                            pesos_2025 = float(res.get(c_imp).get(2025, 0.0))
+                            pesos_2026 = float(res.get(c_imp).get(2026, 0.0))
+                            
+                            # Realizamos la resta directa (Reto restante)
+                            faltan_pares_calc = pares_2025 - pares_2026
+                            faltan_pesos_calc = pesos_2025 - pesos_2026
+                    except:
+                        pass # En caso de cualquier detalle con el archivo, se enviará en 0
+                
+                # 3. Le entregamos el paquete con datos reales al cartero
                 resultado_alerta = enviar_correo_ejecutivo(
                     tienda_objetivo=tienda_obj, 
                     conversion=conv_actual, 
