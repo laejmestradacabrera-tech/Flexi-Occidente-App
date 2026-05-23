@@ -245,11 +245,10 @@ with tab1:
             fila_tienda = ranking[ranking['TIENDA'].astype(str).str.contains(tienda_obj, na=False)]
             
             if not fila_tienda.empty:
-                # 1. Sacamos los datos de conversión y ticket de la tabla de la Pestaña 1
                 conv_actual = float(fila_tienda.iloc[0]['CONVERSIÓN'])
                 tkt_actual = float(fila_tienda.iloc[0]['TICKET PROMEDIO'])
                 
-                # 2. CALCULO AUTOMÁTICO DEL RETO (CONECTADO AL ARCHIVO COMPARATIVO)
+                # 2. CALCULO AUTOMÁTICO DEL RETO (CON FILTROS DE CALZADO PURO)
                 faltan_pares_calc = 0
                 faltan_pesos_calc = 0.0
                 
@@ -260,12 +259,21 @@ with tab1:
                         c_tda = next((c for c in df_op.columns if 'tienda' in c.lower() or 'sucursal' in c.lower()), df_op.columns[2])
                         c_prs = next((c for c in df_op.columns if 'pares' in c.lower() or 'cant' in c.lower()), None)
                         c_imp = next((c for c in df_op.columns if 'importe' in c.lower() or 'peso' in c.lower() or 'monto' in c.lower()), None)
+                        c_prov = next((c for c in df_op.columns if 'prov' in c.lower()), None)
+                        c_tipo = next((c for c in df_op.columns if 'tipo' in c.lower() or 'concepto' in c.lower()), None)
                         
                         if c_prs and c_imp:
                             df_op[c_tda] = df_op[c_tda].astype(str).str.strip()
+                            
+                            # APLICACIÓN DE FILTROS (Misma lógica que la Pestaña 2 para coincidencia exacta)
+                            df_op = df_op[~df_op[c_tda].str.contains('3004|3015', na=False)]
+                            if c_prov:
+                                df_op = df_op[~df_op[c_prov].astype(str).str.strip().isin(['415', '426', '427'])]
+                            if c_tipo:
+                                df_op = df_op[~df_op[c_tipo].astype(str).str.contains('BOLSA|REUSABLE|BOLSO', case=False, na=False)]
+                                
                             df_filtrado = df_op[df_op[c_tda].str.contains(tienda_obj, na=False)]
                             
-                            # Agrupamos los datos por año para la tienda específica
                             res = df_filtrado.groupby(c_ano)[[c_prs, c_imp]].sum()
                             
                             pares_2025 = int(res.get(c_prs).get(2025, 0))
@@ -273,13 +281,13 @@ with tab1:
                             pesos_2025 = float(res.get(c_imp).get(2025, 0.0))
                             pesos_2026 = float(res.get(c_imp).get(2026, 0.0))
                             
-                            # Realizamos la resta directa (Reto restante)
+                            # Resta exacta
                             faltan_pares_calc = pares_2025 - pares_2026
                             faltan_pesos_calc = pesos_2025 - pesos_2026
-                    except:
-                        pass # En caso de cualquier detalle con el archivo, se enviará en 0
+                    except Exception as e:
+                        print(f"Error calculando comparativo: {e}")
                 
-                # 3. Le entregamos el paquete con datos reales al cartero
+                # 3. Disparador del correo con datos filtrados
                 resultado_alerta = enviar_correo_ejecutivo(
                     tienda_objetivo=tienda_obj, 
                     conversion=conv_actual, 
