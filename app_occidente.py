@@ -47,8 +47,8 @@ def buscar_archivo(palabra_clave):
 archivo_conv = buscar_archivo('Conversion')
 archivo_modelos = buscar_archivo('Venta_Modelos')
 archivo_comp = buscar_archivo('Comparativo por Operacion')
-# --- 1. EL CARTERO LIGERO (FUNCIÓN DE ENVÍO PURA - AJUSTADA) ---
-def enviar_correo_ejecutivo(tienda_objetivo, conversion, ticket, meta_conv, meta_tkt, opcion_a, opcion_b):
+# --- 1. EL CARTERO LIGERO (NUEVO ENFOQUE: COMPARATIVO MENSUAL) ---
+def enviar_correo_ejecutivo(tienda_objetivo, conversion, ticket, meta_conv, meta_tkt, faltan_pares, faltan_pesos):
     
     # 1. Evaluamos el cumplimiento de las metas esenciales de calzado
     logro_conv = conversion >= meta_conv
@@ -56,16 +56,16 @@ def enviar_correo_ejecutivo(tienda_objetivo, conversion, ticket, meta_conv, meta
     desviacion_conv = conversion - meta_conv
     desviacion_ticket = ticket - meta_tkt
 
-    # 2. Redacción directa y enfocada en los indicadores de piso de venta
+    # 2. Redacción directa y enfocada en los indicadores de piso de venta y comparativo
     try:
         remitente = st.secrets["CORREO_REMITENTE"]
         password = st.secrets["CORREO_PASSWORD"]
         destinatario = "fleoutgdl@divec-flexi.com" 
         
-        asunto = f"🚀 Desempeño Comercial y Oportunidades de Venta - Tienda {tienda_objetivo}"
+        asunto = f"🚀 Desempeño Comercial y Reto Acumulado - Tienda {tienda_objetivo}"
         
         cuerpo = f"Estimada Lety y equipo de la Tienda {tienda_objetivo}:\n\n"
-        cuerpo += "Les compartimos el análisis de resultados comerciales y de inventario de su sucursal, obtenido directamente tras la última actualización del monitor.\n\n"
+        cuerpo += "Les compartimos el análisis de resultados comerciales de su sucursal, obtenido directamente tras la última actualización del monitor.\n\n"
         
         cuerpo += "--------------------------------------------------------------------------------\n"
         if logro_conv and logro_ticket:
@@ -73,38 +73,28 @@ def enviar_correo_ejecutivo(tienda_objetivo, conversion, ticket, meta_conv, meta
             cuerpo += "Queremos reconocer el extraordinario desempeño del equipo en el piso de venta. Han alcanzado y superado de forma simultánea las dos metas vitales de nuestra zona para calzado:\n"
             cuerpo += f" * Conversión Actual: {conversion:.2f}% (Meta obligatoria: {meta_conv:.2f}%)\n"
             cuerpo += f" * Ticket Promedio Actual: {ticket:.2f} unidades (Meta obligatoria: {meta_tkt:.2f} unidades de calzado)\n\n"
-            cuerpo += "¡Excelente ritmo comercial! Mantener este nivel de enfoque asegura el éxito de la tienda. Sigan aplicando con disciplina el protocolo operativo.\n"
         else:
-            cuerpo += "⚠️ ALERTA DE DESVIACIÓN DE METAS\n"
-            cuerpo += "Es necesario ajustar la estrategia operativa en el piso de venta para alcanzar los objetivos obligatorios de calzado de la Zona Occidente:\n"
+            cuerpo += "⚠️ ALERTA DE DESVIACIÓN DE METAS EN PISO DE VENTA\n"
+            cuerpo += "Es necesario ajustar la estrategia operativa para alcanzar los objetivos obligatorios de la Zona Occidente:\n"
             if logro_conv:
-                cuerpo += f" ✅ CONVERSIÓN: {conversion:.2f}% (Lograda, supera la meta por +{desviacion_conv:.2f}%)\n"
+                cuerpo += f" ✅ CONVERSIÓN: {conversion:.2f}% (Lograda)\n"
             else:
                 cuerpo += f" ❌ CONVERSIÓN: {conversion:.2f}% (Faltan {abs(desviacion_conv):.2f}% para alcanzar la meta de {meta_conv}%)\n"
             if logro_ticket:
-                cuerpo += f" ✅ TICKET PROMEDIO: {ticket:.2f} unidades (Logrado, supera la meta por +{desviacion_ticket:.2f} unidades)\n"
+                cuerpo += f" ✅ TICKET PROMEDIO: {ticket:.2f} unidades (Logrado)\n"
             else:
-                cuerpo += f" ❌ TICKET PROMEDIO: {ticket:.2f} unidades (Faltan {abs(desviacion_ticket):.2f} unidades para alcanzar la meta de {meta_tkt} de calzado)\n"
-            cuerpo += "\nEl equipo de liderazgo de la sucursal debe reforzar de inmediato los comportamientos clave en el piso de venta para corregir estas desviaciones.\n"
+                cuerpo += f" ❌ TICKET PROMEDIO: {ticket:.2f} unidades (Faltan {abs(desviacion_ticket):.2f} unidades para alcanzar la meta de {meta_tkt})\n\n"
+        
+        cuerpo += "--------------------------------------------------------------------------------\n"
+        cuerpo += "📊 ANÁLISIS COMPARATIVO MENSUAL (RETO ACUMULADO)\n"
+        cuerpo += "Para igualar y superar el comparativo histórico del año pasado, al día de hoy el reto es el siguiente:\n\n"
+        
+        cuerpo += f" 👟 Te faltan: {faltan_pares:,.0f} pares de calzado.\n"
+        cuerpo += f" 💰 Te faltan: ${faltan_pesos:,.2f} MXN en importe.\n\n"
+        
+        cuerpo += "¡Cada cliente que cruza la puerta cuenta para cerrar esta brecha! Éxito en sus ventas.\n"
         cuerpo += "--------------------------------------------------------------------------------\n\n"
         
-        cuerpo += "👟 AUDITORÍA DE MODELOS TOP 20 DE LA ZONA (Detección de Oportunidades)\n"
-        cuerpo += "El algoritmo analizó el consolidado de los 20 modelos más vendidos en toda la Zona Occidente y detectó las siguientes situaciones en su sucursal:\n\n"
-        
-        cuerpo += "OPCIÓN A: Modelos Top de la Zona SIN EXISTENCIAS en su tienda\n"
-        cuerpo += "Los siguientes modelos son un éxito en la región, pero su sucursal registra cero ventas debido a la falta de stock físico. Es necesario evaluar su viabilidad de surtido:\n"
-        for idx, mod in enumerate(opcion_a[:3], 1): 
-            cuerpo += f" {idx}. Modelo: {mod}\n"
-            
-        cuerpo += f"\nOPCIÓN B: Modelos Top de la Zona CON EXISTENCIAS pero SIN VENTAS\n"
-        cuerpo += "Atención prioritaria: Los siguientes modelos se venden con fuerza en la zona y están disponibles en su bodega, pero registran cero ventas. Aseguren su exhibición y oferta activa:\n"
-        for idx, mod in enumerate(opcion_b[:3], 1): 
-            cuerpo += f" {idx}. Modelo: {mod}\n"
-        
-        cuerpo += f"\n💡 Estrategia para el equipo: Para los modelos de la Opción B, verifiquen su correcta exhibición en las zonas calientes del piso de venta. Son productos ganadores que ayudarán a levantar el ticket promedio y el volumen de calzado de la sucursal.\n"
-        cuerpo += "\n--------------------------------------------------------------------------------\n\n"
-        
-        cuerpo += "Agradecemos su esfuerzo diario y compromiso con los estándares de la Zona Occidente.\n\n"
         cuerpo += "Atentamente,\n"
         cuerpo += "Gerencia Comercial Zona Occidente\n"
         cuerpo += "LAE. José Martín Estrada Cabrera"
