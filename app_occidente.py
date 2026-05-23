@@ -47,166 +47,81 @@ def buscar_archivo(palabra_clave):
 archivo_conv = buscar_archivo('Conversion')
 archivo_modelos = buscar_archivo('Venta_Modelos')
 archivo_comp = buscar_archivo('Comparativo por Operacion')
-
-# --- FUNCIÓN DE ALERTA INTELIGENTE CON DOBLE COTEJO (STOCK VS VENTAS) ---
-@st.cache_data(show_spinner=False)
-def enviar_correo_por_modificacion(df_ranking, ruta_archivo, ultima_modificacion, tienda_objetivo="56"):
-    fila_tienda = df_ranking[df_ranking['TIENDA'].astype(str).str.contains(tienda_objetivo, na=False)]
+# --- 1. EL CARTERO LIGERO (FUNCIÓN DE ENVÍO PURA - AJUSTADA) ---
+def enviar_correo_ejecutivo(tienda_objetivo, conversion, ticket, meta_conv, meta_tkt, opcion_a, opcion_b):
     
-    if not fila_tienda.empty:
-        conversion_actual = float(fila_tienda.iloc[0]['CONVERSIÓN'])
-        ticket_actual = float(fila_tienda.iloc[0]['TICKET PROMEDIO'])
-        
-        meta_conv = 10.9
-        meta_ticket = 1.29
-        
-        logro_conv = conversion_actual >= meta_conv
-        logro_ticket = ticket_actual >= meta_ticket
-        
-        desviacion_conv = conversion_actual - meta_conv
-        desviacion_ticket = ticket_actual - meta_ticket
-        
-        # --- CRUCE 1: OBTENER PROYECCIÓN DE PARES CONTRA HISTÓRICO 2025 ---
-        pares_2025, pares_2026, dif_pares = 0, 0, 0
-        if archivo_comp:
-            try:
-                df_op = pd.read_excel(archivo_comp) if archivo_comp.endswith('.xlsx') else pd.read_csv(archivo_comp)
-                c_ano = next((c for c in df_op.columns if 'año' in c.lower() or 'ano' in c.lower()), df_op.columns[0])
-                c_tda = next((c for c in df_op.columns if 'tienda' in c.lower() or 'sucursal' in c.lower()), df_op.columns[2])
-                c_prs = next((c for c in df_op.columns if 'pares' in c.lower() or 'cant' in c.lower()), None)
-                
-                if c_prs:
-                    df_op[c_tda] = df_op[c_tda].astype(str).str.strip()
-                    df_filtrado = df_op[df_op[c_tda].str.contains(tienda_objetivo, na=False)]
-                    
-                    res = df_filtrado.groupby(c_ano)[c_prs].sum()
-                    pares_2025 = int(res.get(2025, 0))
-                    pares_2026 = int(res.get(2026, 0))
-                    dif_pares = pares_2025 - pares_2026
-            except:
-                pass
+    # 1. Evaluamos el cumplimiento de las metas esenciales de calzado
+    logro_conv = conversion >= meta_conv
+    logro_ticket = ticket >= meta_tkt
+    desviacion_conv = conversion - meta_conv
+    desviacion_ticket = ticket - meta_tkt
 
-        # --- CRUCE 2: AUDITORÍA DE MODELOS TOP 20 CON APERTURA DE STOCK ---
-        opcion_a_sin_stock = []
-        opcion_b_con_stock = []
+    # 2. Redacción directa y enfocada en los indicadores de piso de venta
+    try:
+        remitente = st.secrets["CORREO_REMITENTE"]
+        password = st.secrets["CORREO_PASSWORD"]
+        destinatario = "fleoutgdl@divec-flexi.com" 
         
-        if archivo_modelos:
-            try:
-                df_m = pd.read_excel(archivo_modelos) if archivo_modelos.endswith('.xlsx') else pd.read_csv(archivo_modelos)
-                col_m = next((c for c in df_m.columns if c.lower() in ['clave', 'modelo', 'estilo']), df_m.columns[1])
-                col_p = next((c for c in df_m.columns if 'pares' in c.lower() or 'cantidad' in c.lower() or 'venta' in c.lower()), df_m.columns[2])
-                col_t = next((c for c in df_m.columns if 'tienda' in c.lower() or 'sucursal' in c.lower()), df_m.columns[0])
-                col_prov = next((c for c in df_m.columns if 'prov' in c.lower()), None)
-
-                df_m = df_m[~df_m[col_t].astype(str).str.contains('3004|3015', na=False)]
-                if col_prov:
-                    df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])]
-                df_m = df_m[~df_m[col_m].astype(str).str.contains('BOLSA|REUSABLE', case=False, na=False)]
-
-                # Obtener Top 20 Zona Consolidado
-                top_20_zona = df_m.groupby(col_m)[col_p].sum().reset_index().sort_values(by=col_p, ascending=False).head(20)[col_m].tolist()
-                
-                # Modelos con venta en la tienda piloto
-                modelos_vendidos_tienda = df_m[df_m[col_t].astype(str).str.contains(tienda_objetivo, na=False)][col_m].unique().tolist()
-                
-                # Identificar modelos ausentes de venta
-                modelos_ausentes = [mod for mod in top_20_zona if mod not in modelos_vendidos_tienda]
-                
-                for mod in modelos_ausentes:
-                    df_mod_tienda = df_m[(df_m[col_t].astype(str).str.contains(tienda_objetivo, na=False)) & (df_m[col_m] == mod)]
-                    stock_existente = 0
-                    cols_ex = [c for c in df_m.columns if c.lower().startswith('ex')]
-                    if not df_mod_tienda.empty and cols_ex:
-                        stock_existente = df_mod_tienda[cols_ex].sum().sum()
-                    
-                    if stock_existente > 0:
-                        opcion_b_con_stock.append(str(mod))
-                    else:
-                        opcion_a_sin_stock.append(str(mod))
-            except:
-                pass
-
-        # Llenado de seguridad en caso de falta de datos para pruebas limpias
-        if not opcion_a_sin_stock and not opcion_b_con_stock:
-            opcion_a_sin_stock = ["40201", "25904"]
-            opcion_b_con_stock = ["10405", "32302", "41001"]
-
-        # --- CONSTRUCCIÓN DE LA REDACCIÓN AUTORIZADA POR JOSÉ ---
-        try:
-            remitente = st.secrets["CORREO_REMITENTE"]
-            password = st.secrets["CORREO_PASSWORD"]
-            destinatario = "fleoutgdl@divec-flexi.com"
-            
-            asunto = f"🚀 Desempeño Comercial y Oportunidades de Venta - Tienda {tienda_objetivo} Plazas Outlet"
-            
-            cuerpo = f"Estimada Ana Leticia y equipo de Plazas Outlet (Tienda {tienda_objetivo}):\n\n"
-            cuerpo += "Les compartimos el análisis de resultados comerciales y de inventario de su sucursal, obtenido directamente tras la última actualización del monitor de la zona.\n\n"
-            
-            cuerpo += "--------------------------------------------------------------------------------\n"
-            if logro_conv and logro_ticket:
-                cuerpo += "🏆 ¡MUCHAS FELICIDADES POR EL RESULTADO!\n"
-                cuerpo += "Queremos reconocer el extraordinario desempeño del equipo en el piso de venta. Han alcanzado y superado de forma simultánea las dos metas vitales de nuestra zona para calzado:\n"
-                cuerpo += f" * Conversión Actual: {conversion_actual:.2f}% (Meta obligatoria: {meta_conv:.2f}%)\n"
-                cuerpo += f" * Ticket Promedio Actual: {ticket_actual:.2f} unidades (Meta obligatoria: {meta_ticket:.2f} unidades de calzado)\n\n"
-                cuerpo += "¡Excelente ritmo comercial! Mantener este nivel de enfoque asegura el éxito de la tienda y de todo el equipo. Sigan aplicando con disciplina el protocolo operativo en cada interacción.\n"
+        asunto = f"🚀 Desempeño Comercial y Oportunidades de Venta - Tienda {tienda_objetivo}"
+        
+        cuerpo = f"Estimada Lety y equipo de la Tienda {tienda_objetivo}:\n\n"
+        cuerpo += "Les compartimos el análisis de resultados comerciales y de inventario de su sucursal, obtenido directamente tras la última actualización del monitor.\n\n"
+        
+        cuerpo += "--------------------------------------------------------------------------------\n"
+        if logro_conv and logro_ticket:
+            cuerpo += "🏆 ¡MUCHAS FELICIDADES POR EL RESULTADO!\n"
+            cuerpo += "Queremos reconocer el extraordinario desempeño del equipo en el piso de venta. Han alcanzado y superado de forma simultánea las dos metas vitales de nuestra zona para calzado:\n"
+            cuerpo += f" * Conversión Actual: {conversion:.2f}% (Meta obligatoria: {meta_conv:.2f}%)\n"
+            cuerpo += f" * Ticket Promedio Actual: {ticket:.2f} unidades (Meta obligatoria: {meta_tkt:.2f} unidades de calzado)\n\n"
+            cuerpo += "¡Excelente ritmo comercial! Mantener este nivel de enfoque asegura el éxito de la tienda. Sigan aplicando con disciplina el protocolo operativo.\n"
+        else:
+            cuerpo += "⚠️ ALERTA DE DESVIACIÓN DE METAS\n"
+            cuerpo += "Es necesario ajustar la estrategia operativa en el piso de venta para alcanzar los objetivos obligatorios de calzado de la Zona Occidente:\n"
+            if logro_conv:
+                cuerpo += f" ✅ CONVERSIÓN: {conversion:.2f}% (Lograda, supera la meta por +{desviacion_conv:.2f}%)\n"
             else:
-                cuerpo += "⚠️ ALERTA DE DESVIACIÓN DE METAS\n"
-                cuerpo += "Es necesario ajustar la estrategia operativa en el piso de venta para alcanzar los objetivos obligatorios de calzado de la Zona Occidente:\n"
-                if logro_conv:
-                    cuerpo += f" ✅ CONVERSIÓN: {conversion_actual:.2f}% (Lograda, supera la meta por +{desviacion_conv:.2f}%)\n"
-                else:
-                    cuerpo += f" ❌ CONVERSIÓN: {conversion_actual:.2f}% (Faltan {abs(desviacion_conv):.2f}% para alcanzar la meta de {meta_conv}%)\n"
-                if logro_ticket:
-                    cuerpo += f" ✅ TICKET PROMEDIO: {ticket_actual:.2f} unidades (Logrado, supera la meta por +{desviacion_ticket:.2f} unidades)\n"
-                else:
-                    cuerpo += f" ❌ TICKET PROMEDIO: {ticket_actual:.2f} unidades (Faltan {abs(desviacion_ticket):.2f} unidades para alcanzar la meta de {meta_ticket} de calzado)\n"
-                cuerpo += "\nEl equipo de liderazgo de la sucursal debe reforzar de inmediato los comportamientos clave en el piso de venta para corregir estas desviaciones antes del cierre.\n"
-            cuerpo += "--------------------------------------------------------------------------------\n\n"
-            
-            cuerpo += "📦 PROYECCIÓN CONTRA HISTÓRICO 2025\n"
-            cuerpo += "Para medir el verdadero crecimiento de la sucursal, el monitor cruzó sus cifras actuales acumuladas contra el mismo periodo del año anterior (excluyendo mermas y accesorios):\n"
-            cuerpo += f" * Pares acumulados vendidos en 2025: {pares_2025:,.0f}\n"
-            cuerpo += f" * Pares acumulados vendidos en 2026: {pares_2026:,.0f}\n\n"
-            if dif_pares > 0:
-                cuerpo += f"📉 Reto Comercial: Al día de hoy, les hace falta desplazar exactamente {dif_pares:,.0f} pares de calzado para igualar y superar el volumen histórico del año pasado. Cada cliente que cruza la puerta cuenta para cerrar esta brecha.\n\n"
+                cuerpo += f" ❌ CONVERSIÓN: {conversion:.2f}% (Faltan {abs(desviacion_conv):.2f}% para alcanzar la meta de {meta_conv}%)\n"
+            if logro_ticket:
+                cuerpo += f" ✅ TICKET PROMEDIO: {ticket:.2f} unidades (Logrado, supera la meta por +{desviacion_ticket:.2f} unidades)\n"
             else:
-                cuerpo += f"📈 ¡Excelente crecimiento! Superan el acumulado de pares del año pasado por +{abs(dif_pares):,.0f} pares de calzado desplazados.\n\n"
-                
-            cuerpo += "--------------------------------------------------------------------------------\n\n"
-            cuerpo += "👟 AUDITORÍA DE MODELOS TOP 20 DE LA ZONA (Detección de Oportunidades)\n"
-            cuerpo += "El algoritmo analizó el consolidado de los 20 modelos más vendidos en toda la Zona Occidente y lo comparó contra su actividad actual, detectando las siguientes situaciones urgentes en su sucursal:\n\n"
+                cuerpo += f" ❌ TICKET PROMEDIO: {ticket:.2f} unidades (Faltan {abs(desviacion_ticket):.2f} unidades para alcanzar la meta de {meta_tkt} de calzado)\n"
+            cuerpo += "\nEl equipo de liderazgo de la sucursal debe reforzar de inmediato los comportamientos clave en el piso de venta para corregir estas desviaciones.\n"
+        cuerpo += "--------------------------------------------------------------------------------\n\n"
+        
+        cuerpo += "👟 AUDITORÍA DE MODELOS TOP 20 DE LA ZONA (Detección de Oportunidades)\n"
+        cuerpo += "El algoritmo analizó el consolidado de los 20 modelos más vendidos en toda la Zona Occidente y detectó las siguientes situaciones en su sucursal:\n\n"
+        
+        cuerpo += "OPCIÓN A: Modelos Top de la Zona SIN EXISTENCIAS en su tienda\n"
+        cuerpo += "Los siguientes modelos son un éxito en la región, pero su sucursal registra cero ventas debido a la falta de stock físico. Es necesario evaluar su viabilidad de surtido:\n"
+        for idx, mod in enumerate(opcion_a[:3], 1): 
+            cuerpo += f" {idx}. Modelo: {mod}\n"
             
-            cuerpo += "OPCIÓN A: Modelos Top de la Zona SIN EXISTENCIAS en su tienda\n"
-            cuerpo += "Los siguientes modelos son un éxito rotundo en la región, pero su sucursal registra cero ventas debido a que no cuentan con stock físico en bodega. Es necesario cotejar estos estilos para evaluar su viabilidad de surtido:\n"
-            for idx, mod in enumerate(opcion_a_sin_stock[:3], 1):
-                cuerpo += f" {idx}. Modelo: {mod}\n"
-                
-            cuerpo += f"\nOPCIÓN B: Modelos Top de la Zona CON EXISTENCIAS pero SIN VENTAS\n"
-            cuerpo += "Atención prioritaria: Los siguientes modelos se están vendiendo con gran fuerza en la zona y ustedes sí los tienen disponibles en bodega, pero registran cero ventas en su sucursal. El equipo está perdiendo una valiosa oportunidad de venta:\n"
-            for idx, mod in enumerate(opcion_b_con_stock[:3], 1):
-                cuerpo += f" {idx}. Modelo: {mod}\n"
-            
-            cuerpo += f"\n💡 Estrategia para el equipo: Para los modelos de la Opción B, saquen el producto de la bodega de inmediato, verifiquen su correcta exhibición en las zonas calientes del piso de venta y asegúrense de que el personal lo ofrezca activamente. Son productos ganadores garantizados que les ayudarán directamente a levantar el ticket promedio y el volumen de calzado de la sucursal.\n"
-            cuerpo += "\n--------------------------------------------------------------------------------\n\n"
-            
-            cuerpo += "Agradecemos su esfuerzo diario y compromiso con los estándares de la Zona Occidente. ¡Vamos por un cierre de mes impecable!\n\n"
-            cuerpo += "Atentamente,\n"
-            cuerpo += "Gerencia Comercial Zona Occidente\n"
-            cuerpo += "LAE. José Martín Estrada Cabrera"
+        cuerpo += f"\nOPCIÓN B: Modelos Top de la Zona CON EXISTENCIAS pero SIN VENTAS\n"
+        cuerpo += "Atención prioritaria: Los siguientes modelos se venden con fuerza en la zona y están disponibles en su bodega, pero registran cero ventas. Aseguren su exhibición y oferta activa:\n"
+        for idx, mod in enumerate(opcion_b[:3], 1): 
+            cuerpo += f" {idx}. Modelo: {mod}\n"
+        
+        cuerpo += f"\n💡 Estrategia para el equipo: Para los modelos de la Opción B, verifiquen su correcta exhibición en las zonas calientes del piso de venta. Son productos ganadores que ayudarán a levantar el ticket promedio y el volumen de calzado de la sucursal.\n"
+        cuerpo += "\n--------------------------------------------------------------------------------\n\n"
+        
+        cuerpo += "Agradecemos su esfuerzo diario y compromiso con los estándares de la Zona Occidente.\n\n"
+        cuerpo += "Atentamente,\n"
+        cuerpo += "Gerencia Comercial Zona Occidente\n"
+        cuerpo += "LAE. José Martín Estrada Cabrera"
 
-            msg = MIMEText(cuerpo)
-            msg['Subject'] = asunto
-            msg['From'] = remitente
-            msg['To'] = destinatario
-            
-            server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
-            server.login(remitente, password)
-            server.sendmail(remitente, [destinatario], msg.as_string())
-            server.quit()
-            return f"✅ Correo ejecutivo enviado exitosamente a la Tienda {tienda_objetivo} (Plazas Outlet) al actualizar Conversión."
-        except Exception as e:
-            return f"❌ Error al enviar el correo: {e}"
-    return None
+        # 3. Envío seguro a través del servidor
+        msg = MIMEText(cuerpo)
+        msg['Subject'] = asunto
+        msg['From'] = remitente
+        msg['To'] = destinatario
+        
+        server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+        server.login(remitente, password)
+        server.sendmail(remitente, [destinatario], msg.as_string())
+        server.quit()
+        return f"✅ Correo ejecutivo enviado exitosamente a la Tienda {tienda_objetivo}."
+    except Exception as e:
+        return f"❌ Error al enviar el correo a la Tienda {tienda_objetivo}: {e}"
 # --- GENERADOR DEL REPORTE TOP 20 EN PDF ---
 def generar_reporte_top20_pdf(df_top20, nombre_sucursal):
     # Ajuste de reloj para la Zona Occidente (UTC - 6 horas)
