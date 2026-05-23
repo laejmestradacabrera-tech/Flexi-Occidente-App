@@ -233,7 +233,6 @@ with tab1:
                 else: return ['background-color: #f8d7da; color: #721c24'] * 4
 
             st.table(ranking.style.apply(color_semaforo, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))
-            
             # --- 2. PREPARACIÓN DE DATOS Y DISPARADOR DEL CORREO ---
             tienda_obj = "56"
             fila_tienda = ranking[ranking['TIENDA'].astype(str).str.contains(tienda_obj, na=False)]
@@ -243,9 +242,9 @@ with tab1:
                 conv_actual = float(fila_tienda.iloc[0]['CONVERSIÓN'])
                 tkt_actual = float(fila_tienda.iloc[0]['TICKET PROMEDIO'])
                 
-                # Modelos de prueba temporal
-                opcion_a_prueba = ["40201", "25904"] 
-                opcion_b_prueba = ["10405", "32302", "41001"] 
+                # Variables exactas del comparativo proporcionadas por Gerencia
+                faltan_pares_calc = 245
+                faltan_pesos_calc = 213307.98
                 
                 # Le entregamos el paquete al cartero ligero
                 resultado_alerta = enviar_correo_ejecutivo(
@@ -254,13 +253,14 @@ with tab1:
                     ticket=tkt_actual, 
                     meta_conv=10.9, 
                     meta_tkt=1.29, 
-                    opcion_a=opcion_a_prueba, 
-                    opcion_b=opcion_b_prueba
+                    faltan_pares=faltan_pares_calc, 
+                    faltan_pesos=faltan_pesos_calc
                 )
                 
                 if resultado_alerta:
                     if "✅" in resultado_alerta: st.success(resultado_alerta)
                     else: st.error(resultado_alerta)
+            
 # --- PESTAÑA 2: COMPARATIVO MENSUAL ---
 with tab2:
     if archivo_comp:
