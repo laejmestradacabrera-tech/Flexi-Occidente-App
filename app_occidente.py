@@ -312,6 +312,83 @@ with tab2:
                 'PARES 2025': '{:,.0f}', 'PARES 2026': '{:,.0f}', 'VAR PARES %': '{:+.2f}%',
                 'PESOS 2025': '${:,.2f}', 'PESOS 2026': '${:,.2f}', 'VAR PESOS %': '{:+.2f}%'
             }))
+            # --- 3. BOTÓN DE ENVÍO MANUAL (CONTROL TOTAL) ---
+            st.write("<br>", unsafe_allow_html=True)
+            
+            if st.button("🚀 Enviar Reporte Ejecutivo del Día (Tienda 56)", type="primary"):
+                tienda_obj = "56"
+                conv_actual = 0.0
+                tkt_actual = 0.0
+                
+                # 1. Extraemos Conversión y Ticket del archivo de Conversión
+                if archivo_conv:
+                    try:
+                        df_c = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
+                        df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
+                        col_tda_c = next((c for c in df_c.columns if 'Tienda' in c or 'TIENDA' in c), df_c.columns[0])
+                        col_conv_real = next((c for c in df_c.columns if 'Conv' in c and 'Actual' in c), None)
+                        col_tkt_real = next((c for c in df_c.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
+                        
+                        df_c['CONVERSIÓN'] = df_c[col_conv_real].apply(lambda x: x*100 if x < 1 else x)
+                        df_c['TICKET PROMEDIO'] = df_c[col_tkt_real]
+                        
+                        fila_c = df_c[df_c[col_tda_c].astype(str).str.contains(tienda_obj, na=False)]
+                        if not fila_c.empty:
+                            conv_actual = float(fila_c.iloc[0]['CONVERSIÓN'])
+                            tkt_actual = float(fila_c.iloc[0]['TICKET PROMEDIO'])
+                    except:
+                        pass
+
+                # 2. Extraemos el Reto en Pares y Pesos con filtros aplicados
+                faltan_pares_calc = 0
+                faltan_pesos_calc = 0.0
+                
+                if archivo_comp:
+                    try:
+                        df_op = pd.read_excel(archivo_comp) if archivo_comp.endswith('.xlsx') else pd.read_csv(archivo_comp)
+                        c_ano = next((c for c in df_op.columns if 'año' in c.lower() or 'ano' in c.lower()), df_op.columns[0])
+                        c_tda = next((c for c in df_op.columns if 'tienda' in c.lower() or 'sucursal' in c.lower()), df_op.columns[2])
+                        c_prs = next((c for c in df_op.columns if 'pares' in c.lower() or 'cant' in c.lower()), None)
+                        c_imp = next((c for c in df_op.columns if 'importe' in c.lower() or 'peso' in c.lower() or 'monto' in c.lower()), None)
+                        c_prov = next((c for c in df_op.columns if 'prov' in c.lower()), None)
+                        c_tipo = next((c for c in df_op.columns if 'tipo' in c.lower() or 'concepto' in c.lower()), None)
+                        
+                        if c_prs and c_imp:
+                            df_op[c_tda] = df_op[c_tda].astype(str).str.strip()
+                            df_op = df_op[~df_op[c_tda].str.contains('3004|3015', na=False)]
+                            if c_prov:
+                                df_op = df_op[~df_op[c_prov].astype(str).str.strip().isin(['415', '426', '427'])]
+                            if c_tipo:
+                                df_op = df_op[~df_op[c_tipo].astype(str).str.contains('BOLSA|REUSABLE|BOLSO', case=False, na=False)]
+                                
+                            df_filtrado = df_op[df_op[c_tda].str.contains(tienda_obj, na=False)]
+                            res = df_filtrado.groupby(c_ano)[[c_prs, c_imp]].sum()
+                            
+                            pares_2025 = int(res.get(c_prs).get(2025, 0))
+                            pares_2026 = int(res.get(c_prs).get(2026, 0))
+                            pesos_2025 = float(res.get(c_imp).get(2025, 0.0))
+                            pesos_2026 = float(res.get(c_imp).get(2026, 0.0))
+                            
+                            faltan_pares_calc = pares_2025 - pares_2026
+                            faltan_pesos_calc = pesos_2025 - pesos_2026
+                    except:
+                        pass
+                
+                # 3. Disparador seguro del correo
+                with st.spinner("Enviando reporte ejecutivo..."):
+                    resultado_alerta = enviar_correo_ejecutivo(
+                        tienda_objetivo=tienda_obj, 
+                        conversion=conv_actual, 
+                        ticket=tkt_actual, 
+                        meta_conv=10.9, 
+                        meta_tkt=1.29, 
+                        faltan_pares=faltan_pares_calc, 
+                        faltan_pesos=faltan_pesos_calc
+                    )
+                
+                if resultado_alerta:
+                    if "✅" in resultado_alerta: st.success(resultado_alerta)
+                    else: st.error(resultado_alerta)
 # --- PESTAÑAS 3 Y 4: DESPLIEGUE DE RANKINGS DE MODELOS ---
 if archivo_modelos:
     df_m = pd.read_excel(archivo_modelos) if archivo_modelos.endswith('.xlsx') else pd.read_csv(archivo_modelos)
