@@ -6,20 +6,28 @@ from email.mime.text import MIMEText
 import datetime
 from fpdf import FPDF
 import openpyxl
-# --- FUNCIÓN ROBUSTA PARA CARGAR TIENDAS ---
+# --- FUNCIONES DE BITÁCORA ---
 def cargar_tiendas():
-    nombre_archivo = "CORREO DE TIENDAS.xlsx - Hoja1.csv"
     try:
-        # Intentamos cargar el archivo directamente
-        return pd.read_csv(nombre_archivo)
-    except FileNotFoundError:
-        # Si falla, buscamos cualquier archivo que contenga "TIENDAS" en el nombre
+        # Usamos el nombre exacto que muestra el repositorio
+        # Agregamos encoding='latin1' por si el archivo tiene acentos en los nombres
+        return pd.read_csv("CORREO DE TIENDAS.xlsx - Hoja1.csv", encoding='latin1')
+    except Exception as e:
+        # Si falla, buscamos cualquier alternativa que contenga "TIENDAS"
         for archivo in os.listdir('.'):
             if "TIENDAS" in archivo.upper() and archivo.endswith('.csv'):
-                return pd.read_csv(archivo)
+                return pd.read_csv(archivo, encoding='latin1')
         
-        st.error(f"Error: No se encuentra el archivo '{nombre_archivo}'. Verifica que esté en la raíz del repositorio.")
+        st.error(f"Error al cargar tiendas: {e}")
         return pd.DataFrame({'NOMBRE': ['Error'], 'ENCARGADO': ['Sin datos']})
+
+def guardar_incidencia(datos):
+    archivo_csv = "bitacora_incidencias.csv"
+    df_nuevo = pd.DataFrame([datos])
+    if not os.path.exists(archivo_csv):
+        df_nuevo.to_csv(archivo_csv, index=False)
+    else:
+        df_nuevo.to_csv(archivo_csv, mode='a', header=False, index=False)
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(page_title="Monitor Comercial Occidente", layout="wide")
 
