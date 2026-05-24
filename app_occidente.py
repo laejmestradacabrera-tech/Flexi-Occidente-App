@@ -216,7 +216,7 @@ def generar_reporte_top20_pdf(df_top20, nombre_sucursal):
     pdf.cell(90, 5, "Gerente Comercial", 0, 1, 'C')
     
     return bytes(pdf.output(dest='S').encode('latin1'))
-# --- DEFINICIÓN DE LAS 8 PESTAÑAS (INTEGRANDO BITÁCORA) ---
+    # --- DEFINICIÓN DE LAS 8 PESTAÑAS ---
 tab_bitacora, tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "📝 BITÁCORA", 
     "📊 DESEMPEÑO COMERCIAL", 
@@ -227,6 +227,8 @@ tab_bitacora, tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "🎓 CAPACITACIÓN",
     "🔄 NIVELACIÓN DE STOCK"
 ])
+
+# --- CONTENIDO DE LA PESTAÑA BITÁCORA (NUEVO) ---
 with tab_bitacora:
     st.subheader("📝 Registro de Incidencias Operativas")
     df_tiendas = cargar_tiendas()
@@ -235,11 +237,11 @@ with tab_bitacora:
         col1, col2 = st.columns(2)
         with col1:
             fecha = st.date_input("Fecha", datetime.date.today())
-            # Usamos la columna 'NOMBRE' de tu archivo
+            # Aquí llamamos a la columna 'NOMBRE' de su archivo
             tienda_seleccionada = st.selectbox("Selecciona la Tienda:", df_tiendas['NOMBRE'].unique())
         
         with col2:
-            # Filtra automáticamente al encargado según la tienda seleccionada
+            # Filtra automáticamente al encargado según la tienda
             encargado = df_tiendas[df_tiendas['NOMBRE'] == tienda_seleccionada]['ENCARGADO'].values[0]
             st.write(f"**Encargado(a):** {encargado}")
             factor = st.selectbox("Factor Principal:", [
@@ -248,13 +250,13 @@ with tab_bitacora:
                 "🚧 Afectación de acceso", "🎉 Factor externo"
             ])
             
-        notas = st.text_area("Detalles de la incidencia (ej. Llovio de 4 a 6 PM):")
+        notas = st.text_area("Detalles adicionales:")
         
         btn_enviar = st.form_submit_button("💾 Guardar en Bitácora")
         
         if btn_enviar:
             datos = {
-                "Fecha": fecha,
+                "Fecha": str(fecha),
                 "Tienda": tienda_seleccionada,
                 "Encargado": encargado,
                 "Factor": factor,
