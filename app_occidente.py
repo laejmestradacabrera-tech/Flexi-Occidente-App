@@ -6,19 +6,15 @@ from email.mime.text import MIMEText
 import datetime
 from fpdf import FPDF
 import openpyxl
-# --- FUNCIONES DE BITÁCORA ---
+# --- FUNCIONES DE BITÁCORA (FINAL) ---
 def cargar_tiendas():
-    # Buscamos cualquier archivo que contenga "TIENDAS" en el nombre, sin importar la extensión
-    for archivo in os.listdir('.'):
-        if "TIENDAS" in archivo.upper():
-            try:
-                return pd.read_csv(archivo, encoding='latin1')
-            except:
-                continue
-    
-    # Si no lo encuentra, nos dirá qué archivos existen realmente en la carpeta
-    st.error(f"Error: No encuentro el archivo de tiendas. Archivos en el servidor: {os.listdir('.')}")
-    return pd.DataFrame({'NOMBRE': ['Error'], 'ENCARGADO': ['Sin datos']})
+    nombre_archivo = "CORREO DE TIENDAS.xlsx"
+    try:
+        # Usamos read_excel porque su archivo es .xlsx
+        return pd.read_excel(nombre_archivo)
+    except Exception as e:
+        st.error(f"Error al cargar el archivo de Excel '{nombre_archivo}': {e}")
+        return pd.DataFrame({'NOMBRE': ['Error'], 'ENCARGADO': ['Sin datos']})
 
 def guardar_incidencia(datos):
     archivo_csv = "bitacora_incidencias.csv"
