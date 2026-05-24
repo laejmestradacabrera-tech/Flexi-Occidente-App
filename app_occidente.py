@@ -5,18 +5,20 @@ import smtplib
 from email.mime.text import MIMEText
 import datetime
 from fpdf import FPDF
-# --- FUNCIONES PARA BITÁCORA ---
+# --- FUNCIÓN ROBUSTA PARA CARGAR TIENDAS ---
 def cargar_tiendas():
-    # Asegúrate de que el archivo esté en la misma carpeta
-    return pd.read_csv("CORREO DE TIENDAS.xlsx - Hoja1.csv")
-
-def guardar_incidencia(datos):
-    archivo_csv = "bitacora_incidencias.csv"
-    df_nuevo = pd.DataFrame([datos])
-    if not os.path.exists(archivo_csv):
-        df_nuevo.to_csv(archivo_csv, index=False)
-    else:
-        df_nuevo.to_csv(archivo_csv, mode='a', header=False, index=False)
+    nombre_archivo = "CORREO DE TIENDAS.xlsx - Hoja1.csv"
+    try:
+        # Intentamos cargar el archivo directamente
+        return pd.read_csv(nombre_archivo)
+    except FileNotFoundError:
+        # Si falla, buscamos cualquier archivo que contenga "TIENDAS" en el nombre
+        for archivo in os.listdir('.'):
+            if "TIENDAS" in archivo.upper() and archivo.endswith('.csv'):
+                return pd.read_csv(archivo)
+        
+        st.error(f"Error: No se encuentra el archivo '{nombre_archivo}'. Verifica que esté en la raíz del repositorio.")
+        return pd.DataFrame({'NOMBRE': ['Error'], 'ENCARGADO': ['Sin datos']})
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(page_title="Monitor Comercial Occidente", layout="wide")
 
