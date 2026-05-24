@@ -225,6 +225,41 @@ tab_bitacora, tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "🎓 CAPACITACIÓN",
     "🔄 NIVELACIÓN DE STOCK"
 ])
+with tab_bitacora:
+    st.subheader("📝 Registro de Incidencias Operativas")
+    df_tiendas = cargar_tiendas()
+    
+    with st.form("form_incidencias", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            fecha = st.date_input("Fecha", datetime.date.today())
+            # Usamos la columna 'NOMBRE' de tu archivo
+            tienda_seleccionada = st.selectbox("Selecciona la Tienda:", df_tiendas['NOMBRE'].unique())
+        
+        with col2:
+            # Filtra automáticamente al encargado según la tienda seleccionada
+            encargado = df_tiendas[df_tiendas['NOMBRE'] == tienda_seleccionada]['ENCARGADO'].values[0]
+            st.write(f"**Encargado(a):** {encargado}")
+            factor = st.selectbox("Factor Principal:", [
+                "🌧️ Clima adverso", "📉 Bajo tráfico atípico", "🧑‍🤝‍🧑 Plantilla incompleta", 
+                "🔌 Falla: VPN FortiClient", "💻 Falla: Sistema/Terminales", 
+                "🚧 Afectación de acceso", "🎉 Factor externo"
+            ])
+            
+        notas = st.text_area("Detalles de la incidencia (ej. Llovio de 4 a 6 PM):")
+        
+        btn_enviar = st.form_submit_button("💾 Guardar en Bitácora")
+        
+        if btn_enviar:
+            datos = {
+                "Fecha": fecha,
+                "Tienda": tienda_seleccionada,
+                "Encargado": encargado,
+                "Factor": factor,
+                "Notas": notas
+            }
+            guardar_incidencia(datos)
+            st.success(f"✅ Incidencia registrada para {tienda_seleccionada}")
 # --- PESTAÑA 1: DESEMPEÑO COMERCIAL ---
 with tab1:
     if archivo_conv:
