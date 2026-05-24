@@ -6,18 +6,16 @@ from email.mime.text import MIMEText
 import datetime
 from fpdf import FPDF
 import openpyxl
-# --- FUNCIONES DE BITÁCORA ---
+# --- FUNCIONES DE BITÁCORA DEFINITIVAS ---
 def cargar_tiendas():
     try:
-        # Usamos el nombre exacto que muestra el repositorio
-        # Agregamos encoding='latin1' por si el archivo tiene acentos en los nombres
-        return pd.read_csv("CORREO DE TIENDAS.xlsx - Hoja1.csv", encoding='latin1')
+        # Cargamos el archivo
+        df = pd.read_csv("CORREO DE TIENDAS.xlsx - Hoja1.csv", encoding='latin1')
+        return df
     except Exception as e:
-        # Si falla, buscamos cualquier alternativa que contenga "TIENDAS"
         for archivo in os.listdir('.'):
             if "TIENDAS" in archivo.upper() and archivo.endswith('.csv'):
                 return pd.read_csv(archivo, encoding='latin1')
-        
         st.error(f"Error al cargar tiendas: {e}")
         return pd.DataFrame({'NOMBRE': ['Error'], 'ENCARGADO': ['Sin datos']})
 
