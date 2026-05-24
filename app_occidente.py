@@ -5,6 +5,7 @@ import smtplib
 from email.mime.text import MIMEText
 import datetime
 from fpdf import FPDF
+import openpyxl
 # --- FUNCIÓN ROBUSTA PARA CARGAR TIENDAS ---
 def cargar_tiendas():
     nombre_archivo = "CORREO DE TIENDAS.xlsx - Hoja1.csv"
