@@ -214,8 +214,9 @@ def generar_reporte_top20_pdf(df_top20, nombre_sucursal):
     pdf.cell(90, 5, "Gerente Comercial", 0, 1, 'C')
     
     return bytes(pdf.output(dest='S').encode('latin1'))
-# --- DEFINICIÓN DE LAS 7 PESTAÑAS (PRESERVADAS AL 100%) ---
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+# --- DEFINICIÓN DE LAS 8 PESTAÑAS (INTEGRANDO BITÁCORA) ---
+tab_bitacora, tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    "📝 BITÁCORA", 
     "📊 DESEMPEÑO COMERCIAL", 
     "📈 COMPARATIVO MENSUAL",
     "👟 TOP 20 TIENDA", 
@@ -224,7 +225,6 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "🎓 CAPACITACIÓN",
     "🔄 NIVELACIÓN DE STOCK"
 ])
-
 # --- PESTAÑA 1: DESEMPEÑO COMERCIAL ---
 with tab1:
     if archivo_conv:
