@@ -5,6 +5,18 @@ import smtplib
 from email.mime.text import MIMEText
 import datetime
 from fpdf import FPDF
+# --- FUNCIONES PARA BITÁCORA ---
+def cargar_tiendas():
+    # Asegúrate de que el archivo esté en la misma carpeta
+    return pd.read_csv("CORREO DE TIENDAS.xlsx - Hoja1.csv")
+
+def guardar_incidencia(datos):
+    archivo_csv = "bitacora_incidencias.csv"
+    df_nuevo = pd.DataFrame([datos])
+    if not os.path.exists(archivo_csv):
+        df_nuevo.to_csv(archivo_csv, index=False)
+    else:
+        df_nuevo.to_csv(archivo_csv, mode='a', header=False, index=False)
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(page_title="Monitor Comercial Occidente", layout="wide")
 
