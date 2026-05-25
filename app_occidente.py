@@ -238,43 +238,38 @@ with tab_bitacora:
     st.subheader("📝 Registro de Incidencias Operativas")
     df_tiendas = cargar_tiendas()
     
-    with st.form("form_incidencias", clear_on_submit=True):
-        col1, col2 = st.columns(2)
-        with col1:
-            fecha = st.date_input("Fecha", datetime.date.today())
-            tienda_seleccionada = st.selectbox("Selecciona la Tienda:", df_tiendas['NOMBRE'].unique())
+    # 1. Selección de tienda (fuera del formulario para que sea reactivo)
+    tienda_seleccionada = st.selectbox("Selecciona la Tienda:", df_tiendas['NOMBRE'].unique())
+    
+    # 2. Búsqueda y visualización INMEDIATA del encargado
+    fila_tienda = df_tiendas[df_tiendas['NOMBRE'] == tienda_seleccionada]
+    if not fila_tienda.empty:
+        encargado_actual = fila_tienda['ENCARGADO'].values[0]
+        st.info(f"**Encargado(a) detectado(a):** {encargado_actual}")
+    else:
+        encargado_actual = "No encontrado"
+        st.warning(f"**Encargado(a):** {encargado_actual}")
         
-        with col2:
-            # Aquí calculamos quién es el encargado de la tienda elegida
-            fila_tienda = df_tiendas[df_tiendas['NOMBRE'] == tienda_seleccionada]
-            if not fila_tienda.empty:
-                # Usamos una variable clara
-                encargado_a_guardar = fila_tienda['ENCARGADO'].values[0]
-                st.write(f"**Encargado(a):** {encargado_a_guardar}")
-            else:
-                encargado_a_guardar = "No encontrado"
-                st.write(f"**Encargado(a):** {encargado_a_guardar}")
-            
-            factor = st.selectbox("Factor Principal:", [
-                "🌧️ Clima adverso", "📉 Bajo tráfico atípico", "🧑‍🤝‍🧑 Plantilla incompleta", 
-                "🔌 Falla: VPN FortiClient", "💻 Falla: Sistema/Terminales", 
-                "🚧 Afectación de acceso", "🎉 Factor externo"
-            ])
-            
-        notas = st.text_area("Detalles adicionales:")
-        btn_enviar = st.form_submit_button("💾 Guardar en Bitácora")
-        
-        if btn_enviar:
-            # IMPORTANTE: Aquí usamos 'encargado_a_guardar' que es el valor que calculamos arriba
-            datos = {
-                "Fecha": str(fecha),
-                "Tienda": tienda_seleccionada,
-                "Encargado": encargado_a_guardar,
-                "Factor": factor,
-                "Notas": notas
-            }
-            guardar_incidencia(datos)
-            st.success(f"✅ Incidencia registrada para {tienda_seleccionada}")
+    # 3. Solo los datos de la incidencia van en el formulario
+    fecha = st.date_input("Fecha", datetime.date.today())
+    factor = st.selectbox("Factor Principal:", [
+        "🌧️ Clima adverso", "📉 Bajo tráfico atípico", "🧑‍🤝‍🧑 Plantilla incompleta", 
+        "🔌 Falla: VPN FortiClient", "💻 Falla: Sistema/Terminales", 
+        "🚧 Afectación de acceso", "🎉 Factor externo"
+    ])
+    notas = st.text_area("Detalles adicionales:")
+    
+    # 4. Botón de guardado final
+    if st.button("💾 Guardar en Bitácora"):
+        datos = {
+            "Fecha": str(fecha),
+            "Tienda": tienda_seleccionada,
+            "Encargado": encargado_actual,
+            "Factor": factor,
+            "Notas": notas
+        }
+        guardar_incidencia(datos)
+        st.success(f"✅ Incidencia registrada para {tienda_seleccionada}")
 with tab1:
     if archivo_conv:
         df_c = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
