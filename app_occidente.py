@@ -232,44 +232,6 @@ tab_bitacora, tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "🔄 NIVELACIÓN DE STOCK"
 ])
 
-# --- CONTENIDO DE LA PESTAÑA BITÁCORA ---
-with tab_bitacora:
-    st.subheader("📝 Registro de Incidencias Operativas")
-    df_tiendas = cargar_tiendas()
-    
-    # 1. Selección de tienda reactiva
-    tienda_seleccionada = st.selectbox("Selecciona la Tienda:", df_tiendas['NOMBRE'].unique())
-    
-    # 2. Búsqueda y visualización INMEDIATA del encargado
-    fila_tienda = df_tiendas[df_tiendas['NOMBRE'] == tienda_seleccionada]
-    if not fila_tienda.empty:
-        encargado_actual = fila_tienda['ENCARGADO'].values[0]
-        st.info(f"**Encargado(a) detectado(a):** {encargado_actual}")
-    else:
-        encargado_actual = "No encontrado"
-        st.warning(f"**Encargado(a):** {encargado_actual}")
-        
-    # 3. Datos de la incidencia (con fecha corregida)
-    fecha_mexico = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
-    fecha = st.date_input("Fecha", fecha_mexico.date())
-    factor = st.selectbox("Factor Principal:", [
-        "🌧️ Clima adverso", "📉 Bajo tráfico atípico", "🧑‍🤝‍🧑 Plantilla incompleta", 
-        "🔌 Falla: VPN FortiClient", "💻 Falla: Sistema/Terminales", 
-        "🚧 Afectación de acceso", "🎉 Factor externo"
-    ])
-    notas = st.text_area("Detalles adicionales:")
-    
-    # 4. Botón de guardado
-    if st.button("💾 Guardar en Bitácora"):
-        datos = {
-            "Fecha": str(fecha),
-            "Tienda": tienda_seleccionada,
-            "Encargado": encargado_actual,
-            "Factor": factor,
-            "Notas": notas
-        }
-        guardar_incidencia(datos)
-        st.success(f"✅ Incidencia registrada para {tienda_seleccionada}")
 
 # ========================================================
 # --- PESTAÑA 1: DESEMPEÑO COMERCIAL ---
@@ -507,6 +469,45 @@ if archivo_modelos:
         top_z = df_z.sort_values(by=col_p, ascending=False).head(20).reset_index(drop=True)
         top_z.columns = ['MODELO', 'PARES VENDIDOS']
         st.table(top_z.style.apply(resaltar_top_5, axis=None))
+        # --- CONTENIDO DE LA PESTAÑA BITÁCORA ---
+with tab_bitacora:
+    st.subheader("📝 Registro de Incidencias Operativas")
+    df_tiendas = cargar_tiendas()
+    
+    # 1. Selección de tienda reactiva
+    tienda_seleccionada = st.selectbox("Selecciona la Tienda:", df_tiendas['NOMBRE'].unique())
+    
+    # 2. Búsqueda y visualización INMEDIATA del encargado
+    fila_tienda = df_tiendas[df_tiendas['NOMBRE'] == tienda_seleccionada]
+    if not fila_tienda.empty:
+        encargado_actual = fila_tienda['ENCARGADO'].values[0]
+        st.info(f"**Encargado(a) detectado(a):** {encargado_actual}")
+    else:
+        encargado_actual = "No encontrado"
+        st.warning(f"**Encargado(a):** {encargado_actual}")
+        
+    # 3. Datos de la incidencia (con fecha corregida)
+    fecha_mexico = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
+    fecha = st.date_input("Fecha", fecha_mexico.date())
+    factor = st.selectbox("Factor Principal:", [
+        "🌧️ Clima adverso", "📉 Bajo tráfico atípico", "🧑‍🤝‍🧑 Plantilla incompleta", 
+        "🔌 Falla: VPN FortiClient", "💻 Falla: Sistema/Terminales", 
+        "🚧 Afectación de acceso", "🎉 Factor externo"
+    ])
+    notas = st.text_area("Detalles adicionales:")
+    
+    # 4. Botón de guardado
+    if st.button("💾 Guardar en Bitácora"):
+        datos = {
+            "Fecha": str(fecha),
+            "Tienda": tienda_seleccionada,
+            "Encargado": encargado_actual,
+            "Factor": factor,
+            "Notas": notas
+        }
+        guardar_incidencia(datos)
+        st.success(f"✅ Incidencia registrada para {tienda_seleccionada}")
+
 # --- PESTAÑA 5: RUTA DEL CLIENTE ---
 with tab5:
     st.subheader("🧭 Protocolo Operativo en Piso de Venta")
