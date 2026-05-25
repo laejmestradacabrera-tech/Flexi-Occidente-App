@@ -490,9 +490,14 @@ with tab_bitacora:
     fecha_mexico = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
     fecha = st.date_input("Fecha", fecha_mexico.date())
     factor = st.selectbox("Factor Principal:", [
-        "🌧️ Clima adverso", "📉 Bajo tráfico atípico", "🧑‍🤝‍🧑 Plantilla incompleta", 
-        "🔌 Falla: VPN FortiClient", "💻 Falla: Sistema/Terminales", 
-        "🚧 Afectación de acceso", "🎉 Factor externo"
+        "👟 Faltante de Tallas (Proyecto Tallas Extremas)",
+        "🌧️ Clima adverso", 
+        "📉 Bajo tráfico atípico", 
+        "🧑‍🤝‍🧑 Plantilla incompleta", 
+        "🔌 Falla: VPN FortiClient", 
+        "💻 Falla: Sistema/Terminales", 
+        "🚧 Afectación de acceso", 
+        "🎉 Factor externo"
     ])
     notas = st.text_area("Detalles adicionales:")
     
