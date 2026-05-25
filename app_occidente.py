@@ -251,7 +251,9 @@ with tab_bitacora:
         st.warning(f"**Encargado(a):** {encargado_actual}")
         
     # 3. Solo los datos de la incidencia van en el formulario
-    fecha = st.date_input("Fecha", datetime.date.today())
+    # Ajuste para la fecha de México
+    fecha_mexico = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
+    fecha = st.date_input("Fecha", fecha_mexico.date())
     factor = st.selectbox("Factor Principal:", [
         "🌧️ Clima adverso", "📉 Bajo tráfico atípico", "🧑‍🤝‍🧑 Plantilla incompleta", 
         "🔌 Falla: VPN FortiClient", "💻 Falla: Sistema/Terminales", 
