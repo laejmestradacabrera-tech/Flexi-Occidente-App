@@ -24,7 +24,7 @@ def guardar_incidencia(datos):
     else:
         df_nuevo.to_csv(archivo_csv, mode='a', header=False, index=False)
 # 1. CONFIGURACIÓN DE PÁGINA
-st.set_page_config(page_title="Monitor Comercial Occidente", layout="wide")
+st.set_page_config(page_title="Monitor Comercial Flexi Occidente", layout="wide")
 
 # --- ESTILO GLOBAL INTERACTIVO ---
 st.markdown("""
