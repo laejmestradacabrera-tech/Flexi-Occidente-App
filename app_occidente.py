@@ -233,47 +233,48 @@ tab_bitacora, tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
 ])
 
 # --- CONTENIDO DE LA PESTAÑA BITÁCORA (NUEVO) ---
+# --- PESTAÑA 1: DESEMPEÑO COMERCIAL ---
 with tab_bitacora:
     st.subheader("📝 Registro de Incidencias Operativas")
     df_tiendas = cargar_tiendas()
     
-    # Usamos una clave única 'form_inc' para forzar la actualización
     with st.form("form_incidencias", clear_on_submit=True):
         col1, col2 = st.columns(2)
         with col1:
             fecha = st.date_input("Fecha", datetime.date.today())
             tienda_seleccionada = st.selectbox("Selecciona la Tienda:", df_tiendas['NOMBRE'].unique())
+        
         with col2:
-            # Esta lógica recalcula el encargado cada vez que cambia la tienda
+            # Aquí calculamos quién es el encargado de la tienda elegida
             fila_tienda = df_tiendas[df_tiendas['NOMBRE'] == tienda_seleccionada]
-            
             if not fila_tienda.empty:
-                encargado_actual = fila_tienda['ENCARGADO'].values[0]
-                st.write(f"**Encargado(a):** {encargado_actual}")
+                # Usamos una variable clara
+                encargado_a_guardar = fila_tienda['ENCARGADO'].values[0]
+                st.write(f"**Encargado(a):** {encargado_a_guardar}")
             else:
-                encargado_actual = "No encontrado"
-                st.write(f"**Encargado(a):** {encargado_actual}")
+                encargado_a_guardar = "No encontrado"
+                st.write(f"**Encargado(a):** {encargado_a_guardar}")
             
             factor = st.selectbox("Factor Principal:", [
                 "🌧️ Clima adverso", "📉 Bajo tráfico atípico", "🧑‍🤝‍🧑 Plantilla incompleta", 
                 "🔌 Falla: VPN FortiClient", "💻 Falla: Sistema/Terminales", 
                 "🚧 Afectación de acceso", "🎉 Factor externo"
-            ])    
+            ])
+            
         notas = st.text_area("Detalles adicionales:")
-        
         btn_enviar = st.form_submit_button("💾 Guardar en Bitácora")
         
         if btn_enviar:
+            # IMPORTANTE: Aquí usamos 'encargado_a_guardar' que es el valor que calculamos arriba
             datos = {
                 "Fecha": str(fecha),
                 "Tienda": tienda_seleccionada,
-                "Encargado": encargado,
+                "Encargado": encargado_a_guardar,
                 "Factor": factor,
                 "Notas": notas
             }
             guardar_incidencia(datos)
             st.success(f"✅ Incidencia registrada para {tienda_seleccionada}")
-# --- PESTAÑA 1: DESEMPEÑO COMERCIAL ---
 with tab1:
     if archivo_conv:
         df_c = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
