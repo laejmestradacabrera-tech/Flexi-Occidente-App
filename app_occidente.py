@@ -245,14 +245,15 @@ with tab_bitacora:
             tienda_seleccionada = st.selectbox("Selecciona la Tienda:", df_tiendas['NOMBRE'].unique())
         
         with col2:
-            # Buscamos la encargada de la tienda seleccionada
+            # Esta lógica recalcula el encargado cada vez que cambia la tienda
             fila_tienda = df_tiendas[df_tiendas['NOMBRE'] == tienda_seleccionada]
+            
             if not fila_tienda.empty:
-                encargado = fila_tienda['ENCARGADO'].values[0]
-                st.write(f"**Encargado(a):** {encargado}")
+                encargado_actual = fila_tienda['ENCARGADO'].values[0]
+                st.write(f"**Encargado(a):** {encargado_actual}")
             else:
-                encargado = "No encontrado"
-                st.write(f"**Encargado(a):** {encargado}")
+                encargado_actual = "No encontrado"
+                st.write(f"**Encargado(a):** {encargado_actual}")
             
             factor = st.selectbox("Factor Principal:", [
                 "🌧️ Clima adverso", "📉 Bajo tráfico atípico", "🧑‍🤝‍🧑 Plantilla incompleta", 
