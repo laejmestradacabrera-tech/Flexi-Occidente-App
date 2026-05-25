@@ -237,17 +237,23 @@ with tab_bitacora:
     st.subheader("📝 Registro de Incidencias Operativas")
     df_tiendas = cargar_tiendas()
     
+    # Usamos una clave única 'form_inc' para forzar la actualización
     with st.form("form_incidencias", clear_on_submit=True):
         col1, col2 = st.columns(2)
         with col1:
             fecha = st.date_input("Fecha", datetime.date.today())
-            # Aquí llamamos a la columna 'NOMBRE' de su archivo
             tienda_seleccionada = st.selectbox("Selecciona la Tienda:", df_tiendas['NOMBRE'].unique())
         
         with col2:
-            # Filtra automáticamente al encargado según la tienda
-            encargado = df_tiendas[df_tiendas['NOMBRE'] == tienda_seleccionada]['ENCARGADO'].values[0]
-            st.write(f"**Encargado(a):** {encargado}")
+            # Buscamos la encargada de la tienda seleccionada
+            fila_tienda = df_tiendas[df_tiendas['NOMBRE'] == tienda_seleccionada]
+            if not fila_tienda.empty:
+                encargado = fila_tienda['ENCARGADO'].values[0]
+                st.write(f"**Encargado(a):** {encargado}")
+            else:
+                encargado = "No encontrado"
+                st.write(f"**Encargado(a):** {encargado}")
+            
             factor = st.selectbox("Factor Principal:", [
                 "🌧️ Clima adverso", "📉 Bajo tráfico atípico", "🧑‍🤝‍🧑 Plantilla incompleta", 
                 "🔌 Falla: VPN FortiClient", "💻 Falla: Sistema/Terminales", 
