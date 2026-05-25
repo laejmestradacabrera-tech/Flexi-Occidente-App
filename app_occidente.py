@@ -55,7 +55,7 @@ st.markdown("""
     .kpi-value { font-size: 24px; color: #E30613; font-weight: bold; margin: 5px 0; }
     .kpi-delta { font-size: 15px; font-weight: bold; }
     </style>
-    <h1 class="main-title">🔴 MONITOR COMERCIAL OCCIDENTE</h1>
+    <h1 class="main-title">🔴 MONITOR COMERCIAL FLEXI OCCIDENTE</h1>
     """, unsafe_allow_html=True)
 
 def buscar_archivo(palabra_clave):
