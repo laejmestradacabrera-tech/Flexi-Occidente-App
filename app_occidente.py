@@ -232,13 +232,12 @@ tab_bitacora, tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "🔄 NIVELACIÓN DE STOCK"
 ])
 
-# --- CONTENIDO DE LA PESTAÑA BITÁCORA (NUEVO) ---
-# --- PESTAÑA 1: DESEMPEÑO COMERCIAL ---
+# --- CONTENIDO DE LA PESTAÑA BITÁCORA ---
 with tab_bitacora:
     st.subheader("📝 Registro de Incidencias Operativas")
     df_tiendas = cargar_tiendas()
     
-    # 1. Selección de tienda (fuera del formulario para que sea reactivo)
+    # 1. Selección de tienda reactiva
     tienda_seleccionada = st.selectbox("Selecciona la Tienda:", df_tiendas['NOMBRE'].unique())
     
     # 2. Búsqueda y visualización INMEDIATA del encargado
@@ -250,8 +249,7 @@ with tab_bitacora:
         encargado_actual = "No encontrado"
         st.warning(f"**Encargado(a):** {encargado_actual}")
         
-    # 3. Solo los datos de la incidencia van en el formulario
-    # Ajuste para la fecha de México
+    # 3. Datos de la incidencia (con fecha corregida)
     fecha_mexico = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
     fecha = st.date_input("Fecha", fecha_mexico.date())
     factor = st.selectbox("Factor Principal:", [
@@ -261,7 +259,7 @@ with tab_bitacora:
     ])
     notas = st.text_area("Detalles adicionales:")
     
-    # 4. Botón de guardado final
+    # 4. Botón de guardado
     if st.button("💾 Guardar en Bitácora"):
         datos = {
             "Fecha": str(fecha),
@@ -272,6 +270,9 @@ with tab_bitacora:
         }
         guardar_incidencia(datos)
         st.success(f"✅ Incidencia registrada para {tienda_seleccionada}")
+
+# ========================================================
+# --- PESTAÑA 1: DESEMPEÑO COMERCIAL ---
 with tab1:
     if archivo_conv:
         df_c = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
@@ -297,8 +298,7 @@ with tab1:
                 elif c_conv or c_tkt: return ['background-color: #fff3cd; color: #856404'] * 4
                 else: return ['background-color: #f8d7da; color: #721c24'] * 4
 
-            st.table(ranking.style.apply(color_semaforo, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))
-            
+            st.table(ranking.style.apply(color_semaforo, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))            
             
 # --- PESTAÑA 2: COMPARATIVO MENSUAL ---
 with tab2:
