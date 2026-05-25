@@ -245,21 +245,44 @@ with tab_bitacora:
             tienda_seleccionada = st.selectbox("Selecciona la Tienda:", df_tiendas['NOMBRE'].unique())
         
         with col2:
-            # Esta lógica recalcula el encargado cada vez que cambia la tienda
-            fila_tienda = df_tiendas[df_tiendas['NOMBRE'] == tienda_seleccionada]
-            
-            if not fila_tienda.empty:
-                encargado_actual = fila_tienda['ENCARGADO'].values[0]
-                st.write(f"**Encargado(a):** {encargado_actual}")
-            else:
-                encargado_actual = "No encontrado"
-                st.write(f"**Encargado(a):** {encargado_actual}")
-            
-            factor = st.selectbox("Factor Principal:", [
-                "🌧️ Clima adverso", "📉 Bajo tráfico atípico", "🧑‍🤝‍🧑 Plantilla incompleta", 
-                "🔌 Falla: VPN FortiClient", "💻 Falla: Sistema/Terminales", 
-                "🚧 Afectación de acceso", "🎉 Factor externo"
-            ])
+
+    # Buscar fila correspondiente a la tienda seleccionada
+    filtro_tienda = df_tiendas[
+        df_tiendas['NOMBRE'].astype(str).str.strip() ==
+        str(tienda_seleccionada).strip()
+    ]
+
+    # Validar si encontró coincidencia
+    if not filtro_tienda.empty:
+        encargado = filtro_tienda.iloc[0]['ENCARGADO']
+    else:
+        encargado = "Sin asignar"
+
+    # Mostrar encargado dinámicamente
+    st.markdown(f"""
+        <div style="
+            background-color:#f8f9fa;
+            padding:10px;
+            border-radius:8px;
+            border:1px solid #ddd;
+            font-size:16px;
+        ">
+            <b>👤 Encargado(a):</b> {encargado}
+        </div>
+    """, unsafe_allow_html=True)
+
+    factor = st.selectbox(
+        "Factor Principal:",
+        [
+            "🌧️ Clima adverso",
+            "📉 Bajo tráfico atípico",
+            "🧑‍🤝‍🧑 Plantilla incompleta",
+            "🔌 Falla: VPN FortiClient",
+            "💻 Falla: Sistema/Terminales",
+            "🚧 Afectación de acceso",
+            "🎉 Factor externo"
+        ]
+    )
             
         notas = st.text_area("Detalles adicionales:")
         
