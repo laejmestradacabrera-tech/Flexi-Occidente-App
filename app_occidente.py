@@ -220,8 +220,8 @@ def generar_reporte_top20_pdf(df_top20, nombre_sucursal):
     pdf.cell(90, 5, "Gerente Comercial", 0, 1, 'C')
     
     return bytes(pdf.output(dest='S').encode('latin1'))
-   # --- DEFINICIÓN DE LAS 8 PESTAÑAS ---
-tab1, tab2, tab3, tab4, tab_bitacora, tab5, tab6, tab7, tab8 = st.tabs([
+    # --- DEFINICIÓN DE LAS 8 PESTAÑAS ---
+tab1, tab2, tab3, tab4, tab_bitacora, tab5, tab6, tab7 = st.tabs([
     "📊 DESEMPEÑO COMERCIAL", 
     "📈 COMPARATIVO MENSUAL",
     "👟 TOP 20 TIENDA", 
@@ -229,8 +229,7 @@ tab1, tab2, tab3, tab4, tab_bitacora, tab5, tab6, tab7, tab8 = st.tabs([
     "📝 BITÁCORA", 
     "🧭 RUTA DEL CLIENTE",
     "🎓 CAPACITACIÓN",
-    "🔄 NIVELACIÓN DE STOCK",
-    "🎯 MONITOR ESTRATÉGICO"  # Nombre correcto aplicado
+    "🔄 NIVELACIÓN DE STOCK"
 ])
 
 
@@ -617,41 +616,8 @@ with tab6:
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
     st.subheader("🔄 Algoritmo Maestro de Nivelación de Inventarios (2 Meses)")
-    st.info("Pestaña congelada y en fase de análisis estructural bajo las nuevas directrices lógicas (Candado origen, quiebreabsoluto y proximidad).")
-with tab8:
-    st.header("🎯 MONITOR ESTRATÉGICO")
-    if st.button("Actualizar Datos"):
-        try:
-            import gspread
-            from oauth2client.service_account import ServiceAccountCredentials
-            
-            creds_dict = dict(st.secrets["gcp_service_account"])
-            scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-            creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-            client = gspread.authorize(creds)
-# --- CONTENIDO DE LA PESTAÑA 8 ---
-with tab8:
-    st.header("🎯 MONITOR ESTRATÉGICO")
-    
-    if st.button("Actualizar Datos"):
-        try:
-            import gspread
-            from oauth2client.service_account import ServiceAccountCredentials
-            
-            creds_dict = dict(st.secrets["gcp_service_account"])
-            scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-            creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-            client = gspread.authorize(creds)
-            
-            archivo = client.open('Monitor_Flexi_360')
-            sheet = archivo.get_worksheet(0)
-            datos = sheet.get_all_values()
-            
-            st.success("¡Datos cargados!")
-            st.dataframe(datos)
-            
-        except Exception as e:
-            st.error(f"Error detectado: {e}")                
+    st.info("Pestaña congelada y en fase de análisis estructural bajo las nuevas directrices lógicas (Candado origen, quiebre absoluto y proximidad).")
+
 # PIE DE PÁGINA
 st.markdown("""
     <div class="footer">
