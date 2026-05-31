@@ -221,17 +221,17 @@ def generar_reporte_top20_pdf(df_top20, nombre_sucursal):
     
     return bytes(pdf.output(dest='S').encode('latin1'))
     # --- DEFINICIÓN DE LAS 8 PESTAÑAS ---
-tab1, tab2, tab3, tab4, tab_bitacora, tab5, tab6, tab7 = st.tabs([
+tab1, tab2, tab3, tab4, tab_bitacora, tab5, tab6, tab7, tab8 = st.tabs([
     "📊 DESEMPEÑO COMERCIAL", 
     "📈 COMPARATIVO MENSUAL",
     "👟 TOP 20 TIENDA", 
     "🌍 TOP 20 ZONA", 
     "📝 BITÁCORA", 
-    "🧭 RUTA DEL CLIENTE",
-    "🎓 CAPACITACIÓN",
-    "🔄 NIVELACIÓN DE STOCK"
+    "🧭 RUTA DEL CLIENTE", 
+    "🎓 CAPACITACIÓN", 
+    "🔄 NIVELACIÓN DE STOCK", 
+    "🎯 MONITOR ESTRATÉGICO"
 ])
-
 
 # ========================================================
 # --- PESTAÑA 1: DESEMPEÑO COMERCIAL ---
