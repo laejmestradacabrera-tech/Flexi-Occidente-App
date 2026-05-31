@@ -617,7 +617,30 @@ with tab6:
 with tab7:
     st.subheader("🔄 Algoritmo Maestro de Nivelación de Inventarios (2 Meses)")
     st.info("Pestaña congelada y en fase de análisis estructural bajo las nuevas directrices lógicas (Candado origen, quiebre absoluto y proximidad).")
-
+# --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
+with tab8:
+    st.header("🎯 MONITOR ESTRATÉGICO")
+    if st.button("Actualizar Datos"):
+        try:
+            import gspread
+            from oauth2client.service_account import ServiceAccountCredentials
+            
+            creds_dict = dict(st.secrets["gcp_service_account"])
+            scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+            creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+            client = gspread.authorize(creds)
+            
+            archivo = client.open('Monitor_Flexi_360')
+            sheet = archivo.get_worksheet(0)
+            datos = sheet.get_all_values()
+            
+            if datos:
+                st.success("¡Datos cargados!")
+                st.dataframe(pd.DataFrame(datos[1:], columns=datos[0]), use_container_width=True)
+            else:
+                st.warning("La hoja está vacía.")
+        except Exception as e:
+            st.error(f"Error detectado: {e}")
 # PIE DE PÁGINA
 st.markdown("""
     <div class="footer">
