@@ -638,26 +638,20 @@ with tab8:
             import gspread
             from oauth2client.service_account import ServiceAccountCredentials
             
-            # Conexión con los secretos
             creds_dict = dict(st.secrets["gcp_service_account"])
             scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
             creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
             client = gspread.authorize(creds)
             
-            # Abrimos el archivo y leemos la primera hoja
             archivo = client.open('Monitor_Flexi_360')
             sheet = archivo.get_worksheet(0)
             datos = sheet.get_all_values()
             
-            if not datos or datos == [['']]:
-                st.warning("La hoja está vacía.")
-            else:
-                st.success("¡Datos cargados correctamente!")
-                st.dataframe(datos)
+            st.success("¡Datos cargados!")
+            st.dataframe(datos)
             
         except Exception as e:
-            st.error(f"Error de conexión: {e}")            
-                
+            st.error(f"Error detectado: {e}")                
 # PIE DE PÁGINA
 st.markdown("""
     <div class="footer">
