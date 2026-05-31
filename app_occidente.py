@@ -232,7 +232,6 @@ tab1, tab2, tab3, tab4, tab_bitacora, tab5, tab6, tab7, tab8 = st.tabs([
     "🔄 NIVELACIÓN DE STOCK", 
     "🎯 MONITOR ESTRATÉGICO"
 ])
-
 # ========================================================
 # --- PESTAÑA 1: DESEMPEÑO COMERCIAL ---
 with tab1:
