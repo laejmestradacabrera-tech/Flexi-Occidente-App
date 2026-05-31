@@ -617,32 +617,30 @@ with tab6:
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
     st.subheader("🔄 Algoritmo Maestro de Nivelación de Inventarios (2 Meses)")
-    st.info("Pestaña congelada y en fase de análisis estructural bajo las nuevas directrices lógicas (Candado origen, quiebre absoluto y proximidad).")
-# --- CONTENIDO DE LA PESTAÑA 8 ---
+    st.info("Pestaña congelada y en fase de análisis estructural bajo las nuevas directrices lógicas (Candado origen, quiebreabsoluto y proximidad).")
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
-    st.write("Consulta de datos en tiempo real desde Google Drive.")
-    
     if st.button("Actualizar Datos"):
         try:
             import gspread
             from oauth2client.service_account import ServiceAccountCredentials
             
-            # Conexión usando los secretos configurados en Streamlit Cloud
             creds_dict = dict(st.secrets["gcp_service_account"])
             scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
             creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
             client = gspread.authorize(creds)
             
-            # Conexión con el archivo central
-            sheet = client.open('Monitor Comercial Flexi-Datos').sheet1
-            datos = sheet.get_all_values()
-            
-            st.success("¡Datos cargados con éxito!")
-            st.dataframe(datos)
+            # --- DIAGNÓSTICO: Vamos a listar lo que el robot ve ---
+            archivos = client.list_spreadsheet_files()
+            st.write("El robot tiene acceso a estos archivos:")
+            for archivo in archivos:
+                st.write(f"- {archivo['name']}")
+                
+            # Intente abrir un nombre que esté en la lista que aparecerá arriba
+            # sheet = client.open('NOMBRE_QUE_APAREZCA_EN_LA_LISTA').sheet1
             
         except Exception as e:
-            st.error(f"Error al conectar: {e}. Verifique el nombre del archivo y los permisos del robot.")
+            st.error(f"Error: {e}")    
 # PIE DE PÁGINA
 st.markdown("""
     <div class="footer">
