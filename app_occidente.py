@@ -620,27 +620,36 @@ with tab7:
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
-    if st.button("Actualizar Datos"):
+    
+    # Botón de diagnóstico de conexión
+    if st.button("Verificar Conexión y Cargar Datos"):
         try:
             import gspread
             from oauth2client.service_account import ServiceAccountCredentials
             
+            # Carga de credenciales
             creds_dict = dict(st.secrets["gcp_service_account"])
             scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
             creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
             client = gspread.authorize(creds)
             
-            archivo = client.open('Monitor_Flexi_360')
+            # Intento de apertura por nombre
+            archivo = client.open('Monitor Comercial Flexi Occidente')
             sheet = archivo.get_worksheet(0)
             datos = sheet.get_all_values()
             
             if datos:
-                st.success("¡Datos cargados!")
-                st.dataframe(pd.DataFrame(datos[1:], columns=datos[0]), use_container_width=True)
+                st.success("✅ ¡Conexión establecida y datos cargados!")
+                df_monitor = pd.DataFrame(datos[1:], columns=datos[0])
+                st.dataframe(df_monitor, use_container_width=True)
             else:
-                st.warning("La hoja está vacía.")
+                st.warning("La hoja está conectada pero vacía.")
+                
+        except gspread.exceptions.SpreadsheetNotFound:
+            st.error("❌ Error: No se encontró el archivo 'Monitor Comercial Flexi Occidente'. Verifica que el nombre sea exacto.")
         except Exception as e:
-            st.error(f"Error detectado: {e}")
+            st.error(f"❌ Error de conexión: {e}")
+            st.info("Nota: Asegúrate de que el correo del robot sea 'Editor' en el archivo.")    
 # PIE DE PÁGINA
 st.markdown("""
     <div class="footer">
