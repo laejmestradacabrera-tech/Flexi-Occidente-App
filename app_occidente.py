@@ -621,25 +621,37 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🔄 Diagnóstico de Nombres de Columnas")
+    st.subheader("🔄 Monitor de Nivelación - Conexión Directa")
     
-    if st.button("Analizar Nombres de Columnas"):
+    if st.button("Ejecutar Análisis de Ventas"):
         try:
+            # Conexión al archivo
             sh = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM')
             
-            # Vamos a revisar todas las hojas para ver qué nombres detecta
-            for ws in sh.worksheets():
-                st.write(f"--- Analizando hoja: {ws.title} ---")
-                headers = ws.row_values(1)
-                st.write("Columnas detectadas:", headers)
-                
-                # Buscamos coincidencias aproximadas
-                for h in headers:
-                    if 'tien' in str(h).lower():
-                        st.success(f"¡Candidato encontrado! En la hoja '{ws.title}', existe la columna: '{h}'")
+            # --- CORRECCIÓN DEFINITIVA ---
+            # Forzamos la apertura de la hoja llamada "Ventas_Maestro"
+            # Si el nombre tiene algún espacio oculto, asegúrese de escribirlo tal cual aparece abajo
+            worksheet = sh.worksheet("Ventas_Maestro")
+            
+            data = worksheet.get_all_values()
+            df = pd.DataFrame(data[1:], columns=data[0])
+            df.columns = df.columns.str.strip()
+            
+            # Diagnóstico de columnas en la hoja correcta
+            st.write("Columnas detectadas en Ventas_Maestro:", list(df.columns))
+            
+            # --- AQUÍ USAMOS LOS NOMBRES QUE USTED YA VALIDO ---
+            # Si en esta hoja la columna se llama 'Tienda', el código ya la detectará
+            col_tienda = 'Tienda' 
+            
+            lista_tiendas = sorted(list(set(df[col_tienda].dropna().astype(str).tolist())))
+            t_sel = st.selectbox("Selecciona Tienda:", lista_tiendas)
+            
+            df_t = df[df[col_tienda] == t_sel]
+            st.success(f"Tienda {t_sel} cargada. ¡El motor está listo!")
             
         except Exception as e:
-            st.error(f"Error técnico: {e}")
+            st.error(f"Error: {e}. ¿Está seguro que la pestaña se llama 'Ventas_Maestro'?")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
