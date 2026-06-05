@@ -614,8 +614,52 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🔄 Algoritmo Maestro de Nivelación de Inventarios (2 Meses)")
-    st.info("Pestaña congelada y en fase de análisis estructural bajo las nuevas directrices lógicas (Candado origen, quiebre absoluto y proximidad).")
+    st.subheader("🔄 Algoritmo de Nivelación de Inventarios (Top 20)")
+    
+    if st.button("Ejecutar Análisis de Nivelación"):
+        try:
+            # 1. Cargar Ventas Maestro desde Google Sheets
+            # Usamos el cliente configurado en tu pestaña 8
+            sheet = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM').get_worksheet(0)
+            data = sheet.get_all_values()
+            df_maestro = pd.DataFrame(data[1:], columns=data[0])
+            
+            # Limpieza: Convertir columnas de stock, pedido y venta a numérico
+            cols_ex = [f'ex{i}' for i in range(1, 16)]
+            cols_p = [f'p{i}' for i in range(1, 16)]
+            cols_v = [f'v{i}' for i in range(1, 16)]
+            
+            df_maestro[cols_ex + cols_p + cols_v] = df_maestro[cols_ex + cols_p + cols_v].apply(pd.to_numeric, errors='coerce').fillna(0)
+            
+            # 2. Cargar tu Top 20 oficial de GitHub (Filtro intocable)
+            df_top20_ref = pd.read_excel(archivo_modelos) 
+            lista_modelos_top = df_top20_ref[col_m].unique()
+            
+            # 3. Filtrar Maestro contra Top 20
+            df_nivelacion = df_maestro[df_maestro['Modelo'].isin(lista_modelos_top)]
+            
+            # 4. Aplicar Condicionantes de Nivelación (Quiebre absoluto + Venta histórica)
+            alertas = []
+            for _, row in df_nivelacion.iterrows():
+                for i in range(1, 16):
+                    # Condición: Stock 0, Tránsito 0, y Venta > 0
+                    if row[f'ex{i}'] == 0 and row[f'p{i}'] == 0 and row[f'v{i}'] > 0:
+                        alertas.append({
+                            "Tienda": row['Tienda'],
+                            "Modelo": row['Modelo'],
+                            "Columna": f"EX{i}",
+                            "Estado": "⚠️ REQUIERE PEDIDO"
+                        })
+            
+            # 5. Visualización de resultados
+            if alertas:
+                st.table(pd.DataFrame(alertas))
+                st.warning(f"Se detectaron {len(alertas)} quiebres en tus modelos Top 20.")
+            else:
+                st.success("¡Excelente! No hay quiebres de inventario en tus modelos Top 20.")
+                
+        except Exception as e:
+            st.error(f"Error al ejecutar el motor de nivelación: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
