@@ -621,58 +621,41 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🔄 Monitor de Nivelación - Zona Occidente")
+    st.subheader("🔄 Diagnóstico Final de Conexión")
     
-    if st.button("Ejecutar Análisis de Ventas"):
+    if st.button("Ejecutar Análisis"):
         try:
-            # 1. Conexión segura a la hoja
+            # 1. Acceso al archivo
             sh = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM')
-            worksheet = sh.worksheet("Ventas_Maestro")
+            
+            # 2. Diagnóstico: Listar todas las pestañas existentes
+            nombres_pestañas = [ws.title for ws in sh.worksheets()]
+            st.write("Pestañas encontradas en Drive:", nombres_pestañas)
+            
+            # 3. Acceder a la primera pestaña (índice 0) obligatoriamente
+            worksheet = sh.get_worksheet(0)
+            st.write("Estamos leyendo la pestaña:", worksheet.title)
+            
             data = worksheet.get_all_values()
             
-            # 2. Cargar DataFrame
+            # 4. Procesamiento
             df = pd.DataFrame(data[1:], columns=data[0])
             df.columns = df.columns.str.strip()
             
-            # 3. RENOMBRADO AUTOMÁTICO (Aquí corregimos el problema de los nombres de columnas)
-            # Esto convierte sus nombres actuales (cl_tien, clave, etc) a los nombres que el código necesita
-            df = df.rename(columns={
-                'cl_tien': 'Tienda', 
-                'clave': 'Modelo', 
-                'descont': 'Estatus'
-            })
+            # 5. Diagnóstico de columnas
+            st.write("Columnas detectadas:", list(df.columns))
             
-            # Limpieza para que no haya espacios en los nombres de las columnas
-            df.columns = df.columns.str.strip()
+            # 6. Mapeo forzado
+            df = df.rename(columns={df.columns[0]: 'Tienda', df.columns[2]: 'Modelo', df.columns[3]: 'Estatus'})
             
-            # 4. Asegurar que las tallas sean números (ex1 a ex15)
-            cols_ex = [col for col in df.columns if col.startswith('ex')]
-            df[cols_ex] = df[cols_ex].apply(pd.to_numeric, errors='coerce').fillna(0)
-            
-            # 5. Selector de Tienda (limpio)
+            # 7. Selector
             lista_tiendas = sorted(df['Tienda'].dropna().unique().astype(str).tolist())
             t_sel = st.selectbox("Selecciona Tienda:", lista_tiendas)
             
-            # 6. Análisis
-            df_t = df[df['Tienda'] == t_sel]
+            st.success(f"Tienda {t_sel} cargada correctamente.")
             
-            # Lógica de nivelación (filtrando solo vigentes)
-            alertas = []
-            for _, row in df_t.iterrows():
-                # Revisamos si es vigente (ajuste el texto si es "Vigente" o "vigente")
-                if str(row.get('Estatus', '')).strip().lower() == 'vigente':
-                    for col in cols_ex:
-                        if row[col] == 0: # Si hay quiebre
-                            alertas.append({"Modelo": row['Modelo'], "Talla": col})
-            
-            if alertas:
-                st.write(f"Alertas de Nivelación para {t_sel}:")
-                st.table(pd.DataFrame(alertas))
-            else:
-                st.success(f"¡Excelente! La tienda {t_sel} no presenta quiebres.")
-                
         except Exception as e:
-            st.error(f"Error técnico: {e}. Asegúrese de que las columnas en Drive coincidan con lo esperado.")
+            st.error(f"Error técnico detallado: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
