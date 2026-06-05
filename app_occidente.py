@@ -621,36 +621,21 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🔄 Monitor de Nivelación - Modo Estratégico")
+    st.subheader("🔄 Diagnóstico Total de Pestañas")
     
-    if st.button("Ejecutar Análisis de Ventas"):
+    if st.button("Listar Pestañas Reales"):
         try:
-            # 1. Acceso a la hoja 'Ventas'
             sh = client.open_by_key('1NyLfmlT92T7aI47njeP2fTgP0PMCJYFwUa8iIISVwBI')
-            ws = sh.worksheet("Ventas")
             
-            # 2. Carga y limpieza
+            # Listar todos los nombres que detecta la API
+            nombres = [ws.title for ws in sh.worksheets()]
+            st.write("Nombres exactos de las pestañas en Drive:", nombres)
+            
+            # Intentar cargar la primera pestaña que detecte
+            ws = sh.get_worksheet(0)
             data = ws.get_all_values()
-            df = pd.DataFrame(data[1:], columns=data[0])
-            df.columns = df.columns.str.strip()
+            st.write("Columnas de la primera pestaña:", data[0])
             
-            # 3. Filtrado por Estatus ('N' = Vigente)
-            # Aseguramos que la columna se llame 'Estatus'
-            if 'Estatus' in df.columns:
-                df_vigente = df[df['Estatus'].str.strip().str.upper() == 'N']
-                
-                # 4. Selector de Tienda
-                lista_tiendas = sorted(df_vigente['Tienda'].dropna().astype(str).unique().tolist())
-                t_sel = st.selectbox("Selecciona Tienda:", lista_tiendas)
-                
-                # 5. Análisis para la tienda seleccionada
-                df_t = df_vigente[df_vigente['Tienda'] == t_sel]
-                
-                st.success(f"Tienda {t_sel} cargada. Analizando modelos de línea...")
-                st.write(df_t.head())
-            else:
-                st.error("No se encontró la columna 'Estatus'.")
-                
         except Exception as e:
             st.error(f"Error técnico: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
