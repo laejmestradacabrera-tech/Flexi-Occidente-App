@@ -621,47 +621,46 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🚀 Monitor de Sugerencia de Abasto")
+    st.subheader("🚀 Monitor de Sugerencia de Abasto - Operativo")
     
-    if st.button("Ejecutar Análisis de Sugerencias"):
+    if st.button("Ejecutar Análisis"):
         try:
-            # 1. Carga de datos
             sh = client.open_by_key('1NyLfmlT92T7aI47njeP2fTgP0PMCJYFwUa8iIISVwBI')
             ws = sh.get_worksheet(0)
             data = ws.get_all_values()
             df = pd.DataFrame(data[1:], columns=data[0])
             df.columns = df.columns.str.strip()
             
-            # Conversión de tipos para cálculos
-            df['Ventas'] = pd.to_numeric(df['Ventas'], errors='coerce').fillna(0)
-            df['Existencia'] = pd.to_numeric(df['Existencia'], errors='coerce').fillna(0)
-            df['Pedidos'] = pd.to_numeric(df['Pedidos'], errors='coerce').fillna(0)
+            # Conversión segura a numérico usando los nombres reales de su hoja
+            df['Vtas'] = pd.to_numeric(df['Vtas'], errors='coerce').fillna(0)
+            df['ex_tot'] = pd.to_numeric(df['ex_tot'], errors='coerce').fillna(0)
+            df['Ptot'] = pd.to_numeric(df['Ptot'], errors='coerce').fillna(0)
             
-            # 2. Identificar el Top 20 de Ventas global
-            top_20_modelos = df.groupby('Modelo')['Ventas'].sum().nlargest(20).index
+            # Identificar el Top 20 de Ventas global
+            top_20_modelos = df.groupby('Modelo')['Vtas'].sum().nlargest(20).index
             
-            # 3. Selector de Tienda
+            # Selector de Tienda
             lista_tiendas = sorted(df['Tienda'].unique().astype(str).tolist())
             t_sel = st.selectbox("Selecciona Tienda:", lista_tiendas)
             
-            # 4. Análisis de Sugerencia
+            # Filtrado por tienda y cálculo de sugerencia
             df_t = df[df['Tienda'] == t_sel].copy()
             
-            # Aplicar lógica: ¿Es Top 20? AND ¿Existencia 0? AND ¿Pedidos 0?
-            df_t['Sugerencia'] = "---"
             condicion = (
                 (df_t['Modelo'].isin(top_20_modelos)) & 
-                (df_t['Existencia'] == 0) & 
-                (df_t['Pedidos'] == 0)
+                (df_t['ex_tot'] == 0) & 
+                (df_t['Ptot'] == 0)
             )
+            
+            df_t['Sugerencia'] = "---"
             df_t.loc[condicion, 'Sugerencia'] = "🚨 SUGERIR PEDIDO"
             
-            # 5. Mostrar solo lo importante (Filtramos para ver las sugerencias primero)
+            # Mostrar tabla limpia
             st.write(f"### Análisis de Abasto: {t_sel}")
-            st.dataframe(df_t[['Modelo', 'Existencia', 'Pedidos', 'Ventas', 'Sugerencia']].sort_values(by='Sugerencia', ascending=False))
+            st.dataframe(df_t[['Modelo', 'ex_tot', 'Ptot', 'Vtas', 'Sugerencia']].sort_values(by='Sugerencia', ascending=False))
             
         except Exception as e:
-            st.error(f"Error en la lógica de sugerencia: {e}")
+            st.error(f"Error técnico: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
