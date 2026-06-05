@@ -621,43 +621,53 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🔄 Monitor de Nivelación - Zona Occidente")
+    st.subheader("🔄 Monitor de Nivelación - Modo Indestructible")
     
-    if st.button("Ejecutar Análisis de Nivelación"):
+    if st.button("Ejecutar Análisis"):
         try:
-            # Usamos la conexión global 'client'
-            sheet = archivo_ventas.worksheet('Ventas_Maestro')
-            data = sheet.get_all_values()
+            # Conexión directa
+            sheet = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM')
+            
+            # SOLUCIÓN DEFINITIVA: Usamos la primera hoja (índice 0) sin importar el nombre
+            worksheet = sheet.get_worksheet(0)
+            data = worksheet.get_all_values()
+            
+            # DataFrame con la primera fila como encabezado
             df = pd.DataFrame(data[1:], columns=data[0])
+            
+            # Limpiamos nombres de columnas de cualquier espacio invisible
             df.columns = df.columns.str.strip()
             
-            # Renombrar columnas según su estructura real
-            df = df.rename(columns={'cl_tien': 'Tienda', 'clave': 'Modelo'})
+            # Mapeo manual para asegurar los nombres clave
+            # Usamos .get para evitar errores si el nombre varía ligeramente
+            mapeo = {df.columns[0]: 'Tienda', df.columns[2]: 'Modelo', df.columns[3]: 'Descont'}
+            df = df.rename(columns=mapeo)
             
-            # Conversión numérica de ex1-ex15
-            cols_ex = [f'ex{i}' for i in range(1, 16)]
+            # Conversión numérica de columnas EX
+            cols_ex = [col for col in df.columns if str(col).lower().startswith('ex')]
             df[cols_ex] = df[cols_ex].apply(pd.to_numeric, errors='coerce').fillna(0)
             
-            # Selector de tienda
+            # Selector de tienda usando la columna que acabamos de renombrar como 'Tienda'
             t_sel = st.selectbox("Selecciona Tienda:", sorted(df['Tienda'].unique()))
             
             # Análisis
             df_t = df[df['Tienda'] == str(t_sel)]
+            
             alertas = []
             for _, row in df_t.iterrows():
-                # Filtro: Modelo en Top 20 y Vigente
-                if row['Modelo'] in lista_modelos_top and row['descont'] == 'vigente':
-                    for i in range(1, 16):
-                        if row[f'ex{i}'] == 0: # Si hay quiebre
-                            alertas.append({"Modelo": row['Modelo'], "Talla": f"EX{i}"})
+                # Verificamos si es vigente y está en Top 20
+                if row['Modelo'] in lista_modelos_top and str(row['Descont']).strip().lower() == 'vigente':
+                    for col in cols_ex:
+                        if row[col] == 0: 
+                            alertas.append({"Modelo": row['Modelo'], "Talla": col})
             
             if alertas:
                 st.table(pd.DataFrame(alertas))
             else:
-                st.success(f"Tienda {t_sel} sin quiebres de Top 20.")
+                st.success(f"Tienda {t_sel}: Todo el Top 20 está perfectamente nivelado.")
                 
         except Exception as e:
-            st.error(f"Error técnico: {e}")
+            st.error(f"Error de sistema: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
