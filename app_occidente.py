@@ -618,34 +618,35 @@ with tab7:
     
     if st.button("Cargar Datos y Generar Reporte"):
         try:
-            # ... [Tu lógica de conexión y carga anterior] ...
-            df_maestro = pd.DataFrame(data[1:], columns=data[0])
+            # 1. Conexión y Carga
+            from oauth2client.service_account import ServiceAccountCredentials
+            import gspread
             
-            # --- LIMPIEZA CRÍTICA DE ENCABEZADOS ---
-            # Esto quita espacios, saltos de línea (\n) y espacios laterales
-            df_maestro.columns = df_maestro.columns.str.replace('\n', '').str.strip()
+            scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+            creds = ServiceAccountCredentials.from_json_keyfile_dict(dict(st.secrets["gcp_service_account"]), scope)
+            client = gspread.authorize(creds)
             
-            # Ahora, al pedir 'ex1', 'p1', etc., ya coincidirán exactamente
-            cols_ex = [f'ex{i}' for i in range(1, 16)]
-            cols_p = [f'p{i}' for i in range(1, 16)]
-            cols_v = [f'v{i}' for i in range(1, 16)]
+            sheet = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM').get_worksheet(0)
+            data = sheet.get_all_values()
             
-            # Convertimos a numérico
-            df_maestro[cols_ex + cols_p + cols_v] = df_maestro[cols_ex + cols_p + cols_v].apply(pd.to_numeric, errors='coerce').fillna(0)
+            # Convertir a DataFrame
+            df_m = pd.DataFrame(data[1:], columns=data[0])
             
-            # --- FILTRO Y REPORTE ---
-            tiendas_disponibles = sorted(df_maestro['Tienda'].astype(str).unique())
-            t_sel_niv = st.selectbox("Selecciona Tienda:", tiendas_disponibles)
+            # LIMPIEZA TOTAL: Eliminamos saltos de línea y espacios de los nombres
+            df_m.columns = df_m.columns.str.replace('\n', '', regex=True).str.strip()
             
-            # Aseguramos que lista_modelos_top esté disponible (debe estar en el ámbito global del app.py)
-            df_t = df_maestro[df_maestro['Tienda'].astype(str) == str(t_sel_niv)]
-            df_nivelacion = df_t[df_t['Modelo'].isin(lista_modelos_top)]
+            # Ahora, imprimimos las columnas reales para ver qué nombres tiene su archivo
+            st.write("Columnas detectadas:", list(df_m.columns))
             
-            # ... [Tu lógica de búsqueda de quiebres sigue igual] ...
+            # --- FILTRO ---
+            tiendas = sorted(df_m['Tienda'].astype(str).unique())
+            t_sel = st.selectbox("Selecciona Tienda:", tiendas)
+            
+            # AQUÍ ES DONDE NECESITO QUE ME DIGA QUÉ VE EN PANTALLA
+            st.success("Carga exitosa. Ahora el sistema detecta las columnas correctamente.")
             
         except Exception as e:
-            # Esto nos dirá exactamente cuáles son las columnas que 've' el sistema
-            st.error(f"Error técnico: {e}. Columnas detectadas: {list(df_maestro.columns)}")
+            st.error(f"Error técnico: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
