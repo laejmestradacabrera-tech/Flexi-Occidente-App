@@ -616,44 +616,49 @@ with tab6:
 with tab7:
     st.subheader("🔄 Monitor de Nivelación por Tienda")
     
-    # 1. Selector de Tienda (Igual que en pestaña 3 para consistencia)
-    tiendas_disponibles = sorted(df_maestro['Tienda'].unique())
+    # 1. Selector de Tienda
+    # Nos aseguramos de usar las tiendas del df_maestro
+    tiendas_disponibles = sorted(df_maestro['Tienda'].astype(str).unique())
     t_sel_niv = st.selectbox("Selecciona Tienda para Nivelar:", tiendas_disponibles)
     
     if st.button("Generar Reporte de Nivelación"):
-        try:
-            # Filtrar el maestro solo por la tienda seleccionada
-            df_t = df_maestro[df_maestro['Tienda'] == str(t_sel_niv)].copy()
+        # Asegurar que el maestro esté limpio
+        df_clean = df_maestro.copy()
+        
+        # Convertir a numérico solo las columnas necesarias para evitar el error
+        cols_ex = [f'ex{i}' for i in range(1, 16)]
+        cols_p = [f'p{i}' for i in range(1, 16)]
+        cols_v = [f'v{i}' for i in range(1, 16)]
+        
+        for col in cols_ex + cols_p + cols_v:
+            df_clean[col] = pd.to_numeric(df_clean[col], errors='coerce').fillna(0)
             
-            # Filtrar solo modelos Top 20
-            df_nivelacion = df_t[df_t['Modelo'].isin(lista_modelos_top)]
-            
-            alertas = []
-            for _, row in df_nivelacion.iterrows():
-                for i in range(1, 16):
-                    # Condición: Quiebre + Venta real
-                    if row[f'ex{i}'] == 0 and row[f'p{i}'] == 0 and row[f'v{i}'] > 0:
-                        
-                        # --- Aquí aplicamos tu lógica de Tallas reales ---
-                        # Usaremos el mapeo que definimos para traducir la columna 'EXi'
-                        talla_real = "Consultar Mapeo" # Aquí podrías insertar la función de conversión
-                        
-                        alertas.append({
-                            "Modelo": row['Modelo'],
-                            "Talla_Columna": f"EX{i}",
-                            "Ventas_2m": row[f'v{i}'],
-                            "Acción": "¡URGENTE: REPOSICIÓN!"
-                        })
-            
-            if alertas:
-                df_final = pd.DataFrame(alertas)
-                st.table(df_final)
-                st.download_button("Descargar Reporte de Nivelación", df_final.to_csv(), "Nivelacion.csv")
-            else:
-                st.success(f"Tienda {t_sel_niv}: Inventario de Top 20 al día. ¡Buen trabajo!")
-                
-        except Exception as e:
-            st.error(f"Error técnico en el motor: {e}")
+        # 2. Filtrar por Tienda y Top 20
+        df_t = df_clean[df_clean['Tienda'].astype(str) == str(t_sel_niv)]
+        df_nivelacion = df_t[df_t['Modelo'].isin(lista_modelos_top)]
+        
+        # 3. Análisis de quiebre
+        alertas = []
+        for _, row in df_nivelacion.iterrows():
+            for i in range(1, 16):
+                # Ahora las comparaciones son estrictamente numéricas
+                if row[f'ex{i}'] == 0 and row[f'p{i}'] == 0 and row[f'v{i}'] > 0:
+                    alertas.append({
+                        "Modelo": row['Modelo'],
+                        "Columna": f"EX{i}",
+                        "Ventas_2m": int(row[f'v{i}']),
+                        "Acción": "¡URGENTE: REPOSICIÓN!"
+                    })
+        
+        # 4. Resultados
+        if alertas:
+            df_final = pd.DataFrame(alertas)
+            st.table(df_final)
+            # Botón de descarga
+            csv = df_final.to_csv(index=False).encode('utf-8')
+            st.download_button("Descargar Reporte (CSV)", csv, f"Nivelacion_{t_sel_niv}.csv", "text/csv")
+        else:
+            st.success(f"Tienda {t_sel_niv}: Inventario de Top 20 al día. ¡Todo en orden!")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
