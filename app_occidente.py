@@ -621,50 +621,38 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🔄 Monitor de Nivelación - Operativo")
+    st.subheader("📊 Monitor de Ventas - Vista de Control")
     
-    if st.button("Ejecutar Análisis"):
-        try:
-            # 1. Acceso al archivo
-            sh = client.open_by_key('1NyLfmlT92T7aI47njeP2fTgP0PMCJYFwUa8iIISVwBI')
-            
-            # 2. Acceso directo a la primera y única hoja
-            ws = sh.get_worksheet(0)
-            data = ws.get_all_values()
-            
-            # 3. Carga de datos
-            df = pd.DataFrame(data[1:], columns=data[0])
-            df.columns = df.columns.str.strip()
-            
-            # 4. Filtrado: Estatus 'N' es Vigente (Línea)
-            # Aseguramos que la columna se llame Estatus
-            df_vigente = df[df['Estatus'].str.strip().str.upper() == 'N']
-            
-            # 5. Selector de Tienda
-            lista_tiendas = sorted(df_vigente['Tienda'].dropna().unique().astype(str).tolist())
-            t_sel = st.selectbox("Selecciona Tienda:", lista_tiendas)
-            
-            # 6. Lógica de Quiebre
-            df_t = df_vigente[df_vigente['Tienda'] == t_sel]
-            
-            # Identificar quiebres en ex1...ex15
-            cols_ex = [f'ex{i}' for i in range(1, 16)]
-            alertas = []
-            
-            for _, row in df_t.iterrows():
-                for col in cols_ex:
-                    # Si la existencia es 0, marcamos quiebre
-                    if pd.to_numeric(row[col], errors='coerce') == 0:
-                        alertas.append({"Modelo": row['Modelo'], "Talla": col})
-            
-            if alertas:
-                st.write(f"⚠️ Quiebres detectados en Tienda {t_sel}:")
-                st.table(pd.DataFrame(alertas))
-            else:
-                st.success(f"¡Tienda {t_sel} al día, sin quiebres detectados!")
-                
-        except Exception as e:
-            st.error(f"Error técnico: {e}")
+    try:
+        # 1. Carga única y limpia
+        sh = client.open_by_key('1NyLfmlT92T7aI47njeP2fTgP0PMCJYFwUa8iIISVwBI')
+        ws = sh.get_worksheet(0)
+        data = ws.get_all_values()
+        df = pd.DataFrame(data[1:], columns=data[0])
+        df.columns = df.columns.str.strip()
+        
+        # 2. Filtrado base (Línea)
+        df_vigente = df[df['Estatus'].str.strip().str.upper() == 'N'].copy()
+        
+        # 3. Selector exclusivo (Aquí corregimos que aparezcan cientos de opciones)
+        lista_tiendas = sorted(df_vigente['Tienda'].unique().astype(str).tolist())
+        t_sel = st.selectbox("Selecciona Tienda para auditoría:", lista_tiendas)
+        
+        # 4. Mostrar solo datos de la tienda elegida, sin ruido
+        df_t = df_vigente[df_vigente['Tienda'] == t_sel]
+        
+        # AQUI REPARAMOS EL TEMA DE LAS TALLAS (ex1, ex2...)
+        # Creamos una tabla donde la columna sea "Talla" y "Existencia"
+        st.write(f"### Detalles de Existencias - Tienda {t_sel}")
+        
+        # Seleccionamos las columnas de talla
+        cols_talla = [c for c in df.columns if c.startswith('ex') and c != 'ex_tot']
+        
+        # Mostramos una tabla resumida donde cada fila es un modelo y las tallas son columnas
+        st.dataframe(df_t[['Modelo'] + cols_talla])
+        
+    except Exception as e:
+        st.error(f"Error de sistema: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
