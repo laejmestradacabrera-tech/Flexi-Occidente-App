@@ -621,7 +621,7 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🔄 Monitor de Nivelación - Diagnóstico de Estatus")
+    st.subheader("🔄 Monitor - Corrección de Encabezados")
     
     if st.button("Ejecutar Análisis"):
         try:
@@ -630,25 +630,27 @@ with tab7:
             worksheet = sh.get_worksheet(0)
             data = worksheet.get_all_values()
             df = pd.DataFrame(data[1:], columns=data[0])
+            
+            # Limpiamos espacios en todos los nombres de columnas
             df.columns = df.columns.str.strip()
             
             # --- DIAGNÓSTICO ---
-            # Vamos a ver qué valores únicos tiene la columna 'Estatus'
-            valores_estatus = df['Estatus'].unique()
-            st.write("Valores encontrados en la columna 'Estatus':", valores_estatus)
+            st.write("Columnas detectadas en la hoja:", list(df.columns))
             
-            # 2. Selector de Tienda
-            lista_tiendas = sorted(df['Tienda'].dropna().astype(str).unique().tolist())
-            t_sel = st.selectbox("Selecciona Tienda:", lista_tiendas)
+            # Buscamos dinámicamente la columna que contiene el estatus
+            # Si el usuario la nombró 'Estatus', 'Status', 'Linea' o similar
+            col_estatus = next((c for c in df.columns if 'status' in c.lower() or 'linea' in c.lower() or 'estatus' in c.lower()), None)
             
-            # 3. Análisis
-            df_t = df[df['Tienda'] == str(t_sel)]
-            
-            # Muestra los primeros datos de la tienda seleccionada
-            st.write("Datos de la tienda seleccionada (primeras 5 filas):", df_t.head())
-            
+            if col_estatus:
+                st.write(f"Columna de estatus detectada como: {col_estatus}")
+                # Filtramos usando el nombre detectado dinámicamente
+                df_vigente = df[df[col_estatus].str.strip().str.lower() == 'vigente']
+                st.success("Filtro aplicado correctamente.")
+            else:
+                st.warning("No encontré la columna de estatus. Verifica los nombres arriba.")
+                
         except Exception as e:
-            st.error(f"Error técnico: {e}")
+            st.error(f"Error técnico detallado: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
