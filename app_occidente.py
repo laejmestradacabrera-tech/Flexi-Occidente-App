@@ -621,38 +621,47 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("📊 Monitor de Ventas - Vista de Control")
+    st.subheader("🚀 Monitor de Sugerencia de Abasto")
     
-    try:
-        # 1. Carga única y limpia
-        sh = client.open_by_key('1NyLfmlT92T7aI47njeP2fTgP0PMCJYFwUa8iIISVwBI')
-        ws = sh.get_worksheet(0)
-        data = ws.get_all_values()
-        df = pd.DataFrame(data[1:], columns=data[0])
-        df.columns = df.columns.str.strip()
-        
-        # 2. Filtrado base (Línea)
-        df_vigente = df[df['Estatus'].str.strip().str.upper() == 'N'].copy()
-        
-        # 3. Selector exclusivo (Aquí corregimos que aparezcan cientos de opciones)
-        lista_tiendas = sorted(df_vigente['Tienda'].unique().astype(str).tolist())
-        t_sel = st.selectbox("Selecciona Tienda para auditoría:", lista_tiendas)
-        
-        # 4. Mostrar solo datos de la tienda elegida, sin ruido
-        df_t = df_vigente[df_vigente['Tienda'] == t_sel]
-        
-        # AQUI REPARAMOS EL TEMA DE LAS TALLAS (ex1, ex2...)
-        # Creamos una tabla donde la columna sea "Talla" y "Existencia"
-        st.write(f"### Detalles de Existencias - Tienda {t_sel}")
-        
-        # Seleccionamos las columnas de talla
-        cols_talla = [c for c in df.columns if c.startswith('ex') and c != 'ex_tot']
-        
-        # Mostramos una tabla resumida donde cada fila es un modelo y las tallas son columnas
-        st.dataframe(df_t[['Modelo'] + cols_talla])
-        
-    except Exception as e:
-        st.error(f"Error de sistema: {e}")
+    if st.button("Ejecutar Análisis de Sugerencias"):
+        try:
+            # 1. Carga de datos
+            sh = client.open_by_key('1NyLfmlT92T7aI47njeP2fTgP0PMCJYFwUa8iIISVwBI')
+            ws = sh.get_worksheet(0)
+            data = ws.get_all_values()
+            df = pd.DataFrame(data[1:], columns=data[0])
+            df.columns = df.columns.str.strip()
+            
+            # Conversión de tipos para cálculos
+            df['Ventas'] = pd.to_numeric(df['Ventas'], errors='coerce').fillna(0)
+            df['Existencia'] = pd.to_numeric(df['Existencia'], errors='coerce').fillna(0)
+            df['Pedidos'] = pd.to_numeric(df['Pedidos'], errors='coerce').fillna(0)
+            
+            # 2. Identificar el Top 20 de Ventas global
+            top_20_modelos = df.groupby('Modelo')['Ventas'].sum().nlargest(20).index
+            
+            # 3. Selector de Tienda
+            lista_tiendas = sorted(df['Tienda'].unique().astype(str).tolist())
+            t_sel = st.selectbox("Selecciona Tienda:", lista_tiendas)
+            
+            # 4. Análisis de Sugerencia
+            df_t = df[df['Tienda'] == t_sel].copy()
+            
+            # Aplicar lógica: ¿Es Top 20? AND ¿Existencia 0? AND ¿Pedidos 0?
+            df_t['Sugerencia'] = "---"
+            condicion = (
+                (df_t['Modelo'].isin(top_20_modelos)) & 
+                (df_t['Existencia'] == 0) & 
+                (df_t['Pedidos'] == 0)
+            )
+            df_t.loc[condicion, 'Sugerencia'] = "🚨 SUGERIR PEDIDO"
+            
+            # 5. Mostrar solo lo importante (Filtramos para ver las sugerencias primero)
+            st.write(f"### Análisis de Abasto: {t_sel}")
+            st.dataframe(df_t[['Modelo', 'Existencia', 'Pedidos', 'Ventas', 'Sugerencia']].sort_values(by='Sugerencia', ascending=False))
+            
+        except Exception as e:
+            st.error(f"Error en la lógica de sugerencia: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
