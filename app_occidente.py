@@ -621,49 +621,34 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🔄 Monitor de Nivelación - Zona Occidente")
+    st.subheader("🔄 Monitor de Nivelación - Diagnóstico de Estatus")
     
     if st.button("Ejecutar Análisis"):
         try:
-            # 1. Conexión directa al archivo y a la hoja 'Ventas' (gid=0)
+            # 1. Carga
             sh = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM')
-            worksheet = sh.get_worksheet(0) # Esto accede directamente a la hoja 'Ventas'
-            
-            # 2. Carga de datos
+            worksheet = sh.get_worksheet(0)
             data = worksheet.get_all_values()
             df = pd.DataFrame(data[1:], columns=data[0])
-            
-            # 3. Limpieza de encabezados
             df.columns = df.columns.str.strip()
             
-            # 4. Selector de Tienda
-            # Al tener la estructura fija, accedemos directo por nombre de columna
+            # --- DIAGNÓSTICO ---
+            # Vamos a ver qué valores únicos tiene la columna 'Estatus'
+            valores_estatus = df['Estatus'].unique()
+            st.write("Valores encontrados en la columna 'Estatus':", valores_estatus)
+            
+            # 2. Selector de Tienda
             lista_tiendas = sorted(df['Tienda'].dropna().astype(str).unique().tolist())
             t_sel = st.selectbox("Selecciona Tienda:", lista_tiendas)
             
-            # 5. Lógica de Nivelación
+            # 3. Análisis
             df_t = df[df['Tienda'] == str(t_sel)]
             
-            # Filtrar solo 'vigente'
-            df_vigente = df_t[df_t['Estatus'].str.strip().str.lower() == 'vigente']
+            # Muestra los primeros datos de la tienda seleccionada
+            st.write("Datos de la tienda seleccionada (primeras 5 filas):", df_t.head())
             
-            alertas = []
-            cols_ex = [c for c in df.columns if c.startswith('ex')]
-            
-            for _, row in df_vigente.iterrows():
-                for col in cols_ex:
-                    # Convertir a número para comparar
-                    val = pd.to_numeric(row[col], errors='coerce')
-                    if val == 0:
-                        alertas.append({"Modelo": row['Modelo'], "Talla": col})
-            
-            if alertas:
-                st.table(pd.DataFrame(alertas))
-            else:
-                st.success(f"Tienda {t_sel} al día, sin quiebres detectados.")
-                
         except Exception as e:
-            st.error(f"Error en la lectura: {e}")
+            st.error(f"Error técnico: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
