@@ -621,38 +621,42 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🔄 Monitor de Nivelación - Modo Seguro")
+    st.subheader("🔄 Monitor de Nivelación - Modo Preciso")
     
-    if st.button("Ejecutar Análisis"):
+    if st.button("Ejecutar Análisis de Ventas"):
         try:
-            # 1. Carga
-            sheet = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM').get_worksheet(0)
-            data = sheet.get_all_values()
+            # 1. Conexión explícita a la hoja "Ventas_Maestro"
+            # Asegúrese de que el nombre en su Drive sea EXACTAMENTE "Ventas_Maestro"
+            sh = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM')
+            worksheet = sh.worksheet("Ventas_Maestro")
+            data = worksheet.get_all_values()
             
-            # Convertimos a DataFrame
+            # 2. Reconstrucción: Fila 0 es encabezado, fila 1 en adelante son datos
             df = pd.DataFrame(data[1:], columns=data[0])
+            df.columns = df.columns.str.strip()
             
-            # --- CORRECCIÓN CRÍTICA ---
-            # En lugar de usar nombres, usamos la posición (iloc)
-            # Columna 0 es cl_tien (Tienda)
-            # Columna 2 es clave (Modelo)
-            # Columna 3 es descont (Descont)
+            # 3. Filtrar columnas clave (Usando los nombres que me dio)
+            # A=cl_tien, B=cl_prov, C=clave, D=descont
+            df = df.rename(columns={'cl_tien': 'Tienda', 'clave': 'Modelo', 'descont': 'Descont'})
             
-            # Obtenemos la lista de tiendas usando la posición 0, no el nombre
-            columna_tiendas = df.iloc[:, 0].astype(str).tolist()
-            lista_tiendas = sorted(list(set(columna_tiendas)))
+            # 4. Selector de Tienda
+            # Eliminamos nulos y convertimos a lista limpia
+            lista_tiendas = df['Tienda'].dropna().unique().tolist()
+            t_sel = st.selectbox("Selecciona Tienda:", sorted([str(t) for t in lista_tiendas if t]))
             
-            # Selector
-            t_sel = st.selectbox("Selecciona Tienda:", lista_tiendas)
+            # 5. Análisis
+            df_t = df[df['Tienda'] == t_sel]
             
-            # Filtro por posición: filtramos donde la columna 0 sea igual a la selección
-            df_t = df[df.iloc[:, 0].astype(str) == t_sel]
+            st.success(f"Tienda {t_sel} cargada. Analizando Top 20...")
             
-            st.write(f"Tienda {t_sel} cargada. Análisis listo.")
-            # Aquí pondremos la lógica de nivelación una vez que el selector funcione
-                
+            # Lógica de quiebre (se ejecuta solo si hay datos)
+            if not df_t.empty:
+                # Filtrar solo modelos vigentes
+                df_t = df_t[df_t['Descont'].str.strip().str.lower() == 'vigente']
+                # ... resto de su lógica de análisis ...
+            
         except Exception as e:
-            st.error(f"Error crítico: {e}")
+            st.error(f"Error técnico: {e}. ¿Está seguro que la pestaña se llama 'Ventas_Maestro'?")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
