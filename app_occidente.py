@@ -616,51 +616,36 @@ with tab6:
 with tab7:
     st.subheader("🔄 Monitor de Nivelación por Tienda")
     
-    # 1. Crear el botón que inicia todo el proceso
     if st.button("Cargar Datos y Generar Reporte"):
         try:
-            # --- CONEXIÓN LOCAL ---
-            # Re-definimos la conexión aquí para que 'client' sí esté definido
-            from oauth2client.service_account import ServiceAccountCredentials
-            import gspread
-            
-            scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-            creds = ServiceAccountCredentials.from_json_keyfile_dict(dict(st.secrets["gcp_service_account"]), scope)
-            client = gspread.authorize(creds)
-            
-            # --- CARGA DE DATOS ---
-            archivo = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM')
-            sheet = archivo.get_worksheet(0)
-            data = sheet.get_all_values()
+            # ... [Tu lógica de conexión y carga anterior] ...
             df_maestro = pd.DataFrame(data[1:], columns=data[0])
             
-            # Limpieza básica
+            # --- LIMPIEZA CRÍTICA DE ENCABEZADOS ---
+            # Esto quita espacios, saltos de línea (\n) y espacios laterales
+            df_maestro.columns = df_maestro.columns.str.replace('\n', '').str.strip()
+            
+            # Ahora, al pedir 'ex1', 'p1', etc., ya coincidirán exactamente
             cols_ex = [f'ex{i}' for i in range(1, 16)]
             cols_p = [f'p{i}' for i in range(1, 16)]
             cols_v = [f'v{i}' for i in range(1, 16)]
+            
+            # Convertimos a numérico
             df_maestro[cols_ex + cols_p + cols_v] = df_maestro[cols_ex + cols_p + cols_v].apply(pd.to_numeric, errors='coerce').fillna(0)
             
             # --- FILTRO Y REPORTE ---
             tiendas_disponibles = sorted(df_maestro['Tienda'].astype(str).unique())
-            t_sel_niv = st.selectbox("Selecciona Tienda para Nivelar:", tiendas_disponibles)
+            t_sel_niv = st.selectbox("Selecciona Tienda:", tiendas_disponibles)
             
-            # Filtrar por tienda y Top 20 (asumiendo que 'lista_modelos_top' ya viene de tu carga externa)
+            # Aseguramos que lista_modelos_top esté disponible (debe estar en el ámbito global del app.py)
             df_t = df_maestro[df_maestro['Tienda'].astype(str) == str(t_sel_niv)]
             df_nivelacion = df_t[df_t['Modelo'].isin(lista_modelos_top)]
             
-            alertas = []
-            for _, row in df_nivelacion.iterrows():
-                for i in range(1, 16):
-                    if row[f'ex{i}'] == 0 and row[f'p{i}'] == 0 and row[f'v{i}'] > 0:
-                        alertas.append({"Modelo": row['Modelo'], "Columna": f"EX{i}", "Ventas_2m": int(row[f'v{i}'])})
+            # ... [Tu lógica de búsqueda de quiebres sigue igual] ...
             
-            if alertas:
-                st.table(pd.DataFrame(alertas))
-            else:
-                st.success("¡Inventario al día!")
-                
         except Exception as e:
-            st.error(f"Error en el motor: {e}")
+            # Esto nos dirá exactamente cuáles son las columnas que 've' el sistema
+            st.error(f"Error técnico: {e}. Columnas detectadas: {list(df_maestro.columns)}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
