@@ -621,7 +621,7 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🔄 Monitor de Nivelación - Modo Diagnóstico Final")
+    st.subheader("🔄 Monitor de Nivelación - Modo Seguro")
     
     if st.button("Ejecutar Análisis"):
         try:
@@ -629,34 +629,30 @@ with tab7:
             sheet = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM').get_worksheet(0)
             data = sheet.get_all_values()
             
-            # 2. Reconstrucción manual del DataFrame
-            headers = data[0]
-            rows = data[1:]
-            df = pd.DataFrame(rows, columns=headers)
+            # Convertimos a DataFrame
+            df = pd.DataFrame(data[1:], columns=data[0])
             
-            # Limpiar encabezados
-            df.columns = [c.strip() for c in df.columns]
+            # --- CORRECCIÓN CRÍTICA ---
+            # En lugar de usar nombres, usamos la posición (iloc)
+            # Columna 0 es cl_tien (Tienda)
+            # Columna 2 es clave (Modelo)
+            # Columna 3 es descont (Descont)
             
-            # --- DIAGNÓSTICO: Ver qué está pasando con la columna de tiendas ---
-            nombre_col_tienda = df.columns[0] # 'cl_tien'
-            st.write(f"Nombre de la columna identificada como Tienda: {nombre_col_tienda}")
+            # Obtenemos la lista de tiendas usando la posición 0, no el nombre
+            columna_tiendas = df.iloc[:, 0].astype(str).tolist()
+            lista_tiendas = sorted(list(set(columna_tiendas)))
             
-            # Forzar la obtención de lista de tiendas sin usar unique() directamente en el DF
-            tiendas_unicas = sorted(list(set(df[nombre_col_tienda].astype(str).tolist())))
+            # Selector
+            t_sel = st.selectbox("Selecciona Tienda:", lista_tiendas)
             
-            # 3. Selector
-            t_sel = st.selectbox("Selecciona Tienda:", tiendas_unicas)
+            # Filtro por posición: filtramos donde la columna 0 sea igual a la selección
+            df_t = df[df.iloc[:, 0].astype(str) == t_sel]
             
-            # 4. Análisis
-            df_t = df[df[nombre_col_tienda] == t_sel]
-            
-            st.success(f"Tienda {t_sel} cargada correctamente. Procesando nivelación...")
-            
-            # (Aquí iría la lógica de quiebres...)
-            st.write("Datos de la tienda seleccionada:", df_t.head())
+            st.write(f"Tienda {t_sel} cargada. Análisis listo.")
+            # Aquí pondremos la lógica de nivelación una vez que el selector funcione
                 
         except Exception as e:
-            st.error(f"Error crítico en la línea: {e}")
+            st.error(f"Error crítico: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
