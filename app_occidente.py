@@ -614,39 +614,51 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🔍 Diagnóstico de Estructura de Datos")
+    st.subheader("🔄 Monitor de Nivelación por Tienda")
     
-    if st.button("Analizar Hoja"):
+    if st.button("Ejecutar Análisis de Nivelación"):
         try:
-            # Conexión
-            from oauth2client.service_account import ServiceAccountCredentials
-            import gspread
-            creds = ServiceAccountCredentials.from_json_keyfile_dict(dict(st.secrets["gcp_service_account"]), ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive'])
-            client = gspread.authorize(creds)
-            
-            # Abrir el archivo y listar TODAS las hojas disponibles
-            archivo = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM')
-            nombres_hojas = [s.title for s in archivo.worksheets()]
-            st.write("Hojas encontradas en el archivo:", nombres_hojas)
-            
-            # Intentar cargar la hoja 'Ventas_Maestro'
-            sheet = archivo.worksheet('Ventas_Maestro')
+            # Conexión a la hoja de ventas
+            sheet = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM').worksheet('Ventas_Maestro')
             data = sheet.get_all_values()
             
-            # Convertir a DF y limpiar espacios en encabezados
-            df_m = pd.DataFrame(data[1:], columns=data[0])
-            df_m.columns = df_m.columns.str.strip()
+            # Encabezados en fila 0
+            df = pd.DataFrame(data[1:], columns=data[0])
+            df.columns = df.columns.str.strip() # Limpiamos espacios
             
-            st.write("Columnas detectadas en la hoja:", list(df_m.columns))
+            # Convertimos columnas de tallas (ex1-ex15) y ventas (v1-v15) a numérico
+            cols_ex = [f'ex{i}' for i in range(1, 16)]
+            cols_v = [f'v{i}' for i in range(1, 16)]
+            df[cols_ex + cols_v] = df[cols_ex + cols_v].apply(pd.to_numeric, errors='coerce').fillna(0)
             
-            # Verificación de 'Tienda'
-            if 'Tienda' in df_m.columns:
-                st.success("¡La columna 'Tienda' SÍ existe!")
+            # Selector de tienda usando la columna correcta
+            # Tu columna se llama 'Tienda', el filtro es sobre esta
+            tiendas = sorted(df['Tienda'].astype(str).unique())
+            t_sel = st.selectbox("Selecciona Tienda:", tiendas)
+            
+            # Filtro por tienda y Top 20
+            df_t = df[df['Tienda'] == str(t_sel)]
+            df_nivelacion = df_t[df_t['Modelo'].isin(lista_modelos_top)]
+            
+            alertas = []
+            for _, row in df_nivelacion.iterrows():
+                for i in range(1, 16):
+                    # Condición de nivelación: Stock 0 y Venta > 0
+                    if row[f'ex{i}'] == 0 and row[f'v{i}'] > 0:
+                        alertas.append({
+                            "Modelo": row['Modelo'],
+                            "Talla_Columna": f"EX{i}",
+                            "Venta_Ultimos_2m": int(row[f'v{i}'])
+                        })
+            
+            if alertas:
+                st.table(pd.DataFrame(alertas))
+                st.download_button("Descargar Reporte de Nivelación", pd.DataFrame(alertas).to_csv(index=False), f"Nivelacion_{t_sel}.csv")
             else:
-                st.error("¡La columna 'Tienda' NO se encontró! Revisa si el nombre tiene acentos o espacios.")
+                st.success(f"Tienda {t_sel}: Todo el Top 20 está perfectamente nivelado.")
                 
         except Exception as e:
-            st.error(f"Error detallado: {e}")
+            st.error(f"Error técnico: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
