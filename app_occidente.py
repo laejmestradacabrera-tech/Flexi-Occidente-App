@@ -614,51 +614,56 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🔄 Monitor de Nivelación por Tienda")
+    st.subheader("🔄 Monitor de Nivelación - Zona Occidente")
     
     if st.button("Ejecutar Análisis de Nivelación"):
         try:
-            # Conexión a la hoja de ventas
+            # 1. Carga de datos
             sheet = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM').worksheet('Ventas_Maestro')
             data = sheet.get_all_values()
             
-            # Encabezados en fila 0
+            # Usamos la primera fila como encabezado (índice 0)
             df = pd.DataFrame(data[1:], columns=data[0])
-            df.columns = df.columns.str.strip() # Limpiamos espacios
             
-            # Convertimos columnas de tallas (ex1-ex15) y ventas (v1-v15) a numérico
+            # Renombramos las columnas para que el código sea claro (Mapeo)
+            df = df.rename(columns={
+                'cl_tien': 'Tienda',
+                'clave': 'Modelo'
+            })
+            
+            # Limpieza: Asegurar que las columnas ex1-ex15 y v1-v15 sean números
             cols_ex = [f'ex{i}' for i in range(1, 16)]
             cols_v = [f'v{i}' for i in range(1, 16)]
             df[cols_ex + cols_v] = df[cols_ex + cols_v].apply(pd.to_numeric, errors='coerce').fillna(0)
             
-            # Selector de tienda usando la columna correcta
-            # Tu columna se llama 'Tienda', el filtro es sobre esta
-            tiendas = sorted(df['Tienda'].astype(str).unique())
+            # 2. Selector de Tienda
+            tiendas = sorted(df['Tienda'].unique())
             t_sel = st.selectbox("Selecciona Tienda:", tiendas)
             
-            # Filtro por tienda y Top 20
-            df_t = df[df['Tienda'] == str(t_sel)]
-            df_nivelacion = df_t[df_t['Modelo'].isin(lista_modelos_top)]
+            # 3. Análisis
+            df_t = df[df['Tienda'] == t_sel]
             
             alertas = []
-            for _, row in df_nivelacion.iterrows():
-                for i in range(1, 16):
-                    # Condición de nivelación: Stock 0 y Venta > 0
-                    if row[f'ex{i}'] == 0 and row[f'v{i}'] > 0:
-                        alertas.append({
-                            "Modelo": row['Modelo'],
-                            "Talla_Columna": f"EX{i}",
-                            "Venta_Ultimos_2m": int(row[f'v{i}'])
-                        })
+            for _, row in df_t.iterrows():
+                # Solo analizamos si el modelo está en tu Top 20 y es vigente
+                if row['Modelo'] in lista_modelos_top and row['descont'] == 'vigente':
+                    for i in range(1, 16):
+                        # Condición: Stock 0, Venta > 0
+                        if row[f'ex{i}'] == 0 and row[f'v{i}'] > 0:
+                            alertas.append({
+                                "Modelo": row['Modelo'],
+                                "Talla": f"EX{i}",
+                                "Ventas_2m": int(row[f'v{i}'])
+                            })
             
             if alertas:
                 st.table(pd.DataFrame(alertas))
-                st.download_button("Descargar Reporte de Nivelación", pd.DataFrame(alertas).to_csv(index=False), f"Nivelacion_{t_sel}.csv")
+                st.success(f"Se encontraron {len(alertas)} faltantes de tu Top 20 en {t_sel}.")
             else:
-                st.success(f"Tienda {t_sel}: Todo el Top 20 está perfectamente nivelado.")
+                st.success(f"¡Excelente! La tienda {t_sel} tiene su Top 20 cubierto.")
                 
         except Exception as e:
-            st.error(f"Error técnico: {e}")
+            st.error(f"Error en la ejecución: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
