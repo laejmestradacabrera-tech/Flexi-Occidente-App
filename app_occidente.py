@@ -621,42 +621,39 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🔄 Monitor de Nivelación - Modo Preciso")
+    st.subheader("🔄 Monitor de Nivelación - Modo Diagnóstico Total")
     
     if st.button("Ejecutar Análisis de Ventas"):
         try:
-            # 1. Conexión explícita a la hoja "Ventas_Maestro"
-            # Asegúrese de que el nombre en su Drive sea EXACTAMENTE "Ventas_Maestro"
+            # 1. Acceso al archivo
             sh = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM')
-            worksheet = sh.worksheet("Ventas_Maestro")
+            
+            # 2. LISTAR nombres reales de todas las pestañas para ver cuál es cuál
+            nombres = [w.title for w in sh.worksheets()]
+            st.write("Pestañas encontradas:", nombres)
+            
+            # 3. Acceder a la primera pestaña (índice 0) ignorando el nombre
+            worksheet = sh.get_worksheet(0)
             data = worksheet.get_all_values()
             
-            # 2. Reconstrucción: Fila 0 es encabezado, fila 1 en adelante son datos
+            # 4. Procesamiento
             df = pd.DataFrame(data[1:], columns=data[0])
             df.columns = df.columns.str.strip()
             
-            # 3. Filtrar columnas clave (Usando los nombres que me dio)
-            # A=cl_tien, B=cl_prov, C=clave, D=descont
-            df = df.rename(columns={'cl_tien': 'Tienda', 'clave': 'Modelo', 'descont': 'Descont'})
+            # Diagnóstico de columnas
+            st.write("Columnas detectadas:", list(df.columns))
             
-            # 4. Selector de Tienda
-            # Eliminamos nulos y convertimos a lista limpia
+            # Mapeo forzado
+            df = df.rename(columns={df.columns[0]: 'Tienda', df.columns[2]: 'Modelo', df.columns[3]: 'Descont'})
+            
+            # 5. Selector
             lista_tiendas = df['Tienda'].dropna().unique().tolist()
             t_sel = st.selectbox("Selecciona Tienda:", sorted([str(t) for t in lista_tiendas if t]))
             
-            # 5. Análisis
-            df_t = df[df['Tienda'] == t_sel]
-            
-            st.success(f"Tienda {t_sel} cargada. Analizando Top 20...")
-            
-            # Lógica de quiebre (se ejecuta solo si hay datos)
-            if not df_t.empty:
-                # Filtrar solo modelos vigentes
-                df_t = df_t[df_t['Descont'].str.strip().str.lower() == 'vigente']
-                # ... resto de su lógica de análisis ...
+            st.success(f"Tienda {t_sel} cargada.")
             
         except Exception as e:
-            st.error(f"Error técnico: {e}. ¿Está seguro que la pestaña se llama 'Ventas_Maestro'?")
+            st.error(f"Error técnico: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
