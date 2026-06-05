@@ -621,38 +621,38 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🔄 Diagnóstico Final de Conexión")
+    st.subheader("🔄 Monitor de Nivelación - Hoja de Ventas")
     
-    if st.button("Ejecutar Análisis"):
+    if st.button("Ejecutar Análisis de Ventas"):
         try:
             # 1. Acceso al archivo
             sh = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM')
             
-            # 2. Diagnóstico: Listar todas las pestañas existentes
-            nombres_pestañas = [ws.title for ws in sh.worksheets()]
-            st.write("Pestañas encontradas en Drive:", nombres_pestañas)
-            
-            # 3. Acceder a la primera pestaña (índice 0) obligatoriamente
-            worksheet = sh.get_worksheet(0)
+            # 2. SELECCIÓN DE HOJA: Usamos el índice 3 (que es la 4ta hoja)
+            worksheet = sh.get_worksheet(3)
             st.write("Estamos leyendo la pestaña:", worksheet.title)
             
             data = worksheet.get_all_values()
             
-            # 4. Procesamiento
+            # 3. Procesamiento
             df = pd.DataFrame(data[1:], columns=data[0])
             df.columns = df.columns.str.strip()
             
-            # 5. Diagnóstico de columnas
-            st.write("Columnas detectadas:", list(df.columns))
+            # Mapeo: Aseguramos que la columna de tienda sea la que queremos
+            # En su archivo, la columna se llama 'Tienda'.
             
-            # 6. Mapeo forzado
-            df = df.rename(columns={df.columns[0]: 'Tienda', df.columns[2]: 'Modelo', df.columns[3]: 'Estatus'})
+            # 4. EXTRACCIÓN SEGURA (Evitando el error .unique())
+            # Convertimos la columna a lista de Python primero
+            lista_tiendas = sorted(list(set(df['Tienda'].astype(str).tolist())))
             
-            # 7. Selector
-            lista_tiendas = sorted(df['Tienda'].dropna().unique().astype(str).tolist())
+            # 5. Selector
             t_sel = st.selectbox("Selecciona Tienda:", lista_tiendas)
             
-            st.success(f"Tienda {t_sel} cargada correctamente.")
+            # 6. Análisis
+            df_t = df[df['Tienda'] == str(t_sel)]
+            
+            st.success(f"Tienda {t_sel} cargada correctamente. Procesando nivelación...")
+            st.write(df_t.head()) # Verificamos datos
             
         except Exception as e:
             st.error(f"Error técnico detallado: {e}")
