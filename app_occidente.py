@@ -621,39 +621,23 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🔄 Monitor de Nivelación - Búsqueda por cl_tien")
+    st.subheader("🔄 Diagnóstico de Nombres de Columnas")
     
-    if st.button("Ejecutar Análisis de Ventas"):
+    if st.button("Analizar Nombres de Columnas"):
         try:
             sh = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM')
             
-            # Escaneo de todas las hojas buscando la columna que se llame EXACTAMENTE 'cl_tien'
-            hoja_correcta = None
+            # Vamos a revisar todas las hojas para ver qué nombres detecta
             for ws in sh.worksheets():
+                st.write(f"--- Analizando hoja: {ws.title} ---")
                 headers = ws.row_values(1)
-                # Buscamos la coincidencia exacta de su nombre clave
-                if 'cl_tien' in headers:
-                    hoja_correcta = ws
-                    break
+                st.write("Columnas detectadas:", headers)
+                
+                # Buscamos coincidencias aproximadas
+                for h in headers:
+                    if 'tien' in str(h).lower():
+                        st.success(f"¡Candidato encontrado! En la hoja '{ws.title}', existe la columna: '{h}'")
             
-            if hoja_correcta:
-                st.write(f"¡Hoja encontrada: {hoja_correcta.title}!")
-                data = hoja_correcta.get_all_values()
-                df = pd.DataFrame(data[1:], columns=data[0])
-                df.columns = df.columns.str.strip()
-                
-                # Ahora sí, usamos su nombre exacto de columna
-                lista_tiendas = sorted(list(set(df['cl_tien'].dropna().astype(str).tolist())))
-                t_sel = st.selectbox("Selecciona Tienda:", lista_tiendas)
-                
-                # Análisis
-                df_t = df[df['cl_tien'] == t_sel]
-                
-                st.success(f"Tienda {t_sel} cargada correctamente.")
-                st.write(df_t.head()) # Verificamos que los datos se ven
-            else:
-                st.error("No encontré ninguna hoja con la columna 'cl_tien'.")
-                
         except Exception as e:
             st.error(f"Error técnico: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
