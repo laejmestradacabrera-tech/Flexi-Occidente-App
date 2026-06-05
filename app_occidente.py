@@ -616,37 +616,30 @@ with tab6:
 with tab7:
     st.subheader("🔄 Monitor de Nivelación por Tienda")
     
-    if st.button("Cargar Datos y Generar Reporte"):
+    if st.button("Cargar Datos de Ventas"):
         try:
-            # 1. Conexión y Carga
-            from oauth2client.service_account import ServiceAccountCredentials
-            import gspread
+            # ... [Tu conexión anterior] ...
             
-            scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-            creds = ServiceAccountCredentials.from_json_keyfile_dict(dict(st.secrets["gcp_service_account"]), scope)
-            client = gspread.authorize(creds)
+            # CAMBIO AQUÍ: Cambia 'NombreDeTuHojaDeVentas' por el nombre real de la pestaña en Google Sheets
+            # Por ejemplo: 'Ventas', 'Maestro', 'Hoja1', etc.
+            sheet = archivo.worksheet('NombreDeTuHojaDeVentas') 
             
-            sheet = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM').get_worksheet(0)
             data = sheet.get_all_values()
-            
-            # Convertir a DataFrame
             df_m = pd.DataFrame(data[1:], columns=data[0])
             
-            # LIMPIEZA TOTAL: Eliminamos saltos de línea y espacios de los nombres
+            # Limpieza
             df_m.columns = df_m.columns.str.replace('\n', '', regex=True).str.strip()
             
-            # Ahora, imprimimos las columnas reales para ver qué nombres tiene su archivo
+            # Ahora sí debería aparecer 'Tienda' junto con 'ex1', 'ex2'...
             st.write("Columnas detectadas:", list(df_m.columns))
             
-            # --- FILTRO ---
             tiendas = sorted(df_m['Tienda'].astype(str).unique())
             t_sel = st.selectbox("Selecciona Tienda:", tiendas)
             
-            # AQUÍ ES DONDE NECESITO QUE ME DIGA QUÉ VE EN PANTALLA
-            st.success("Carga exitosa. Ahora el sistema detecta las columnas correctamente.")
+            st.success("¡Ahora sí estamos leyendo la tabla de ventas!")
             
         except Exception as e:
-            st.error(f"Error técnico: {e}")
+            st.error(f"Error: Asegúrate de que el nombre de la hoja sea exacto. Detalle: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
