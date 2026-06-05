@@ -621,33 +621,40 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🔄 Monitor de Nivelación - Buscando 'Ventas_Maestro'")
+    st.subheader("🔄 Monitor de Nivelación - Búsqueda por cl_tien")
     
-    if st.button("Ejecutar Análisis"):
+    if st.button("Ejecutar Análisis de Ventas"):
         try:
             sh = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM')
             
-            # Buscamos la hoja por su nombre, sin importar la posición
-            worksheet = sh.worksheet("Ventas_Maestro")
-            st.write("¡Hoja encontrada exitosamente!")
+            # Escaneo de todas las hojas buscando la columna que se llame EXACTAMENTE 'cl_tien'
+            hoja_correcta = None
+            for ws in sh.worksheets():
+                headers = ws.row_values(1)
+                # Buscamos la coincidencia exacta de su nombre clave
+                if 'cl_tien' in headers:
+                    hoja_correcta = ws
+                    break
             
-            data = worksheet.get_all_values()
-            df = pd.DataFrame(data[1:], columns=data[0])
-            df.columns = df.columns.str.strip()
-            
-            # Extracción segura de la columna de Tiendas
-            col_tienda = 'Tienda' # Confirmado por su captura anterior
-            tiendas = sorted(list(set(df[col_tienda].dropna().astype(str).tolist())))
-            
-            t_sel = st.selectbox("Selecciona Tienda:", tiendas)
-            
-            # Análisis
-            df_t = df[df[col_tienda] == t_sel]
-            st.success(f"Tienda {t_sel} cargada.")
-            st.write(df_t.head())
+            if hoja_correcta:
+                st.write(f"¡Hoja encontrada: {hoja_correcta.title}!")
+                data = hoja_correcta.get_all_values()
+                df = pd.DataFrame(data[1:], columns=data[0])
+                df.columns = df.columns.str.strip()
+                
+                # Ahora sí, usamos su nombre exacto de columna
+                lista_tiendas = sorted(list(set(df['cl_tien'].dropna().astype(str).tolist())))
+                t_sel = st.selectbox("Selecciona Tienda:", lista_tiendas)
+                
+                # Análisis
+                df_t = df[df['cl_tien'] == t_sel]
+                
+                st.success(f"Tienda {t_sel} cargada correctamente.")
+                st.write(df_t.head()) # Verificamos que los datos se ven
+            else:
+                st.error("No encontré ninguna hoja con la columna 'cl_tien'.")
                 
         except Exception as e:
-            # Aquí veremos si el error es el nombre o algo más
             st.error(f"Error técnico: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
