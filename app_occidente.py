@@ -621,41 +621,34 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🔄 Monitor de Nivelación - Hoja de Ventas")
+    st.subheader("🔄 Monitor de Nivelación - Buscando 'Ventas_Maestro'")
     
-    if st.button("Ejecutar Análisis de Ventas"):
+    if st.button("Ejecutar Análisis"):
         try:
-            # 1. Acceso al archivo
             sh = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM')
             
-            # 2. SELECCIÓN DE HOJA: Usamos el índice 3 (que es la 4ta hoja)
-            worksheet = sh.get_worksheet(3)
-            st.write("Estamos leyendo la pestaña:", worksheet.title)
+            # Buscamos la hoja por su nombre, sin importar la posición
+            worksheet = sh.worksheet("Ventas_Maestro")
+            st.write("¡Hoja encontrada exitosamente!")
             
             data = worksheet.get_all_values()
-            
-            # 3. Procesamiento
             df = pd.DataFrame(data[1:], columns=data[0])
             df.columns = df.columns.str.strip()
             
-            # Mapeo: Aseguramos que la columna de tienda sea la que queremos
-            # En su archivo, la columna se llama 'Tienda'.
+            # Extracción segura de la columna de Tiendas
+            col_tienda = 'Tienda' # Confirmado por su captura anterior
+            tiendas = sorted(list(set(df[col_tienda].dropna().astype(str).tolist())))
             
-            # 4. EXTRACCIÓN SEGURA (Evitando el error .unique())
-            # Convertimos la columna a lista de Python primero
-            lista_tiendas = sorted(list(set(df['Tienda'].astype(str).tolist())))
+            t_sel = st.selectbox("Selecciona Tienda:", tiendas)
             
-            # 5. Selector
-            t_sel = st.selectbox("Selecciona Tienda:", lista_tiendas)
-            
-            # 6. Análisis
-            df_t = df[df['Tienda'] == str(t_sel)]
-            
-            st.success(f"Tienda {t_sel} cargada correctamente. Procesando nivelación...")
-            st.write(df_t.head()) # Verificamos datos
-            
+            # Análisis
+            df_t = df[df[col_tienda] == t_sel]
+            st.success(f"Tienda {t_sel} cargada.")
+            st.write(df_t.head())
+                
         except Exception as e:
-            st.error(f"Error técnico detallado: {e}")
+            # Aquí veremos si el error es el nombre o algo más
+            st.error(f"Error técnico: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
