@@ -621,37 +621,49 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🔄 Monitor de Nivelación - Conexión Directa")
+    st.subheader("🔄 Monitor de Nivelación - Zona Occidente")
     
-    if st.button("Ejecutar Análisis de Ventas"):
+    if st.button("Ejecutar Análisis"):
         try:
-            # Conexión al archivo
+            # 1. Conexión directa al archivo y a la hoja 'Ventas' (gid=0)
             sh = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM')
+            worksheet = sh.get_worksheet(0) # Esto accede directamente a la hoja 'Ventas'
             
-            # --- CORRECCIÓN DEFINITIVA ---
-            # Forzamos la apertura de la hoja llamada "Ventas_Maestro"
-            # Si el nombre tiene algún espacio oculto, asegúrese de escribirlo tal cual aparece abajo
-            worksheet = sh.worksheet("Ventas_Maestro")
-            
+            # 2. Carga de datos
             data = worksheet.get_all_values()
             df = pd.DataFrame(data[1:], columns=data[0])
+            
+            # 3. Limpieza de encabezados
             df.columns = df.columns.str.strip()
             
-            # Diagnóstico de columnas en la hoja correcta
-            st.write("Columnas detectadas en Ventas_Maestro:", list(df.columns))
-            
-            # --- AQUÍ USAMOS LOS NOMBRES QUE USTED YA VALIDO ---
-            # Si en esta hoja la columna se llama 'Tienda', el código ya la detectará
-            col_tienda = 'Tienda' 
-            
-            lista_tiendas = sorted(list(set(df[col_tienda].dropna().astype(str).tolist())))
+            # 4. Selector de Tienda
+            # Al tener la estructura fija, accedemos directo por nombre de columna
+            lista_tiendas = sorted(df['Tienda'].dropna().astype(str).unique().tolist())
             t_sel = st.selectbox("Selecciona Tienda:", lista_tiendas)
             
-            df_t = df[df[col_tienda] == t_sel]
-            st.success(f"Tienda {t_sel} cargada. ¡El motor está listo!")
+            # 5. Lógica de Nivelación
+            df_t = df[df['Tienda'] == str(t_sel)]
             
+            # Filtrar solo 'vigente'
+            df_vigente = df_t[df_t['Estatus'].str.strip().str.lower() == 'vigente']
+            
+            alertas = []
+            cols_ex = [c for c in df.columns if c.startswith('ex')]
+            
+            for _, row in df_vigente.iterrows():
+                for col in cols_ex:
+                    # Convertir a número para comparar
+                    val = pd.to_numeric(row[col], errors='coerce')
+                    if val == 0:
+                        alertas.append({"Modelo": row['Modelo'], "Talla": col})
+            
+            if alertas:
+                st.table(pd.DataFrame(alertas))
+            else:
+                st.success(f"Tienda {t_sel} al día, sin quiebres detectados.")
+                
         except Exception as e:
-            st.error(f"Error: {e}. ¿Está seguro que la pestaña se llama 'Ventas_Maestro'?")
+            st.error(f"Error en la lectura: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
