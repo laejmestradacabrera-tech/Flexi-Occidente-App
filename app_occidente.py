@@ -614,32 +614,39 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🔄 Monitor de Nivelación por Tienda")
+    st.subheader("🔍 Diagnóstico de Estructura de Datos")
     
-    if st.button("Cargar Datos de Ventas"):
+    if st.button("Analizar Hoja"):
         try:
-            # ... [Tu conexión anterior] ...
+            # Conexión
+            from oauth2client.service_account import ServiceAccountCredentials
+            import gspread
+            creds = ServiceAccountCredentials.from_json_keyfile_dict(dict(st.secrets["gcp_service_account"]), ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive'])
+            client = gspread.authorize(creds)
             
-            # CAMBIO AQUÍ: Cambia 'NombreDeTuHojaDeVentas' por el nombre real de la pestaña en Google Sheets
-            # Por ejemplo: 'Ventas', 'Maestro', 'Hoja1', etc.
-            sheet = archivo.worksheet('Ventas_Maestro') 
+            # Abrir el archivo y listar TODAS las hojas disponibles
+            archivo = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM')
+            nombres_hojas = [s.title for s in archivo.worksheets()]
+            st.write("Hojas encontradas en el archivo:", nombres_hojas)
             
+            # Intentar cargar la hoja 'Ventas_Maestro'
+            sheet = archivo.worksheet('Ventas_Maestro')
             data = sheet.get_all_values()
+            
+            # Convertir a DF y limpiar espacios en encabezados
             df_m = pd.DataFrame(data[1:], columns=data[0])
+            df_m.columns = df_m.columns.str.strip()
             
-            # Limpieza
-            df_m.columns = df_m.columns.str.replace('\n', '', regex=True).str.strip()
+            st.write("Columnas detectadas en la hoja:", list(df_m.columns))
             
-            # Ahora sí debería aparecer 'Tienda' junto con 'ex1', 'ex2'...
-            st.write("Columnas detectadas:", list(df_m.columns))
-            
-            tiendas = sorted(df_m['Tienda'].astype(str).unique())
-            t_sel = st.selectbox("Selecciona Tienda:", tiendas)
-            
-            st.success("¡Ahora sí estamos leyendo la tabla de ventas!")
-            
+            # Verificación de 'Tienda'
+            if 'Tienda' in df_m.columns:
+                st.success("¡La columna 'Tienda' SÍ existe!")
+            else:
+                st.error("¡La columna 'Tienda' NO se encontró! Revisa si el nombre tiene acentos o espacios.")
+                
         except Exception as e:
-            st.error(f"Error: Asegúrate de que el nombre de la hoja sea exacto. Detalle: {e}")
+            st.error(f"Error detallado: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
