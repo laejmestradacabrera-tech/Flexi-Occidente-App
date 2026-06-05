@@ -621,14 +621,12 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🔄 Monitor de Nivelación - Modo Diagnóstico Final")
+    st.subheader("🔄 Monitor de Nivelación - Modo Preciso")
     
-    if st.button("Ejecutar Análisis de Ventas"):
+    if st.button("Ejecutar Análisis"):
         try:
             # 1. Acceso al archivo
             sh = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM')
-            
-            # Usamos la primera hoja (índice 0)
             worksheet = sh.get_worksheet(0)
             data = worksheet.get_all_values()
             
@@ -636,21 +634,23 @@ with tab7:
             df = pd.DataFrame(data[1:], columns=data[0])
             df.columns = df.columns.str.strip()
             
-            # Diagnóstico de las columnas para asegurar que 'cl_tien' existe
-            # Si su primera columna tiene otro nombre, esto nos lo mostrará
-            col_tienda = df.columns[0]
-            st.write(f"La columna identificada para Tiendas es: '{col_tienda}'")
+            # --- CORRECCIÓN ---
+            # En lugar de usar la columna 0 ('Fecha'), usamos la columna 1 ('cl_tien')
+            # 'df.iloc[:, 1]' es la SEGUNDA columna de su archivo
+            col_tienda = df.columns[1] 
+            st.write(f"La columna identificada para Tiendas ahora es: '{col_tienda}'")
             
-            # 3. EXTRACCIÓN SEGURA (Aquí está la clave para evitar el error .unique())
-            # Convertimos la columna a una lista simple de Python primero
+            # 3. EXTRACCIÓN SEGURA
             lista_tiendas = df[col_tienda].astype(str).tolist()
-            # Quitamos duplicados usando set() y ordenamos
-            tiendas_unicas = sorted(list(set(lista_tiendas)))
+            tiendas_unicas = sorted(list(set([t for t in lista_tiendas if t and t != 'None' and t != 'nan'])))
             
             # 4. Selector
             t_sel = st.selectbox("Selecciona Tienda:", tiendas_unicas)
             
-            st.success(f"Tienda {t_sel} seleccionada.")
+            # 5. Análisis
+            df_t = df[df[col_tienda] == t_sel]
+            
+            st.success(f"Tienda {t_sel} cargada correctamente. Procesando...")
             
         except Exception as e:
             st.error(f"Error técnico detectado: {e}")
