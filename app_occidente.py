@@ -621,46 +621,42 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🔄 Monitor de Nivelación - Modo Seguro")
+    st.subheader("🔄 Monitor de Nivelación - Modo Diagnóstico Final")
     
     if st.button("Ejecutar Análisis"):
         try:
             # 1. Carga
             sheet = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM').get_worksheet(0)
             data = sheet.get_all_values()
-            df = pd.DataFrame(data[1:], columns=data[0])
-            df.columns = df.columns.str.strip()
             
-            # 2. Renombrar columnas (usando los índices exactos de su archivo)
-            # A=cl_tien (0), B=cl_prov (1), C=clave (2), D=descont (3)
-            df.rename(columns={df.columns[0]: 'Tienda', df.columns[2]: 'Modelo', df.columns[3]: 'Descont'}, inplace=True)
+            # 2. Reconstrucción manual del DataFrame
+            headers = data[0]
+            rows = data[1:]
+            df = pd.DataFrame(rows, columns=headers)
             
-            # 3. Conversión numérica segura
-            cols_ex = [col for col in df.columns if str(col).lower().startswith('ex')]
-            df[cols_ex] = df[cols_ex].apply(pd.to_numeric, errors='coerce').fillna(0)
+            # Limpiar encabezados
+            df.columns = [c.strip() for c in df.columns]
             
-            # 4. Selector de Tienda (CORRECCIÓN: accedemos a la columna 'Tienda' y convertimos a lista)
-            lista_tiendas = df['Tienda'].astype(str).unique().tolist()
-            t_sel = st.selectbox("Selecciona Tienda:", sorted(lista_tiendas))
+            # --- DIAGNÓSTICO: Ver qué está pasando con la columna de tiendas ---
+            nombre_col_tienda = df.columns[0] # 'cl_tien'
+            st.write(f"Nombre de la columna identificada como Tienda: {nombre_col_tienda}")
             
-            # 5. Análisis
-            df_t = df[df['Tienda'] == str(t_sel)]
+            # Forzar la obtención de lista de tiendas sin usar unique() directamente en el DF
+            tiendas_unicas = sorted(list(set(df[nombre_col_tienda].astype(str).tolist())))
             
-            alertas = []
-            for _, row in df_t.iterrows():
-                # Comparación flexible
-                if row['Modelo'] in lista_modelos_top and str(row['Descont']).strip().lower() == 'vigente':
-                    for col in cols_ex:
-                        if row[col] == 0: 
-                            alertas.append({"Modelo": row['Modelo'], "Talla": col})
+            # 3. Selector
+            t_sel = st.selectbox("Selecciona Tienda:", tiendas_unicas)
             
-            if alertas:
-                st.table(pd.DataFrame(alertas))
-            else:
-                st.success(f"Tienda {t_sel} sin quiebres.")
+            # 4. Análisis
+            df_t = df[df[nombre_col_tienda] == t_sel]
+            
+            st.success(f"Tienda {t_sel} cargada correctamente. Procesando nivelación...")
+            
+            # (Aquí iría la lógica de quiebres...)
+            st.write("Datos de la tienda seleccionada:", df_t.head())
                 
         except Exception as e:
-            st.error(f"Error detectado: {e}")
+            st.error(f"Error crítico en la línea: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
