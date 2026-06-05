@@ -621,39 +621,58 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🔄 Monitor de Nivelación - Modo Preciso")
+    st.subheader("🔄 Monitor de Nivelación - Zona Occidente")
     
-    if st.button("Ejecutar Análisis"):
+    if st.button("Ejecutar Análisis de Ventas"):
         try:
-            # 1. Acceso al archivo
+            # 1. Conexión segura a la hoja
             sh = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM')
-            worksheet = sh.get_worksheet(0)
+            worksheet = sh.worksheet("Ventas_Maestro")
             data = worksheet.get_all_values()
             
-            # 2. DataFrame (Fila 0 encabezados)
+            # 2. Cargar DataFrame
             df = pd.DataFrame(data[1:], columns=data[0])
             df.columns = df.columns.str.strip()
             
-            # --- CORRECCIÓN ---
-            # En lugar de usar la columna 0 ('Fecha'), usamos la columna 1 ('cl_tien')
-            # 'df.iloc[:, 1]' es la SEGUNDA columna de su archivo
-            col_tienda = df.columns[1] 
-            st.write(f"La columna identificada para Tiendas ahora es: '{col_tienda}'")
+            # 3. RENOMBRADO AUTOMÁTICO (Aquí corregimos el problema de los nombres de columnas)
+            # Esto convierte sus nombres actuales (cl_tien, clave, etc) a los nombres que el código necesita
+            df = df.rename(columns={
+                'cl_tien': 'Tienda', 
+                'clave': 'Modelo', 
+                'descont': 'Estatus'
+            })
             
-            # 3. EXTRACCIÓN SEGURA
-            lista_tiendas = df[col_tienda].astype(str).tolist()
-            tiendas_unicas = sorted(list(set([t for t in lista_tiendas if t and t != 'None' and t != 'nan'])))
+            # Limpieza para que no haya espacios en los nombres de las columnas
+            df.columns = df.columns.str.strip()
             
-            # 4. Selector
-            t_sel = st.selectbox("Selecciona Tienda:", tiendas_unicas)
+            # 4. Asegurar que las tallas sean números (ex1 a ex15)
+            cols_ex = [col for col in df.columns if col.startswith('ex')]
+            df[cols_ex] = df[cols_ex].apply(pd.to_numeric, errors='coerce').fillna(0)
             
-            # 5. Análisis
-            df_t = df[df[col_tienda] == t_sel]
+            # 5. Selector de Tienda (limpio)
+            lista_tiendas = sorted(df['Tienda'].dropna().unique().astype(str).tolist())
+            t_sel = st.selectbox("Selecciona Tienda:", lista_tiendas)
             
-            st.success(f"Tienda {t_sel} cargada correctamente. Procesando...")
+            # 6. Análisis
+            df_t = df[df['Tienda'] == t_sel]
             
+            # Lógica de nivelación (filtrando solo vigentes)
+            alertas = []
+            for _, row in df_t.iterrows():
+                # Revisamos si es vigente (ajuste el texto si es "Vigente" o "vigente")
+                if str(row.get('Estatus', '')).strip().lower() == 'vigente':
+                    for col in cols_ex:
+                        if row[col] == 0: # Si hay quiebre
+                            alertas.append({"Modelo": row['Modelo'], "Talla": col})
+            
+            if alertas:
+                st.write(f"Alertas de Nivelación para {t_sel}:")
+                st.table(pd.DataFrame(alertas))
+            else:
+                st.success(f"¡Excelente! La tienda {t_sel} no presenta quiebres.")
+                
         except Exception as e:
-            st.error(f"Error técnico detectado: {e}")
+            st.error(f"Error técnico: {e}. Asegúrese de que las columnas en Drive coincidan con lo esperado.")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
