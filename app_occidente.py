@@ -622,7 +622,7 @@ with tab7:
             
             # CAMBIO AQUÍ: Cambia 'NombreDeTuHojaDeVentas' por el nombre real de la pestaña en Google Sheets
             # Por ejemplo: 'Ventas', 'Maestro', 'Hoja1', etc.
-            sheet = archivo.worksheet('NombreDeTuHojaDeVentas') 
+            sheet = archivo.worksheet('Ventas_Maestro') 
             
             data = sheet.get_all_values()
             df_m = pd.DataFrame(data[1:], columns=data[0])
