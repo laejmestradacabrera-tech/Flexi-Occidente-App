@@ -614,52 +614,46 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🔄 Algoritmo de Nivelación de Inventarios (Top 20)")
+    st.subheader("🔄 Monitor de Nivelación por Tienda")
     
-    if st.button("Ejecutar Análisis de Nivelación"):
+    # 1. Selector de Tienda (Igual que en pestaña 3 para consistencia)
+    tiendas_disponibles = sorted(df_maestro['Tienda'].unique())
+    t_sel_niv = st.selectbox("Selecciona Tienda para Nivelar:", tiendas_disponibles)
+    
+    if st.button("Generar Reporte de Nivelación"):
         try:
-            # 1. Cargar Ventas Maestro desde Google Sheets
-            # Usamos el cliente configurado en tu pestaña 8
-            sheet = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM').get_worksheet(0)
-            data = sheet.get_all_values()
-            df_maestro = pd.DataFrame(data[1:], columns=data[0])
+            # Filtrar el maestro solo por la tienda seleccionada
+            df_t = df_maestro[df_maestro['Tienda'] == str(t_sel_niv)].copy()
             
-            # Limpieza: Convertir columnas de stock, pedido y venta a numérico
-            cols_ex = [f'ex{i}' for i in range(1, 16)]
-            cols_p = [f'p{i}' for i in range(1, 16)]
-            cols_v = [f'v{i}' for i in range(1, 16)]
+            # Filtrar solo modelos Top 20
+            df_nivelacion = df_t[df_t['Modelo'].isin(lista_modelos_top)]
             
-            df_maestro[cols_ex + cols_p + cols_v] = df_maestro[cols_ex + cols_p + cols_v].apply(pd.to_numeric, errors='coerce').fillna(0)
-            
-            # 2. Cargar tu Top 20 oficial de GitHub (Filtro intocable)
-            df_top20_ref = pd.read_excel(archivo_modelos) 
-            lista_modelos_top = df_top20_ref[col_m].unique()
-            
-            # 3. Filtrar Maestro contra Top 20
-            df_nivelacion = df_maestro[df_maestro['Modelo'].isin(lista_modelos_top)]
-            
-            # 4. Aplicar Condicionantes de Nivelación (Quiebre absoluto + Venta histórica)
             alertas = []
             for _, row in df_nivelacion.iterrows():
                 for i in range(1, 16):
-                    # Condición: Stock 0, Tránsito 0, y Venta > 0
+                    # Condición: Quiebre + Venta real
                     if row[f'ex{i}'] == 0 and row[f'p{i}'] == 0 and row[f'v{i}'] > 0:
+                        
+                        # --- Aquí aplicamos tu lógica de Tallas reales ---
+                        # Usaremos el mapeo que definimos para traducir la columna 'EXi'
+                        talla_real = "Consultar Mapeo" # Aquí podrías insertar la función de conversión
+                        
                         alertas.append({
-                            "Tienda": row['Tienda'],
                             "Modelo": row['Modelo'],
-                            "Columna": f"EX{i}",
-                            "Estado": "⚠️ REQUIERE PEDIDO"
+                            "Talla_Columna": f"EX{i}",
+                            "Ventas_2m": row[f'v{i}'],
+                            "Acción": "¡URGENTE: REPOSICIÓN!"
                         })
             
-            # 5. Visualización de resultados
             if alertas:
-                st.table(pd.DataFrame(alertas))
-                st.warning(f"Se detectaron {len(alertas)} quiebres en tus modelos Top 20.")
+                df_final = pd.DataFrame(alertas)
+                st.table(df_final)
+                st.download_button("Descargar Reporte de Nivelación", df_final.to_csv(), "Nivelacion.csv")
             else:
-                st.success("¡Excelente! No hay quiebres de inventario en tus modelos Top 20.")
+                st.success(f"Tienda {t_sel_niv}: Inventario de Top 20 al día. ¡Buen trabajo!")
                 
         except Exception as e:
-            st.error(f"Error al ejecutar el motor de nivelación: {e}")
+            st.error(f"Error técnico en el motor: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
