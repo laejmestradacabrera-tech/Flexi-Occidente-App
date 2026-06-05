@@ -621,36 +621,38 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🔄 Monitor - Corrección de Encabezados")
+    st.subheader("🔄 Monitor de Nivelación - Modo Estratégico")
     
-    if st.button("Ejecutar Análisis"):
+    if st.button("Ejecutar Análisis de Ventas"):
         try:
-            # 1. Carga
-            sh = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM')
-            worksheet = sh.get_worksheet(0)
-            data = worksheet.get_all_values()
-            df = pd.DataFrame(data[1:], columns=data[0])
+            # 1. Acceso a la hoja 'Ventas'
+            sh = client.open_by_key('1NyLfmlT92T7aI47njeP2fTgP0PMCJYFwUa8iIISVwBI')
+            ws = sh.worksheet("Ventas")
             
-            # Limpiamos espacios en todos los nombres de columnas
+            # 2. Carga y limpieza
+            data = ws.get_all_values()
+            df = pd.DataFrame(data[1:], columns=data[0])
             df.columns = df.columns.str.strip()
             
-            # --- DIAGNÓSTICO ---
-            st.write("Columnas detectadas en la hoja:", list(df.columns))
-            
-            # Buscamos dinámicamente la columna que contiene el estatus
-            # Si el usuario la nombró 'Estatus', 'Status', 'Linea' o similar
-            col_estatus = next((c for c in df.columns if 'status' in c.lower() or 'linea' in c.lower() or 'estatus' in c.lower()), None)
-            
-            if col_estatus:
-                st.write(f"Columna de estatus detectada como: {col_estatus}")
-                # Filtramos usando el nombre detectado dinámicamente
-                df_vigente = df[df[col_estatus].str.strip().str.lower() == 'vigente']
-                st.success("Filtro aplicado correctamente.")
+            # 3. Filtrado por Estatus ('N' = Vigente)
+            # Aseguramos que la columna se llame 'Estatus'
+            if 'Estatus' in df.columns:
+                df_vigente = df[df['Estatus'].str.strip().str.upper() == 'N']
+                
+                # 4. Selector de Tienda
+                lista_tiendas = sorted(df_vigente['Tienda'].dropna().astype(str).unique().tolist())
+                t_sel = st.selectbox("Selecciona Tienda:", lista_tiendas)
+                
+                # 5. Análisis para la tienda seleccionada
+                df_t = df_vigente[df_vigente['Tienda'] == t_sel]
+                
+                st.success(f"Tienda {t_sel} cargada. Analizando modelos de línea...")
+                st.write(df_t.head())
             else:
-                st.warning("No encontré la columna de estatus. Verifica los nombres arriba.")
+                st.error("No se encontró la columna 'Estatus'.")
                 
         except Exception as e:
-            st.error(f"Error técnico detallado: {e}")
+            st.error(f"Error técnico: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
