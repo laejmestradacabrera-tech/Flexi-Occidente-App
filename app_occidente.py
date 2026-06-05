@@ -621,7 +621,7 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🚀 Monitor de Sugerencia de Abasto - Operativo")
+    st.subheader("🚀 Monitor de Sugerencia de Abasto - Ajuste Final")
     
     if st.button("Ejecutar Análisis"):
         try:
@@ -631,10 +631,13 @@ with tab7:
             df = pd.DataFrame(data[1:], columns=data[0])
             df.columns = df.columns.str.strip()
             
-            # Conversión segura a numérico usando los nombres reales de su hoja
+            # Ajuste de nombres exactos según su archivo:
+            # ex_tot, PTot, Vtas
+            
+            # Conversión segura a numérico
             df['Vtas'] = pd.to_numeric(df['Vtas'], errors='coerce').fillna(0)
             df['ex_tot'] = pd.to_numeric(df['ex_tot'], errors='coerce').fillna(0)
-            df['Ptot'] = pd.to_numeric(df['Ptot'], errors='coerce').fillna(0)
+            df['PTot'] = pd.to_numeric(df['PTot'], errors='coerce').fillna(0)
             
             # Identificar el Top 20 de Ventas global
             top_20_modelos = df.groupby('Modelo')['Vtas'].sum().nlargest(20).index
@@ -646,10 +649,11 @@ with tab7:
             # Filtrado por tienda y cálculo de sugerencia
             df_t = df[df['Tienda'] == t_sel].copy()
             
+            # Lógica: Top 20 AND ex_tot=0 AND PTot=0
             condicion = (
                 (df_t['Modelo'].isin(top_20_modelos)) & 
                 (df_t['ex_tot'] == 0) & 
-                (df_t['Ptot'] == 0)
+                (df_t['PTot'] == 0)
             )
             
             df_t['Sugerencia'] = "---"
@@ -657,10 +661,10 @@ with tab7:
             
             # Mostrar tabla limpia
             st.write(f"### Análisis de Abasto: {t_sel}")
-            st.dataframe(df_t[['Modelo', 'ex_tot', 'Ptot', 'Vtas', 'Sugerencia']].sort_values(by='Sugerencia', ascending=False))
+            st.dataframe(df_t[['Modelo', 'ex_tot', 'PTot', 'Vtas', 'Sugerencia']].sort_values(by='Sugerencia', ascending=False))
             
         except Exception as e:
-            st.error(f"Error técnico: {e}")
+            st.error(f"Error técnico detallado: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
