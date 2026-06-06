@@ -621,38 +621,54 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🔍 Auditoría de Conexión y Filtros")
+    st.subheader("🎯 Monitor de Pedidos: Precisión por Talla")
     
-    if st.button("Ejecutar Auditoría"):
+    if st.button("Ejecutar Análisis de Precisión"):
         try:
+            # 1. Carga
             sh = client.open_by_key('1NyLfmlT92T7aI47njeP2fTgP0PMCJYFwUa8iIISVwBI')
             ws = sh.get_worksheet(0)
             data = ws.get_all_values()
             df = pd.DataFrame(data[1:], columns=data[0])
             df.columns = df.columns.str.strip()
             
-            # Limpieza total de espacios en nombres de tiendas
-            df['Tienda'] = df['Tienda'].astype(str).str.strip()
-            
-            # Mostrar qué tiendas existen REALMENTE en la base
-            tiendas_disponibles = sorted(df['Tienda'].unique().tolist())
-            st.write("Tiendas detectadas en la base:", tiendas_disponibles)
-            
-            t_sel = st.selectbox("Selecciona Tienda:", tiendas_disponibles)
-            
-            # Filtro blindado
+            # 2. Selector de Tienda
+            tiendas = sorted(df['Tienda'].astype(str).unique().tolist())
+            t_sel = st.selectbox("Selecciona Tienda:", tiendas)
             df_t = df[df['Tienda'] == t_sel].copy()
             
-            st.write(f"Filas encontradas para la tienda {t_sel}: {len(df_t)}")
+            # 3. Identificar Top 20 (Basado en Vtas totales del modelo en esta tienda)
+            df_t['Vtas'] = pd.to_numeric(df_t['Vtas'], errors='coerce').fillna(0)
+            top_20_modelos = df_t.groupby('Modelo')['Vtas'].sum().nlargest(20).index.tolist()
             
-            if len(df_t) > 0:
-                # Si encuentra filas, mostramos un resumen rápido para confirmar datos
-                st.dataframe(df_t.head())
+            # 4. Procesamiento talla por talla
+            resultados = []
+            for _, row in df_t.iterrows():
+                modelo = row['Modelo']
+                if modelo in top_20_modelos:
+                    # Iterar sobre las 15 tallas
+                    for i in range(1, 16):
+                        ex_talla = pd.to_numeric(row[f'ex{i}'], errors='coerce')
+                        vtas_talla = pd.to_numeric(row[f'v{i}'], errors='coerce')
+                        
+                        # CONDICIONAL CLAVE:
+                        # Si la talla es Top 20, existencia 0, pedido 0, PERO tuvo venta (v > 0)
+                        if ex_talla == 0 and pd.to_numeric(row['PTot'], errors='coerce') == 0 and vtas_talla > 0:
+                            resultados.append({
+                                "Modelo": modelo,
+                                "Talla": f"ex{i}",
+                                "Ventas_Talla": vtas_talla,
+                                "Accion": "🚨 SUGERIR PEDIDO"
+                            })
+            
+            # 5. Visualización
+            if resultados:
+                st.dataframe(pd.DataFrame(resultados))
             else:
-                st.warning("El sistema no encontró registros para esa tienda. Revisa si el nombre tiene espacios invisibles.")
+                st.success("Sin quiebres detectados en el Top 20 por talla.")
                 
         except Exception as e:
-            st.error(f"Error: {e}")
+            st.error(f"Error de razonamiento: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
