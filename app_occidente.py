@@ -621,9 +621,9 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🚀 Monitor de Sugerencia - Motor Global")
+    st.subheader("🎯 Monitor de Sugerencia: Modelo y Talla")
     
-    if st.button("Ejecutar Análisis"):
+    if st.button("Ejecutar Análisis por Talla"):
         try:
             sh = client.open_by_key('1NyLfmlT92T7aI47njeP2fTgP0PMCJYFwUa8iIISVwBI')
             ws = sh.get_worksheet(0)
@@ -631,38 +631,39 @@ with tab7:
             df = pd.DataFrame(data[1:], columns=data[0])
             df.columns = df.columns.str.strip()
             
-            # Conversión FORZADA a numérico
-            for col in ['Vtas', 'ex_tot', 'PTot']:
+            # Identificar columnas de tallas (ex1 a ex15)
+            cols_tallas = [f'ex{i}' for i in range(1, 16)]
+            
+            # Convertir a numérico
+            for col in cols_tallas + ['Vtas', 'PTot']:
                 df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
             
-            # 1. PASO CRUCIAL: Top 20 Global (se calcula sobre todo el DataFrame, no solo la tienda)
-            top_20_modelos = df.groupby('Modelo')['Vtas'].sum().nlargest(20).index
+            # Top 20 Global por Modelo
+            top_20_modelos = df.groupby('Modelo')['Vtas'].sum().nlargest(20).index.tolist()
             
-            # 2. Selector de Tienda
-            lista_tiendas = sorted(df['Tienda'].unique().astype(str).tolist())
-            t_sel = st.selectbox("Selecciona Tienda:", lista_tiendas)
-            
-            # 3. Filtrar datos de la tienda elegida
+            # Selector
+            t_sel = st.selectbox("Selecciona Tienda:", sorted(df['Tienda'].unique().astype(str).tolist()))
             df_t = df[df['Tienda'] == t_sel].copy()
             
-            # 4. Lógica de Sugerencia
-            # Es Top 20 GLOBAL AND Ex=0 AND Pedidos=0
-            condicion = (
-                (df_t['Modelo'].isin(top_20_modelos)) & 
-                (df_t['ex_tot'] == 0) & 
-                (df_t['PTot'] == 0)
-            )
+            # Lógica por talla: Creamos una lista de alertas
+            alertas = []
+            for _, row in df_t.iterrows():
+                if row['Modelo'] in top_20_modelos:
+                    for col in cols_tallas:
+                        # Condición: Es Top 20, existencia en talla X es 0, y el pedido total (PTot) es 0
+                        if row[col] == 0 and row['PTot'] == 0:
+                            alertas.append({
+                                "Modelo": row['Modelo'],
+                                "Talla": col,
+                                "Sugerencia": "🚨 PEDIR TALLA"
+                            })
             
-            df_t['Sugerencia'] = "---"
-            df_t.loc[condicion, 'Sugerencia'] = "🚨 SUGERIR PEDIDO"
-            
-            # 5. Ordenar: Lo urgente primero
-            df_resultado = df_t[['Modelo', 'ex_tot', 'PTot', 'Vtas', 'Sugerencia']].sort_values(by='Sugerencia', ascending=False)
-            
-            # Mostrar solo resultados importantes
-            st.write(f"### Análisis de Abasto: {t_sel}")
-            st.dataframe(df_resultado)
-            
+            # Mostrar
+            if alertas:
+                st.dataframe(pd.DataFrame(alertas))
+            else:
+                st.success("No hay quiebres de tallas en el Top 20.")
+                
         except Exception as e:
             st.error(f"Error técnico: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
