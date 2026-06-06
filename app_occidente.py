@@ -621,51 +621,56 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🎯 Monitor de Sugerencia: Modelo y Talla")
+    st.subheader("📋 Propuesta de Pedido - Modo Tienda")
     
-    if st.button("Ejecutar Análisis por Talla"):
+    if st.button("Generar Propuesta"):
         try:
+            # 1. Acceso a datos
             sh = client.open_by_key('1NyLfmlT92T7aI47njeP2fTgP0PMCJYFwUa8iIISVwBI')
             ws = sh.get_worksheet(0)
             data = ws.get_all_values()
             df = pd.DataFrame(data[1:], columns=data[0])
             df.columns = df.columns.str.strip()
             
-            # Identificar columnas de tallas (ex1 a ex15)
-            cols_tallas = [f'ex{i}' for i in range(1, 16)]
-            
-            # Convertir a numérico
-            for col in cols_tallas + ['Vtas', 'PTot']:
+            # Conversión de columnas clave
+            for col in ['Vtas', 'ex_tot', 'PTot']:
                 df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
             
-            # Top 20 Global por Modelo
-            top_20_modelos = df.groupby('Modelo')['Vtas'].sum().nlargest(20).index.tolist()
+            # 2. Selector de Tienda (Para que el usuario elija qué analizar)
+            lista_tiendas = sorted(df['Tienda'].unique().astype(str).tolist())
+            t_sel = st.selectbox("Selecciona Tienda a Auditar:", lista_tiendas)
             
-            # Selector
-            t_sel = st.selectbox("Selecciona Tienda:", sorted(df['Tienda'].unique().astype(str).tolist()))
+            # 3. Filtrado EXCLUSIVO para la tienda seleccionada
             df_t = df[df['Tienda'] == t_sel].copy()
             
-            # Lógica por talla: Creamos una lista de alertas
-            alertas = []
+            # 4. Cálculo del Top 20 de ESTA tienda (Esto es lo que pedía: revisión por tienda)
+            top_20_tienda = df_t.nlargest(20, 'Vtas')['Modelo'].unique().tolist()
+            
+            # 5. Lógica de Pedido por Talla
+            columnas_tallas = [f'ex{i}' for i in range(1, 16)]
+            propuestas = []
+            
             for _, row in df_t.iterrows():
-                if row['Modelo'] in top_20_modelos:
-                    for col in cols_tallas:
-                        # Condición: Es Top 20, existencia en talla X es 0, y el pedido total (PTot) es 0
-                        if row[col] == 0 and row['PTot'] == 0:
-                            alertas.append({
+                if row['Modelo'] in top_20_tienda:
+                    for col in columnas_tallas:
+                        existencia_talla = pd.to_numeric(row[col], errors='coerce')
+                        # Condicional: Si es Top 20, existencia en talla es 0 y no hay pedido
+                        if existencia_talla == 0 and row['PTot'] == 0:
+                            propuestas.append({
                                 "Modelo": row['Modelo'],
                                 "Talla": col,
-                                "Sugerencia": "🚨 PEDIR TALLA"
+                                "Vtas_Modelo": row['Vtas'],
+                                "Accion": "🚨 SUGERIR PEDIDO"
                             })
             
-            # Mostrar
-            if alertas:
-                st.dataframe(pd.DataFrame(alertas))
+            # 6. Despliegue de resultados
+            if propuestas:
+                st.dataframe(pd.DataFrame(propuestas))
             else:
-                st.success("No hay quiebres de tallas en el Top 20.")
+                st.success(f"La tienda {t_sel} tiene sus top 20 bien cubiertos.")
                 
         except Exception as e:
-            st.error(f"Error técnico: {e}")
+            st.error(f"Error de razonamiento: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
