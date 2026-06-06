@@ -621,56 +621,38 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("📋 Propuesta de Pedido - Modo Tienda")
+    st.subheader("🔍 Auditoría de Conexión y Filtros")
     
-    if st.button("Generar Propuesta"):
+    if st.button("Ejecutar Auditoría"):
         try:
-            # 1. Acceso a datos
             sh = client.open_by_key('1NyLfmlT92T7aI47njeP2fTgP0PMCJYFwUa8iIISVwBI')
             ws = sh.get_worksheet(0)
             data = ws.get_all_values()
             df = pd.DataFrame(data[1:], columns=data[0])
             df.columns = df.columns.str.strip()
             
-            # Conversión de columnas clave
-            for col in ['Vtas', 'ex_tot', 'PTot']:
-                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+            # Limpieza total de espacios en nombres de tiendas
+            df['Tienda'] = df['Tienda'].astype(str).str.strip()
             
-            # 2. Selector de Tienda (Para que el usuario elija qué analizar)
-            lista_tiendas = sorted(df['Tienda'].unique().astype(str).tolist())
-            t_sel = st.selectbox("Selecciona Tienda a Auditar:", lista_tiendas)
+            # Mostrar qué tiendas existen REALMENTE en la base
+            tiendas_disponibles = sorted(df['Tienda'].unique().tolist())
+            st.write("Tiendas detectadas en la base:", tiendas_disponibles)
             
-            # 3. Filtrado EXCLUSIVO para la tienda seleccionada
+            t_sel = st.selectbox("Selecciona Tienda:", tiendas_disponibles)
+            
+            # Filtro blindado
             df_t = df[df['Tienda'] == t_sel].copy()
             
-            # 4. Cálculo del Top 20 de ESTA tienda (Esto es lo que pedía: revisión por tienda)
-            top_20_tienda = df_t.nlargest(20, 'Vtas')['Modelo'].unique().tolist()
+            st.write(f"Filas encontradas para la tienda {t_sel}: {len(df_t)}")
             
-            # 5. Lógica de Pedido por Talla
-            columnas_tallas = [f'ex{i}' for i in range(1, 16)]
-            propuestas = []
-            
-            for _, row in df_t.iterrows():
-                if row['Modelo'] in top_20_tienda:
-                    for col in columnas_tallas:
-                        existencia_talla = pd.to_numeric(row[col], errors='coerce')
-                        # Condicional: Si es Top 20, existencia en talla es 0 y no hay pedido
-                        if existencia_talla == 0 and row['PTot'] == 0:
-                            propuestas.append({
-                                "Modelo": row['Modelo'],
-                                "Talla": col,
-                                "Vtas_Modelo": row['Vtas'],
-                                "Accion": "🚨 SUGERIR PEDIDO"
-                            })
-            
-            # 6. Despliegue de resultados
-            if propuestas:
-                st.dataframe(pd.DataFrame(propuestas))
+            if len(df_t) > 0:
+                # Si encuentra filas, mostramos un resumen rápido para confirmar datos
+                st.dataframe(df_t.head())
             else:
-                st.success(f"La tienda {t_sel} tiene sus top 20 bien cubiertos.")
+                st.warning("El sistema no encontró registros para esa tienda. Revisa si el nombre tiene espacios invisibles.")
                 
         except Exception as e:
-            st.error(f"Error de razonamiento: {e}")
+            st.error(f"Error: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
