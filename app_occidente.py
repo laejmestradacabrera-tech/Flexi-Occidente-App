@@ -619,54 +619,58 @@ with tab6:
             *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
             """)
 
-# --- PESTAÑA 7: NIVELACIÓN INTEGRADA AL TOP 20 ---
+# --- PESTAÑA 7: NIVELACIÓN DE INVENTARIO (VERSIÓN LIMPIA) ---
 with tab7:
     st.subheader("🎯 Monitor de Pedidos: Precisión por Talla")
     
-    # Usamos la misma lógica de carga y filtrado que en tus pestañas 3 y 4
-    if archivo_modelos:
-        # 1. Selector de Tienda (idéntico a tu pestaña 3)
-        t_sel = st.selectbox("Selecciona Tienda:", sorted(df_m[col_t].unique()))
+    # 1. Análisis basado en las variables que ya existen en tu app (df_m, col_t, col_m, col_p)
+    if 'df_m' in locals():
+        # Usamos el mismo selector que ya definiste en Tab 3, pero aquí lo leemos
+        # o creamos uno propio con ID único para que no choque con Tab 3
+        tiendas_tab7 = sorted(df_m[col_t].unique())
+        t_sel_tab7 = st.selectbox("Selecciona Tienda para Nivelación:", tiendas_tab7, key="sel_tab7")
         
-        if st.button("Ejecutar Análisis de Precisión"):
-            # 2. Generar el mismo Top 20 que en tu pestaña 3
-            df_tienda_data = df_m[df_m[col_t] == t_sel].groupby(col_m)[col_p].sum().reset_index()
-            top_20_modelos = df_tienda_data.sort_values(by=col_p, ascending=False).head(20)[col_m].tolist()
+        if st.button("Ejecutar Análisis de Precisión", key="btn_tab7"):
+            # Filtro de datos para la tienda seleccionada
+            df_t = df_m[df_m[col_t] == t_sel_tab7].copy()
             
-            # 3. Filtrar inventarios solo para esos modelos
-            df_top = df_m[(df_m[col_t] == t_sel) & (df_m[col_m].isin(top_20_modelos))].copy()
+            # Generar Top 20 basado en tu lógica de ventas
+            df_tienda_data = df_t.groupby(col_m)[col_p].sum().reset_index()
+            top_20 = df_tienda_data.sort_values(by=col_p, ascending=False).head(20)[col_m].tolist()
             
-            # 4. Procesamiento de Nivelación
+            # Filtrar solo el Top 20
+            df_top = df_t[df_t[col_m].isin(top_20)].copy()
+            
+            # Función de mapeo de tallas
+            def get_talla(mod, idx):
+                if str(mod).startswith(('D', 'CY')): mapa = {i: str(220 + (i-3)*5) for i in range(3, 14)}
+                elif str(mod).startswith('H'): mapa = {i: str(250 + (i-1)*5) for i in range(1, 14)}
+                elif str(mod).startswith('NM'): mapa = {i: str(170 + (i-1)*5) for i in range(1, 11)}
+                elif str(mod).startswith('CJ'): mapa = {i: str(215 + (i-1)*5) for i in range(1, 13)}
+                else: return f"ex{idx}"
+                return mapa.get(idx, f"ex{idx}")
+
             resultados = []
             for _, row in df_top.iterrows():
                 modelo = row[col_m]
-                
-                # Función de mapeo (la que ya ajustamos para D, H, NM, CJ, CY)
-                def get_talla(mod, idx):
-                    if mod.startswith(('D', 'CY')): mapa = {i: str(220 + (i-3)*5) for i in range(3, 14)}
-                    elif mod.startswith('H'): mapa = {i: str(250 + (i-1)*5) for i in range(1, 14)}
-                    elif mod.startswith('NM'): mapa = {i: str(170 + (i-1)*5) for i in range(1, 11)}
-                    elif mod.startswith('CJ'): mapa = {i: str(215 + (i-1)*5) for i in range(1, 13)}
-                    else: return f"ex{idx}"
-                    return mapa.get(idx, f"ex{idx}")
-
-                # Iterar tallas (asumiendo que en df_m tienes las columnas ex1..ex15 y v1..v15)
                 for i in range(1, 16):
+                    # Buscamos columnas ex1...ex15 y v1...v15
                     ex_val = pd.to_numeric(row.get(f'ex{i}', 0), errors='coerce')
                     vt_val = pd.to_numeric(row.get(f'v{i}', 0), errors='coerce')
                     
                     if ex_val == 0 and vt_val > 0:
                         resultados.append({
                             "Modelo": modelo,
-                            "Talla": get_talla(str(modelo), i),
+                            "Talla": get_talla(modelo, i),
                             "Accion": "🚨 SUGERIR PEDIDO"
                         })
             
-            # 5. Visualización limpia
             if resultados:
                 st.dataframe(pd.DataFrame(resultados).drop_duplicates(), use_container_width=True)
             else:
                 st.success("Todo en orden: No hay quiebres en el Top 20 actual.")
+    else:
+        st.warning("Por favor, asegúrate de que el archivo de modelos esté cargado primero.")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
