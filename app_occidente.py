@@ -618,51 +618,57 @@ with tab6:
             ---
             *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
             """)
-# --- PESTAÑA 7: MONITOR DE PEDIDOS (VISIÓN TOTAL) ---
+# --- PESTAÑA 7: MONITOR DE PEDIDOS (LÓGICA UNIFICADA POR DPTO) ---
 with tab7:
     st.subheader("🎯 Monitor de Pedidos: Precisión Total")
     
     if 'df_m' in locals():
+        # Selector de Tienda
         tiendas_tab7 = sorted(df_m[col_t].unique())
-        t_sel_tab7 = st.selectbox("Selecciona Tienda:", tiendas_tab7, key="sel_tab7_v2")
+        t_sel_tab7 = st.selectbox("Selecciona Tienda:", tiendas_tab7, key="sel_tab7_v3")
         
-        if st.button("Ejecutar Análisis de Precisión", key="btn_tab7_v2"):
-            # 1. Filtramos solo por tienda
+        if st.button("Ejecutar Análisis de Precisión", key="btn_tab7_v3"):
             df_t = df_m[df_m[col_t] == t_sel_tab7].copy()
             
-            # 2. Identificamos el Top 20 para etiquetar (pero no filtramos aún)
-            top_20_lista = df_t.groupby(col_m)[col_p].sum().nlargest(20).index.tolist()
+            # Top 20 basado en tus ventas actuales
+            df_tienda_data = df_t.groupby(col_m)[col_p].sum().reset_index()
+            top_20 = df_tienda_data.sort_values(by=col_p, ascending=False).head(20)[col_m].tolist()
+            df_top = df_t[df_t[col_m].isin(top_20)].copy()
             
             resultados = []
-            for _, row in df_t.iterrows():
+            
+            # Función maestra de mapeo
+            def obtener_talla_real(dpto, idx):
+                # Aplicamos la lógica según tu requerimiento de tallas
+                if dpto == 'DAMA':
+                    return str(220 + (idx-3)*5) if idx >= 3 else f"ex{idx}"
+                elif dpto == 'CABALLERO':
+                    return str(250 + (idx-1)*5)
+                elif dpto == 'NIÑO':
+                    return str(170 + (idx-1)*5)
+                elif dpto == 'JOVEN':
+                    return str(215 + (idx-1)*5)
+                return f"ex{idx}"
+
+            for _, row in df_top.iterrows():
                 modelo = row[col_m]
-                es_top = "⭐ TOP 20" if modelo in top_20_lista else "GENERAL"
+                dpto = str(row.get('Departamento', '')).upper() # Leemos tu nueva columna
                 
                 for i in range(1, 16):
                     ex_val = pd.to_numeric(row.get(f'ex{i}', 0), errors='coerce') or 0
                     vt_val = pd.to_numeric(row.get(f'v{i}', 0), errors='coerce') or 0
                     
                     if ex_val <= 0 and vt_val > 0:
-                        # Mapeo de tallas
-                        talla = f"ex{i}"
-                        if str(modelo).startswith(('D', 'CY')): talla = str(220 + (i-3)*5) if i>=3 else "ex"
-                        elif str(modelo).startswith('H'): talla = str(250 + (i-1)*5)
-                        elif str(modelo).startswith('NM'): talla = str(170 + (i-1)*5)
-                        elif str(modelo).startswith('CJ'): talla = str(215 + (i-1)*5)
-                        
                         resultados.append({
-                            "Prioridad": es_top,
                             "Modelo": modelo,
-                            "Talla": talla,
+                            "Talla": obtener_talla_real(dpto, i),
                             "Accion": "🚨 SUGERIR PEDIDO"
                         })
             
             if resultados:
-                # Mostramos todo, ordenado por Prioridad
-                res_df = pd.DataFrame(resultados).sort_values(by="Prioridad", ascending=False)
-                st.dataframe(res_df.drop_duplicates(), use_container_width=True)
+                st.dataframe(pd.DataFrame(resultados).drop_duplicates(), use_container_width=True)
             else:
-                st.info(f"Tienda {t_sel_tab7}: Inventario equilibrado.")
+                st.info(f"Tienda {t_sel_tab7}: Inventario equilibrado en el Top 20.")            
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
