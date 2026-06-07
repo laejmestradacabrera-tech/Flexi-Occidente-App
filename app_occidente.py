@@ -619,26 +619,25 @@ with tab6:
             *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
             """)
 
-# --- PESTAÑA 7: NIVELACIÓN DE INVENTARIO (VERSIÓN LIMPIA) ---
+# --- PESTAÑA 7: NIVELACIÓN DE INVENTARIO (ESTABLE Y CON MENSAJE DE ÉXITO) ---
 with tab7:
     st.subheader("🎯 Monitor de Pedidos: Precisión por Talla")
     
-    # 1. Análisis basado en las variables que ya existen en tu app (df_m, col_t, col_m, col_p)
+    # 1. Selector de tienda independiente y seguro
     if 'df_m' in locals():
-        # Usamos el mismo selector que ya definiste en Tab 3, pero aquí lo leemos
-        # o creamos uno propio con ID único para que no choque con Tab 3
         tiendas_tab7 = sorted(df_m[col_t].unique())
-        t_sel_tab7 = st.selectbox("Selecciona Tienda para Nivelación:", tiendas_tab7, key="sel_tab7")
+        # Usamos una key única para que no choque con otras pestañas
+        t_sel_tab7 = st.selectbox("Selecciona Tienda para Nivelación:", tiendas_tab7, key="sel_tab7_unique")
         
-        if st.button("Ejecutar Análisis de Precisión", key="btn_tab7"):
-            # Filtro de datos para la tienda seleccionada
+        # 2. Botón de ejecución
+        if st.button("Ejecutar Análisis de Precisión", key="btn_tab7_unique"):
+            # Filtramos datos de la tienda seleccionada
             df_t = df_m[df_m[col_t] == t_sel_tab7].copy()
             
-            # Generar Top 20 basado en tu lógica de ventas
+            # Generamos el Top 20 dinámico para ESTA tienda
             df_tienda_data = df_t.groupby(col_m)[col_p].sum().reset_index()
             top_20 = df_tienda_data.sort_values(by=col_p, ascending=False).head(20)[col_m].tolist()
             
-            # Filtrar solo el Top 20
             df_top = df_t[df_t[col_m].isin(top_20)].copy()
             
             # Función de mapeo de tallas
@@ -654,7 +653,6 @@ with tab7:
             for _, row in df_top.iterrows():
                 modelo = row[col_m]
                 for i in range(1, 16):
-                    # Buscamos columnas ex1...ex15 y v1...v15
                     ex_val = pd.to_numeric(row.get(f'ex{i}', 0), errors='coerce')
                     vt_val = pd.to_numeric(row.get(f'v{i}', 0), errors='coerce')
                     
@@ -665,12 +663,14 @@ with tab7:
                             "Accion": "🚨 SUGERIR PEDIDO"
                         })
             
+            # 3. Visualización con mensaje de "Sin pedido a sugerir"
             if resultados:
                 st.dataframe(pd.DataFrame(resultados).drop_duplicates(), use_container_width=True)
             else:
-                st.success("Todo en orden: No hay quiebres en el Top 20 actual.")
+                # El mensaje que solicitaste:
+                st.success(f"Tienda {t_sel_tab7}: Tienda sin pedido a sugerir (Inventario equilibrado).")
     else:
-        st.warning("Por favor, asegúrate de que el archivo de modelos esté cargado primero.")
+        st.warning("Por favor, carga el archivo de modelos primero.")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
