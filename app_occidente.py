@@ -618,55 +618,52 @@ with tab6:
             ---
             *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
             """)
-# --- PESTAÑA 7: MONITOR DE PEDIDOS (LÓGICA UNIFICADA POR DPTO) ---
+# --- PESTAÑA 7: MONITOR DE PEDIDOS (VERSIÓN CORREGIDA Y ESTABLE) ---
 with tab7:
     st.subheader("🎯 Monitor de Pedidos: Precisión Total")
     
+    # Verificamos que df_m exista (cargado en las pestañas anteriores)
     if 'df_m' in locals():
-        tiendas_tab7 = sorted(df_m[col_t].unique())
-        t_sel_tab7 = st.selectbox("Selecciona Tienda:", tiendas_tab7, key="sel_tab7_v4")
+        # Usamos variables con nombres únicos para esta pestaña
+        tiendas_lista = sorted(df_m['Tienda'].unique())
+        t_sel_7 = st.selectbox("Selecciona Tienda:", tiendas_lista, key="sel_t_7")
         
-        if st.button("Ejecutar Análisis de Precisión", key="btn_tab7_v4"):
-            # 1. Filtro estricto
-            df_t = df_m[df_m[col_t].astype(str).str.strip() == str(t_sel_tab7).strip()].copy()
+        if st.button("Ejecutar Análisis", key="btn_a_7"):
+            # Filtro de tienda
+            df_t = df_m[df_m['Tienda'].astype(str) == str(t_sel_7)].copy()
             
-            # 2. Top 20 basado en la columna de ventas totales (ajusta col_p si es necesario)
-            df_tienda_data = df_t.groupby(col_m)[col_p].sum().nlargest(20).index.tolist()
-            df_top = df_t[df_t[col_m].isin(df_tienda_data)].copy()
+            # Diagnóstico rápido como pediste
+            st.write(f"--- Diagnóstico Tienda {t_sel_7} ---")
+            st.write("Registros encontrados:", len(df_t))
             
+            # Identificar modelos con quiebre (ex=0 y v>0)
             resultados = []
-            
-            for _, row in df_top.iterrows():
-                modelo = row[col_m]
-                # Normalizamos departamento
-                dpto = str(row.get('Departamento', 'DAMA')).upper() 
+            for _, row in df_t.iterrows():
+                modelo = row['Modelo']
+                dpto = str(row.get('Departamento', 'DAMA')).upper()
                 
                 for i in range(1, 16):
-                    # FORZAMOS la lectura de columnas ex{i} y v{i}
-                    # Usamos .get() con nombres normalizados
-                    ex_col = f"ex{i}"
-                    v_col = f"v{i}"
+                    # Usamos los nombres de columna tal cual vienen en tu CSV: ex1, v1
+                    ex_val = float(row.get(f'ex{i}', 0))
+                    vt_val = float(row.get(f'v{i}', 0))
                     
-                    ex_val = float(pd.to_numeric(row.get(ex_col, 0), errors='coerce') or 0)
-                    vt_val = float(pd.to_numeric(row.get(v_col, 0), errors='coerce') or 0)
-                    
-                    # Diagnóstico: Si la venta es > 0 y ex es 0, debe aparecer
+                    # Criterio claro: Sin existencia (0) pero con venta ( >0)
                     if ex_val == 0 and vt_val > 0:
-                        # Lógica de tallas
+                        # Cálculo de talla basado en Dpto
                         talla = f"ex{i}"
                         if dpto == 'DAMA': talla = str(220 + (i-3)*5) if i>=3 else "ex"
                         elif dpto == 'CABALLERO': talla = str(250 + (i-1)*5)
                         elif dpto == 'NIÑO': talla = str(170 + (i-1)*5)
                         elif dpto == 'JOVEN': talla = str(215 + (i-1)*5)
                         
-                        resultados.append({"Modelo": modelo, "Talla": talla, "Accion": "🚨 SUGERIR PEDIDO"})
+                        resultados.append({"Modelo": modelo, "Talla": talla, "Estado": "FALTANTE"})
             
             if resultados:
-                st.dataframe(pd.DataFrame(resultados).drop_duplicates(), use_container_width=True)
+                st.dataframe(pd.DataFrame(resultados).drop_duplicates())
             else:
-                # AQUÍ ESTÁ EL DIAGNÓSTICO: Si sigue saliendo esto, es que los datos vienen en 0
-                st.warning(f"No hay quiebres detectados. ¿Podrías confirmar si la tienda {t_sel_tab7} tiene valores en las columnas v1-v15?")
-                st.write("Muestra de datos analizados:", df_top[[col_m, 'ex1', 'v1']].head(5))
+                st.success("Tienda equilibrada: No se detectaron ventas (v) sin existencias (ex) en este corte.")
+    else:
+        st.error("Error: df_m no encontrado. Por favor, asegúrate de cargar el archivo en la pestaña inicial.")            
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
