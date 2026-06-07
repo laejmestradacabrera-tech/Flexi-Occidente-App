@@ -621,31 +621,31 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🎯 Monitor de Pedidos: Precisión por Talla (Top 20)")
+    st.subheader("🎯 Monitor de Pedidos: Precisión por Talla")
     
     if st.button("Ejecutar Análisis de Precisión"):
         try:
-            # 1. Carga y preparación
+            # 1. Carga inicial
             sh = client.open_by_key('1NyLfmlT92T7aI47njeP2fTgP0PMCJYFwUa8iIISVwBI')
             ws = sh.get_worksheet(0)
             data = ws.get_all_values()
             df = pd.DataFrame(data[1:], columns=data[0])
             df.columns = df.columns.str.strip()
             
-            # Convertir a numérico lo necesario
+            # Limpieza y conversión de tipos para asegurar que todas las tiendas funcionen
+            df['Tienda'] = df['Tienda'].astype(str).str.strip()
             df['Vtas'] = pd.to_numeric(df['Vtas'], errors='coerce').fillna(0)
             
-            # 2. Selector de Tienda
-            tiendas = sorted(df['Tienda'].astype(str).unique().tolist())
+            # 2. Selector de Tienda (ahora toma todas las disponibles)
+            tiendas = sorted(df['Tienda'].unique().tolist())
             t_sel = st.selectbox("Selecciona Tienda:", tiendas)
             df_t = df[df['Tienda'] == t_sel].copy()
             
-            # 3. IDENTIFICAR TOP 20 (Esto es tu filtro de seguridad)
+            # 3. Identificar Top 20
             top_20_modelos = df_t.groupby('Modelo')['Vtas'].sum().nlargest(20).index.tolist()
-            # Filtramos el dataframe al instante para no procesar nada extra
             df_top = df_t[df_t['Modelo'].isin(top_20_modelos)].copy()
             
-            # 4. Mapeo de Tallas Dinámico
+            # 4. Función de Mapeo de Tallas
             def get_talla(depto, idx):
                 mapas = {
                     'D': {i: str(220 + (i-3)*5) for i in range(3, 14)},
@@ -653,36 +653,40 @@ with tab7:
                     'NM': {i: str(170 + (i-1)*5) for i in range(1, 11)},
                     'CJ': {i: str(215 + (i-1)*5) for i in range(1, 13)}
                 }
-                dpto = 'D' if depto == 'D' else ('H' if depto == 'H' else ('NM' if depto == 'NM' else 'CJ'))
-                return mapas.get(dpto, {}).get(idx, f"ex{idx}")
+                return mapas.get(depto, {}).get(idx, f"ex{idx}")
 
-            # 5. Procesamiento
+            # 5. Procesamiento sin la columna 'Ventas_Talla'
             resultados = []
             for _, row in df_top.iterrows():
                 modelo = row['Modelo']
-                depto = modelo[0] # Identificamos D, H, NM, CJ
+                # Extrae el prefijo (ej. 'D', 'H', 'NM', 'CJ')
+                dpto = modelo.split('P')[0] 
+                if dpto not in ['D', 'H', 'NM', 'CJ']:
+                    # Intento de ajuste si el prefijo es más largo
+                    for pref in ['NM', 'CJ', 'D', 'H']:
+                        if modelo.startswith(pref): dpto = pref; break
                 
                 for i in range(1, 16):
                     ex_talla = pd.to_numeric(row[f'ex{i}'], errors='coerce')
                     vtas_talla = pd.to_numeric(row[f'v{i}'], errors='coerce')
                     
-                    # CONDICIONAL: Talla Top 20, sin inventario, pero con ventas
                     if ex_talla == 0 and vtas_talla > 0:
                         resultados.append({
                             "Modelo": modelo,
-                            "Talla": get_talla(depto, i),
-                            "Ventas_Talla": vtas_talla,
+                            "Talla": get_talla(dpto, i),
                             "Accion": "🚨 SUGERIR PEDIDO"
                         })
             
-            # 6. Visualización final
+            # 6. Visualización final impecable
             if resultados:
-                st.dataframe(pd.DataFrame(resultados).head(20)) # Garantía extra del límite
+                df_final = pd.DataFrame(resultados)
+                # Eliminamos duplicados por si acaso y mostramos
+                st.dataframe(df_final.drop_duplicates(), use_container_width=True)
             else:
                 st.success("Sin quiebres detectados en el Top 20.")
                 
         except Exception as e:
-            st.error(f"Error de razonamiento: {e}")
+            st.error(f"Error técnico: {e}")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
