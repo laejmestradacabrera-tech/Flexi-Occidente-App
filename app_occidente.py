@@ -623,52 +623,50 @@ with tab7:
     st.subheader("🎯 Monitor de Pedidos: Precisión Total")
     
     if 'df_m' in locals():
-        # Selector de Tienda
         tiendas_tab7 = sorted(df_m[col_t].unique())
-        t_sel_tab7 = st.selectbox("Selecciona Tienda:", tiendas_tab7, key="sel_tab7_v3")
+        t_sel_tab7 = st.selectbox("Selecciona Tienda:", tiendas_tab7, key="sel_tab7_v4")
         
-        if st.button("Ejecutar Análisis de Precisión", key="btn_tab7_v3"):
-            df_t = df_m[df_m[col_t] == t_sel_tab7].copy()
+        if st.button("Ejecutar Análisis de Precisión", key="btn_tab7_v4"):
+            # 1. Filtro estricto
+            df_t = df_m[df_m[col_t].astype(str).str.strip() == str(t_sel_tab7).strip()].copy()
             
-            # Top 20 basado en tus ventas actuales
-            df_tienda_data = df_t.groupby(col_m)[col_p].sum().reset_index()
-            top_20 = df_tienda_data.sort_values(by=col_p, ascending=False).head(20)[col_m].tolist()
-            df_top = df_t[df_t[col_m].isin(top_20)].copy()
+            # 2. Top 20 basado en la columna de ventas totales (ajusta col_p si es necesario)
+            df_tienda_data = df_t.groupby(col_m)[col_p].sum().nlargest(20).index.tolist()
+            df_top = df_t[df_t[col_m].isin(df_tienda_data)].copy()
             
             resultados = []
             
-            # Función maestra de mapeo
-            def obtener_talla_real(dpto, idx):
-                # Aplicamos la lógica según tu requerimiento de tallas
-                if dpto == 'DAMA':
-                    return str(220 + (idx-3)*5) if idx >= 3 else f"ex{idx}"
-                elif dpto == 'CABALLERO':
-                    return str(250 + (idx-1)*5)
-                elif dpto == 'NIÑO':
-                    return str(170 + (idx-1)*5)
-                elif dpto == 'JOVEN':
-                    return str(215 + (idx-1)*5)
-                return f"ex{idx}"
-
             for _, row in df_top.iterrows():
                 modelo = row[col_m]
-                dpto = str(row.get('Departamento', '')).upper() # Leemos tu nueva columna
+                # Normalizamos departamento
+                dpto = str(row.get('Departamento', 'DAMA')).upper() 
                 
                 for i in range(1, 16):
-                    ex_val = pd.to_numeric(row.get(f'ex{i}', 0), errors='coerce') or 0
-                    vt_val = pd.to_numeric(row.get(f'v{i}', 0), errors='coerce') or 0
+                    # FORZAMOS la lectura de columnas ex{i} y v{i}
+                    # Usamos .get() con nombres normalizados
+                    ex_col = f"ex{i}"
+                    v_col = f"v{i}"
                     
-                    if ex_val <= 0 and vt_val > 0:
-                        resultados.append({
-                            "Modelo": modelo,
-                            "Talla": obtener_talla_real(dpto, i),
-                            "Accion": "🚨 SUGERIR PEDIDO"
-                        })
+                    ex_val = float(pd.to_numeric(row.get(ex_col, 0), errors='coerce') or 0)
+                    vt_val = float(pd.to_numeric(row.get(v_col, 0), errors='coerce') or 0)
+                    
+                    # Diagnóstico: Si la venta es > 0 y ex es 0, debe aparecer
+                    if ex_val == 0 and vt_val > 0:
+                        # Lógica de tallas
+                        talla = f"ex{i}"
+                        if dpto == 'DAMA': talla = str(220 + (i-3)*5) if i>=3 else "ex"
+                        elif dpto == 'CABALLERO': talla = str(250 + (i-1)*5)
+                        elif dpto == 'NIÑO': talla = str(170 + (i-1)*5)
+                        elif dpto == 'JOVEN': talla = str(215 + (i-1)*5)
+                        
+                        resultados.append({"Modelo": modelo, "Talla": talla, "Accion": "🚨 SUGERIR PEDIDO"})
             
             if resultados:
                 st.dataframe(pd.DataFrame(resultados).drop_duplicates(), use_container_width=True)
             else:
-                st.info(f"Tienda {t_sel_tab7}: Inventario equilibrado en el Top 20.")            
+                # AQUÍ ESTÁ EL DIAGNÓSTICO: Si sigue saliendo esto, es que los datos vienen en 0
+                st.warning(f"No hay quiebres detectados. ¿Podrías confirmar si la tienda {t_sel_tab7} tiene valores en las columnas v1-v15?")
+                st.write("Muestra de datos analizados:", df_top[[col_m, 'ex1', 'v1']].head(5))
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
