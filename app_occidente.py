@@ -621,51 +621,65 @@ with tab6:
 
 # --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
 with tab7:
-    st.subheader("🎯 Monitor de Pedidos: Precisión por Talla")
+    st.subheader("🎯 Monitor de Pedidos: Precisión por Talla (Top 20)")
     
     if st.button("Ejecutar Análisis de Precisión"):
         try:
-            # 1. Carga
+            # 1. Carga y preparación
             sh = client.open_by_key('1NyLfmlT92T7aI47njeP2fTgP0PMCJYFwUa8iIISVwBI')
             ws = sh.get_worksheet(0)
             data = ws.get_all_values()
             df = pd.DataFrame(data[1:], columns=data[0])
             df.columns = df.columns.str.strip()
             
+            # Convertir a numérico lo necesario
+            df['Vtas'] = pd.to_numeric(df['Vtas'], errors='coerce').fillna(0)
+            
             # 2. Selector de Tienda
             tiendas = sorted(df['Tienda'].astype(str).unique().tolist())
             t_sel = st.selectbox("Selecciona Tienda:", tiendas)
             df_t = df[df['Tienda'] == t_sel].copy()
             
-            # 3. Identificar Top 20 (Basado en Vtas totales del modelo en esta tienda)
-            df_t['Vtas'] = pd.to_numeric(df_t['Vtas'], errors='coerce').fillna(0)
+            # 3. IDENTIFICAR TOP 20 (Esto es tu filtro de seguridad)
             top_20_modelos = df_t.groupby('Modelo')['Vtas'].sum().nlargest(20).index.tolist()
+            # Filtramos el dataframe al instante para no procesar nada extra
+            df_top = df_t[df_t['Modelo'].isin(top_20_modelos)].copy()
             
-            # 4. Procesamiento talla por talla
+            # 4. Mapeo de Tallas Dinámico
+            def get_talla(depto, idx):
+                mapas = {
+                    'D': {i: str(220 + (i-3)*5) for i in range(3, 14)},
+                    'H': {i: str(250 + (i-1)*5) for i in range(1, 14)},
+                    'NM': {i: str(170 + (i-1)*5) for i in range(1, 11)},
+                    'CJ': {i: str(215 + (i-1)*5) for i in range(1, 13)}
+                }
+                dpto = 'D' if depto == 'D' else ('H' if depto == 'H' else ('NM' if depto == 'NM' else 'CJ'))
+                return mapas.get(dpto, {}).get(idx, f"ex{idx}")
+
+            # 5. Procesamiento
             resultados = []
-            for _, row in df_t.iterrows():
+            for _, row in df_top.iterrows():
                 modelo = row['Modelo']
-                if modelo in top_20_modelos:
-                    # Iterar sobre las 15 tallas
-                    for i in range(1, 16):
-                        ex_talla = pd.to_numeric(row[f'ex{i}'], errors='coerce')
-                        vtas_talla = pd.to_numeric(row[f'v{i}'], errors='coerce')
-                        
-                        # CONDICIONAL CLAVE:
-                        # Si la talla es Top 20, existencia 0, pedido 0, PERO tuvo venta (v > 0)
-                        if ex_talla == 0 and pd.to_numeric(row['PTot'], errors='coerce') == 0 and vtas_talla > 0:
-                            resultados.append({
-                                "Modelo": modelo,
-                                "Talla": f"ex{i}",
-                                "Ventas_Talla": vtas_talla,
-                                "Accion": "🚨 SUGERIR PEDIDO"
-                            })
+                depto = modelo[0] # Identificamos D, H, NM, CJ
+                
+                for i in range(1, 16):
+                    ex_talla = pd.to_numeric(row[f'ex{i}'], errors='coerce')
+                    vtas_talla = pd.to_numeric(row[f'v{i}'], errors='coerce')
+                    
+                    # CONDICIONAL: Talla Top 20, sin inventario, pero con ventas
+                    if ex_talla == 0 and vtas_talla > 0:
+                        resultados.append({
+                            "Modelo": modelo,
+                            "Talla": get_talla(depto, i),
+                            "Ventas_Talla": vtas_talla,
+                            "Accion": "🚨 SUGERIR PEDIDO"
+                        })
             
-            # 5. Visualización
+            # 6. Visualización final
             if resultados:
-                st.dataframe(pd.DataFrame(resultados))
+                st.dataframe(pd.DataFrame(resultados).head(20)) # Garantía extra del límite
             else:
-                st.success("Sin quiebres detectados en el Top 20 por talla.")
+                st.success("Sin quiebres detectados en el Top 20.")
                 
         except Exception as e:
             st.error(f"Error de razonamiento: {e}")
