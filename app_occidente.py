@@ -618,59 +618,51 @@ with tab6:
             ---
             *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
             """)
-
-# --- PESTAÑA 7: NIVELACIÓN DE INVENTARIO (ESTABLE Y CON MENSAJE DE ÉXITO) ---
+# --- PESTAÑA 7: MONITOR DE PEDIDOS (VISIÓN TOTAL) ---
 with tab7:
-    st.subheader("🎯 Monitor de Pedidos: Precisión por Talla")
+    st.subheader("🎯 Monitor de Pedidos: Precisión Total")
     
-    # 1. Selector de tienda independiente y seguro
     if 'df_m' in locals():
         tiendas_tab7 = sorted(df_m[col_t].unique())
-        # Usamos una key única para que no choque con otras pestañas
-        t_sel_tab7 = st.selectbox("Selecciona Tienda para Nivelación:", tiendas_tab7, key="sel_tab7_unique")
+        t_sel_tab7 = st.selectbox("Selecciona Tienda:", tiendas_tab7, key="sel_tab7_v2")
         
-        # 2. Botón de ejecución
-        if st.button("Ejecutar Análisis de Precisión", key="btn_tab7_unique"):
-            # Filtramos datos de la tienda seleccionada
+        if st.button("Ejecutar Análisis de Precisión", key="btn_tab7_v2"):
+            # 1. Filtramos solo por tienda
             df_t = df_m[df_m[col_t] == t_sel_tab7].copy()
             
-            # Generamos el Top 20 dinámico para ESTA tienda
-            df_tienda_data = df_t.groupby(col_m)[col_p].sum().reset_index()
-            top_20 = df_tienda_data.sort_values(by=col_p, ascending=False).head(20)[col_m].tolist()
+            # 2. Identificamos el Top 20 para etiquetar (pero no filtramos aún)
+            top_20_lista = df_t.groupby(col_m)[col_p].sum().nlargest(20).index.tolist()
             
-            df_top = df_t[df_t[col_m].isin(top_20)].copy()
-            
-            # Función de mapeo de tallas
-            def get_talla(mod, idx):
-                if str(mod).startswith(('D', 'CY')): mapa = {i: str(220 + (i-3)*5) for i in range(3, 14)}
-                elif str(mod).startswith('H'): mapa = {i: str(250 + (i-1)*5) for i in range(1, 14)}
-                elif str(mod).startswith('NM'): mapa = {i: str(170 + (i-1)*5) for i in range(1, 11)}
-                elif str(mod).startswith('CJ'): mapa = {i: str(215 + (i-1)*5) for i in range(1, 13)}
-                else: return f"ex{idx}"
-                return mapa.get(idx, f"ex{idx}")
-
             resultados = []
-            for _, row in df_top.iterrows():
+            for _, row in df_t.iterrows():
                 modelo = row[col_m]
+                es_top = "⭐ TOP 20" if modelo in top_20_lista else "GENERAL"
+                
                 for i in range(1, 16):
-                    ex_val = pd.to_numeric(row.get(f'ex{i}', 0), errors='coerce')
-                    vt_val = pd.to_numeric(row.get(f'v{i}', 0), errors='coerce')
+                    ex_val = pd.to_numeric(row.get(f'ex{i}', 0), errors='coerce') or 0
+                    vt_val = pd.to_numeric(row.get(f'v{i}', 0), errors='coerce') or 0
                     
-                    if ex_val == 0 and vt_val > 0:
+                    if ex_val <= 0 and vt_val > 0:
+                        # Mapeo de tallas
+                        talla = f"ex{i}"
+                        if str(modelo).startswith(('D', 'CY')): talla = str(220 + (i-3)*5) if i>=3 else "ex"
+                        elif str(modelo).startswith('H'): talla = str(250 + (i-1)*5)
+                        elif str(modelo).startswith('NM'): talla = str(170 + (i-1)*5)
+                        elif str(modelo).startswith('CJ'): talla = str(215 + (i-1)*5)
+                        
                         resultados.append({
+                            "Prioridad": es_top,
                             "Modelo": modelo,
-                            "Talla": get_talla(modelo, i),
+                            "Talla": talla,
                             "Accion": "🚨 SUGERIR PEDIDO"
                         })
             
-            # 3. Visualización con mensaje de "Sin pedido a sugerir"
             if resultados:
-                st.dataframe(pd.DataFrame(resultados).drop_duplicates(), use_container_width=True)
+                # Mostramos todo, ordenado por Prioridad
+                res_df = pd.DataFrame(resultados).sort_values(by="Prioridad", ascending=False)
+                st.dataframe(res_df.drop_duplicates(), use_container_width=True)
             else:
-                # El mensaje que solicitaste:
-                st.success(f"Tienda {t_sel_tab7}: Tienda sin pedido a sugerir (Inventario equilibrado).")
-    else:
-        st.warning("Por favor, carga el archivo de modelos primero.")
+                st.info(f"Tienda {t_sel_tab7}: Inventario equilibrado.")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
