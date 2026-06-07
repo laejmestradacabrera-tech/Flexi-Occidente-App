@@ -619,62 +619,54 @@ with tab6:
             *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
             """)
 
-# --- PESTAÑA 7: INVENTARIOS CONGELADA PARA ANALISIS ---
+# --- PESTAÑA 7: NIVELACIÓN INTEGRADA AL TOP 20 ---
 with tab7:
     st.subheader("🎯 Monitor de Pedidos: Precisión por Talla")
     
-    # 1. CARGA FUERA DEL BOTÓN (Para que sea rápido y estable)
-    sh = client.open_by_key('1NyLfmlT92T7aI47njeP2fTgP0PMCJYFwUa8iIISVwBI')
-    ws = sh.get_worksheet(0)
-    data = ws.get_all_values()
-    df = pd.DataFrame(data[1:], columns=data[0])
-    df.columns = df.columns.str.strip()
-    df['Tienda'] = df['Tienda'].astype(str).str.strip()
-    df['Vtas'] = pd.to_numeric(df['Vtas'], errors='coerce').fillna(0)
-    
-    # 2. SELECTOR SIEMPRE VISIBLE
-    tiendas = sorted(df['Tienda'].unique().tolist())
-    t_sel = st.selectbox("Selecciona Tienda:", tiendas)
-    
-    # 3. ACCIÓN AL PRESIONAR BOTÓN
-    if st.button("Ejecutar Análisis de Precisión"):
-        df_t = df[df['Tienda'] == str(t_sel)].copy()
+    # Usamos la misma lógica de carga y filtrado que en tus pestañas 3 y 4
+    if archivo_modelos:
+        # 1. Selector de Tienda (idéntico a tu pestaña 3)
+        t_sel = st.selectbox("Selecciona Tienda:", sorted(df_m[col_t].unique()))
         
-        # Filtro estricto Top 20
-        top_20_modelos = df_t.groupby('Modelo')['Vtas'].sum().nlargest(20).index.tolist()
-        df_top = df_t[df_t['Modelo'].isin(top_20_modelos)].copy()
-        
-        # Función Mapeo
-        def get_talla(modelo, idx):
-            # Lógica extraída de tu requerimiento:
-            if modelo.startswith('D'): 
-                return str(220 + (idx-3)*5) if idx >= 3 else f"ex{idx}"
-            elif modelo.startswith('H'): 
-                return str(250 + (idx-1)*5)
-            elif modelo.startswith('NM'): 
-                return str(170 + (idx-1)*5)
-            elif modelo.startswith('CJ'): 
-                return str(215 + (idx-1)*5)
-            return f"ex{idx}"
-
-        resultados = []
-        for _, row in df_top.iterrows():
-            modelo = row['Modelo']
-            for i in range(1, 16):
-                ex_talla = pd.to_numeric(row.get(f'ex{i}', 0), errors='coerce')
-                vtas_talla = pd.to_numeric(row.get(f'v{i}', 0), errors='coerce')
+        if st.button("Ejecutar Análisis de Precisión"):
+            # 2. Generar el mismo Top 20 que en tu pestaña 3
+            df_tienda_data = df_m[df_m[col_t] == t_sel].groupby(col_m)[col_p].sum().reset_index()
+            top_20_modelos = df_tienda_data.sort_values(by=col_p, ascending=False).head(20)[col_m].tolist()
+            
+            # 3. Filtrar inventarios solo para esos modelos
+            df_top = df_m[(df_m[col_t] == t_sel) & (df_m[col_m].isin(top_20_modelos))].copy()
+            
+            # 4. Procesamiento de Nivelación
+            resultados = []
+            for _, row in df_top.iterrows():
+                modelo = row[col_m]
                 
-                if ex_talla == 0 and vtas_talla > 0:
-                    resultados.append({
-                        "Modelo": modelo,
-                        "Talla": get_talla(modelo, i),
-                        "Accion": "🚨 SUGERIR PEDIDO"
-                    })
-        
-        if resultados:
-            st.dataframe(pd.DataFrame(resultados).drop_duplicates(), use_container_width=True)
-        else:
-            st.success("Todo en orden: No hay quiebres en el Top 20 de esta tienda.")
+                # Función de mapeo (la que ya ajustamos para D, H, NM, CJ, CY)
+                def get_talla(mod, idx):
+                    if mod.startswith(('D', 'CY')): mapa = {i: str(220 + (i-3)*5) for i in range(3, 14)}
+                    elif mod.startswith('H'): mapa = {i: str(250 + (i-1)*5) for i in range(1, 14)}
+                    elif mod.startswith('NM'): mapa = {i: str(170 + (i-1)*5) for i in range(1, 11)}
+                    elif mod.startswith('CJ'): mapa = {i: str(215 + (i-1)*5) for i in range(1, 13)}
+                    else: return f"ex{idx}"
+                    return mapa.get(idx, f"ex{idx}")
+
+                # Iterar tallas (asumiendo que en df_m tienes las columnas ex1..ex15 y v1..v15)
+                for i in range(1, 16):
+                    ex_val = pd.to_numeric(row.get(f'ex{i}', 0), errors='coerce')
+                    vt_val = pd.to_numeric(row.get(f'v{i}', 0), errors='coerce')
+                    
+                    if ex_val == 0 and vt_val > 0:
+                        resultados.append({
+                            "Modelo": modelo,
+                            "Talla": get_talla(str(modelo), i),
+                            "Accion": "🚨 SUGERIR PEDIDO"
+                        })
+            
+            # 5. Visualización limpia
+            if resultados:
+                st.dataframe(pd.DataFrame(resultados).drop_duplicates(), use_container_width=True)
+            else:
+                st.success("Todo en orden: No hay quiebres en el Top 20 actual.")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
