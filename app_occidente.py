@@ -623,70 +623,58 @@ with tab6:
 with tab7:
     st.subheader("🎯 Monitor de Pedidos: Precisión por Talla")
     
+    # 1. CARGA FUERA DEL BOTÓN (Para que sea rápido y estable)
+    sh = client.open_by_key('1NyLfmlT92T7aI47njeP2fTgP0PMCJYFwUa8iIISVwBI')
+    ws = sh.get_worksheet(0)
+    data = ws.get_all_values()
+    df = pd.DataFrame(data[1:], columns=data[0])
+    df.columns = df.columns.str.strip()
+    df['Tienda'] = df['Tienda'].astype(str).str.strip()
+    df['Vtas'] = pd.to_numeric(df['Vtas'], errors='coerce').fillna(0)
+    
+    # 2. SELECTOR SIEMPRE VISIBLE
+    tiendas = sorted(df['Tienda'].unique().tolist())
+    t_sel = st.selectbox("Selecciona Tienda:", tiendas)
+    
+    # 3. ACCIÓN AL PRESIONAR BOTÓN
     if st.button("Ejecutar Análisis de Precisión"):
-        try:
-            # 1. Carga inicial
-            sh = client.open_by_key('1NyLfmlT92T7aI47njeP2fTgP0PMCJYFwUa8iIISVwBI')
-            ws = sh.get_worksheet(0)
-            data = ws.get_all_values()
-            df = pd.DataFrame(data[1:], columns=data[0])
-            df.columns = df.columns.str.strip()
-            
-            # Limpieza y conversión de tipos para asegurar que todas las tiendas funcionen
-            df['Tienda'] = df['Tienda'].astype(str).str.strip()
-            df['Vtas'] = pd.to_numeric(df['Vtas'], errors='coerce').fillna(0)
-            
-            # 2. Selector de Tienda (ahora toma todas las disponibles)
-            tiendas = sorted(df['Tienda'].unique().tolist())
-            t_sel = st.selectbox("Selecciona Tienda:", tiendas)
-            df_t = df[df['Tienda'] == t_sel].copy()
-            
-            # 3. Identificar Top 20
-            top_20_modelos = df_t.groupby('Modelo')['Vtas'].sum().nlargest(20).index.tolist()
-            df_top = df_t[df_t['Modelo'].isin(top_20_modelos)].copy()
-            
-            # 4. Función de Mapeo de Tallas
-            def get_talla(depto, idx):
-                mapas = {
-                    'D': {i: str(220 + (i-3)*5) for i in range(3, 14)},
-                    'H': {i: str(250 + (i-1)*5) for i in range(1, 14)},
-                    'NM': {i: str(170 + (i-1)*5) for i in range(1, 11)},
-                    'CJ': {i: str(215 + (i-1)*5) for i in range(1, 13)}
-                }
-                return mapas.get(depto, {}).get(idx, f"ex{idx}")
+        df_t = df[df['Tienda'] == str(t_sel)].copy()
+        
+        # Filtro estricto Top 20
+        top_20_modelos = df_t.groupby('Modelo')['Vtas'].sum().nlargest(20).index.tolist()
+        df_top = df_t[df_t['Modelo'].isin(top_20_modelos)].copy()
+        
+        # Función Mapeo
+        def get_talla(modelo, idx):
+            # Lógica extraída de tu requerimiento:
+            if modelo.startswith('D'): 
+                return str(220 + (idx-3)*5) if idx >= 3 else f"ex{idx}"
+            elif modelo.startswith('H'): 
+                return str(250 + (idx-1)*5)
+            elif modelo.startswith('NM'): 
+                return str(170 + (idx-1)*5)
+            elif modelo.startswith('CJ'): 
+                return str(215 + (idx-1)*5)
+            return f"ex{idx}"
 
-            # 5. Procesamiento sin la columna 'Ventas_Talla'
-            resultados = []
-            for _, row in df_top.iterrows():
-                modelo = row['Modelo']
-                # Extrae el prefijo (ej. 'D', 'H', 'NM', 'CJ')
-                dpto = modelo.split('P')[0] 
-                if dpto not in ['D', 'H', 'NM', 'CJ']:
-                    # Intento de ajuste si el prefijo es más largo
-                    for pref in ['NM', 'CJ', 'D', 'H']:
-                        if modelo.startswith(pref): dpto = pref; break
+        resultados = []
+        for _, row in df_top.iterrows():
+            modelo = row['Modelo']
+            for i in range(1, 16):
+                ex_talla = pd.to_numeric(row.get(f'ex{i}', 0), errors='coerce')
+                vtas_talla = pd.to_numeric(row.get(f'v{i}', 0), errors='coerce')
                 
-                for i in range(1, 16):
-                    ex_talla = pd.to_numeric(row[f'ex{i}'], errors='coerce')
-                    vtas_talla = pd.to_numeric(row[f'v{i}'], errors='coerce')
-                    
-                    if ex_talla == 0 and vtas_talla > 0:
-                        resultados.append({
-                            "Modelo": modelo,
-                            "Talla": get_talla(dpto, i),
-                            "Accion": "🚨 SUGERIR PEDIDO"
-                        })
-            
-            # 6. Visualización final impecable
-            if resultados:
-                df_final = pd.DataFrame(resultados)
-                # Eliminamos duplicados por si acaso y mostramos
-                st.dataframe(df_final.drop_duplicates(), use_container_width=True)
-            else:
-                st.success("Sin quiebres detectados en el Top 20.")
-                
-        except Exception as e:
-            st.error(f"Error técnico: {e}")
+                if ex_talla == 0 and vtas_talla > 0:
+                    resultados.append({
+                        "Modelo": modelo,
+                        "Talla": get_talla(modelo, i),
+                        "Accion": "🚨 SUGERIR PEDIDO"
+                    })
+        
+        if resultados:
+            st.dataframe(pd.DataFrame(resultados).drop_duplicates(), use_container_width=True)
+        else:
+            st.success("Todo en orden: No hay quiebres en el Top 20 de esta tienda.")
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
