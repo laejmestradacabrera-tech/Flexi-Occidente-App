@@ -618,38 +618,37 @@ with tab6:
             ---
             *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
             """)
-# --- PESTAÑA 7: MONITOR DE PEDIDOS (VERSIÓN LECTURA ESTRICTA) ---
+# --- PESTAÑA 7: MONITOR DE PEDIDOS (LÓGICA DE LECTURA BLINDADA) ---
 with tab7:
-    st.subheader("🎯 Monitor de Pedidos: Análisis de Quiebres")
+    st.subheader("🎯 Monitor de Pedidos: Precisión Total")
     
     if 'df_m' in locals():
-        # Selección de tienda
+        # Mantenemos tu selector funcional
         tiendas_lista = sorted(df_m['Tienda'].astype(str).unique())
-        t_sel = st.selectbox("Selecciona Tienda para Nivelar:", tiendas_lista, key="sel_tienda_p7_v2")
+        t_sel = st.selectbox("Selecciona Tienda:", tiendas_lista, key="sel_t7_final")
         
-        if st.button("Ejecutar Análisis de Pedidos", key="btn_ejecutar_p7_v2"):
-            # Filtrado estricto
+        if st.button("Ejecutar Análisis", key="btn_t7_final"):
+            # Filtramos datos
             df_t = df_m[df_m['Tienda'].astype(str) == str(t_sel)].copy()
-            
-            # Filtramos solo el Top 20 por ventas (columna Vtas)
-            df_top = df_t.nlargest(20, 'Vtas')
             
             resultados = []
             
-            # Procesamiento de lectura
-            for _, row in df_top.iterrows():
+            # Iteramos con limpieza profunda
+            for _, row in df_t.iterrows():
                 modelo = row['Modelo']
-                dpto = str(row.get('Departamento', 'dama')).lower()
+                dpto = str(row.get('Departamento', 'dama')).lower().strip()
                 
-                # Revisión de las 15 tallas
                 for i in range(1, 16):
-                    # Forzamos conversión numérica de las columnas reales del CSV
-                    ex_val = pd.to_numeric(row.get(f'ex{i}', 0), errors='coerce') or 0
-                    vt_val = pd.to_numeric(row.get(f'v{i}', 0), errors='coerce') or 0
+                    # LIMPIEZA CRÍTICA: Convertimos a cadena, quitamos espacios y forzamos número
+                    ex_raw = str(row.get(f'ex{i}', '0')).replace(',', '').strip()
+                    vt_raw = str(row.get(f'v{i}', '0')).replace(',', '').strip()
                     
-                    # Lógica de quiebre (Sin existencia + Con ventas)
+                    ex_val = float(ex_raw) if ex_raw.replace('.','',1).isdigit() else 0.0
+                    vt_val = float(vt_raw) if vt_raw.replace('.','',1).isdigit() else 0.0
+                    
+                    # Ahora la condición es matemáticamente pura
                     if ex_val == 0 and vt_val > 0:
-                        # Mapeo de tallas según el dpto detectado
+                        # Mapeo de tallas
                         talla = f"ex{i}"
                         if dpto == 'dama': talla = str(220 + (i-3)*5) if i>=3 else "N/A"
                         elif dpto == 'caballero': talla = str(250 + (i-1)*5)
@@ -664,16 +663,9 @@ with tab7:
                         })
             
             if resultados:
-                st.dataframe(pd.DataFrame(resultados).drop_duplicates(), use_container_width=True)
+                st.dataframe(pd.DataFrame(resultados).drop_duplicates())
             else:
-                st.info(f"Tienda {t_sel}: Inventario equilibrado en el Top 20.")
-                st.write("---")
-                st.write("Diagnóstico rápido: Verificando datos para el modelo CH424001P0NE...")
-                check = df_t[df_t['Modelo'] == 'CH424001P0NE']
-                if not check.empty:
-                    st.write("Modelo encontrado. Valor de existencias:", check['ex_tot'].values[0], "Valor de ventas:", check['Vtas'].values[0])
-                else:
-                    st.write("El modelo CH424001P0NE no aparece en los registros de esta tienda.")            
+                st.info(f"Tienda {t_sel}: Inventario equilibrado en el corte actual.")            
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
