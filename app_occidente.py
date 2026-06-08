@@ -618,23 +618,21 @@ with tab6:
             ---
             *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
             """)
-# --- PESTAÑA 7: CÓDIGO ESTABLE Y DEFINITIVO ---
+# --- PESTAÑA 7: CÓDIGO SIN KEYS (SOLUCIÓN AL ERROR) ---
 with tab7:
     st.subheader("🚀 Monitor de Nivelación Comercial")
-
-    # 1. Verificamos datos
+    
     if 'df_m' in locals():
-        # Selección ÚNICA para esta pestaña
         tiendas = sorted(df_m['Tienda'].astype(str).unique())
-        t_sel = st.selectbox("Selecciona Tienda:", tiendas, key="select_t7_final")
+        # Eliminamos 'key' para que Streamlit gestione el ID dinámicamente
+        t_sel = st.selectbox("Selecciona Tienda:", tiendas)
         
-        # 2. Botón con acción aislada
-        if st.button("Ejecutar Nivelación", key="btn_t7_final"):
+        if st.button("Ejecutar Nivelación"):
             df_t = df_m[df_m['Tienda'].astype(str) == str(t_sel)].copy()
             
-            # Filtramos Top 20 por ventas totales
-            top_modelos = df_t.groupby('Modelo')['Vtas'].sum().nlargest(20).index
-            df_top = df_t[df_t['Modelo'].isin(top_modelos)].copy()
+            # Filtro del Top 20 por Ventas Totales
+            df_top_modelos = df_t.groupby('Modelo')['Vtas'].sum().nlargest(20).index
+            df_top = df_t[df_t['Modelo'].isin(df_top_modelos)].copy()
             
             resultados = []
             
@@ -646,12 +644,12 @@ with tab7:
                 if estatus not in ["S", "P"]: continue 
                 
                 for i in range(1, 16):
-                    # Lectura numérica pura
+                    # Conversión limpia
                     ex_v = pd.to_numeric(row.get(f'ex{i}', 0), errors='coerce') or 0
                     pe_v = pd.to_numeric(row.get(f'p{i}', 0), errors='coerce') or 0
                     vt_v = pd.to_numeric(row.get(f'v{i}', 0), errors='coerce') or 0
                     
-                    # Lógica de nivelación: Sin stock y sin pedido
+                    # Regla de negocio: Sin existencia y sin pedido
                     if ex_v == 0 and pe_v == 0:
                         talla = f"Talla_{i}"
                         if dpto == 'dama': talla = str(220 + (i-3)*5) if i>=3 else "N/A"
@@ -664,15 +662,13 @@ with tab7:
                             "Existencia": ex_v, "Pedido": pe_v
                         })
             
-            # 3. Presentación limpia
+            # Presentación
             if resultados:
                 df_res = pd.DataFrame(resultados).drop_duplicates().sort_values("Venta", ascending=False)
-                st.metric("Total Faltantes (Top 20)", len(df_res))
+                st.metric("Total Faltantes", len(df_res))
                 st.dataframe(df_res, use_container_width=True)
             else:
-                st.success("Inventario equilibrado en este corte.")
-    else:
-        st.warning("Datos no encontrados. Asegúrate de cargar el archivo maestro.")            
+                st.success("Tienda equilibrada.")            
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
