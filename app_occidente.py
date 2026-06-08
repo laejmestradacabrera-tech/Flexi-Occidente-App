@@ -618,27 +618,29 @@ with tab6:
             ---
             *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
             """)
-# --- PESTAÑA 7: LECTURA ROBUSTA DESDE DRIVE (SOLUCIÓN DEFINITIVA) ---
+# --- PESTAÑA 7: MONITOR DE NIVELACIÓN (SOLUCIÓN DE FUERZA BRUTA) ---
 with tab7:
     st.subheader("🚀 Monitor de Nivelación Comercial")
     
     if 'df_m' in globals():
-        FILE_ID = "1doPM-PxkfUo7SjnBPVYlEJjkjbRo46hq"
-        URL = f"https://docs.google.com/spreadsheets/d/{FILE_ID}/gviz/tq?tqx=out:csv&gid=656062356"
+        # Usamos la API de visualización de Google para leer el CSV publicado
+        URL = "https://docs.google.com/spreadsheets/d/1doPM-PxkfUo7SjnBPVYlEJjkjbRo46hq/gviz/tq?tqx=out:csv&gid=656062356"
         
         try:
-            # Usamos el motor de Google Visualization API para forzar la descarga de datos, no de HTML
             df_tallas = pd.read_csv(URL)
+            # Limpieza: eliminamos filas donde 'Valor' esté vacío
+            df_tallas = df_tallas.dropna(subset=['Valor'])
             df_tallas['Valor'] = df_tallas['Valor'].astype(str).str.strip().str.capitalize()
             
-            # --- LÓGICA DE PROCESAMIENTO ---
             tiendas = sorted(df_m['Tienda'].astype(str).unique())
             t_sel = st.selectbox("Selecciona Tienda:", tiendas)
             
             if st.button("Ejecutar Análisis"):
                 df_t = df_m[df_m['Tienda'].astype(str) == str(t_sel)].copy()
-                top_modelos = df_t.groupby('Modelo')['Vtas'].sum().nlargest(20).index
-                df_top = df_t[df_t['Modelo'].isin(top_modelos)].copy()
+                
+                # Top 20 por ventas
+                top_m = df_t.groupby('Modelo')['Vtas'].sum().nlargest(20).index
+                df_top = df_t[df_t['Modelo'].isin(top_m)].copy()
                 
                 resultados = []
                 for _, row in df_top.iterrows():
@@ -651,19 +653,25 @@ with tab7:
                         pe = pd.to_numeric(row.get(f'p{i}', 0), errors='coerce') or 0
                         vt = pd.to_numeric(row.get(f'v{i}', 0), errors='coerce') or 0
                         
+                        # REGLA: Sin existencia y sin pedido
                         if ex == 0 and pe == 0:
                             talla = ref.iloc[0].get(f'ex{i}')
                             if pd.notna(talla) and str(talla).strip() != "":
-                                resultados.append({"Modelo": row['Modelo'], "Talla": talla, "Venta": vt})
+                                resultados.append({
+                                    "Modelo": row['Modelo'], 
+                                    "Talla": talla, 
+                                    "Venta": vt
+                                })
                 
                 if resultados:
                     df_res = pd.DataFrame(resultados).drop_duplicates().sort_values("Venta", ascending=False)
                     st.dataframe(df_res, use_container_width=True)
                 else:
                     st.success("Tienda equilibrada.")
-                    
         except Exception as e:
-            st.error("Error técnico al conectar con la matriz. Estamos ajustando el acceso.")            
+            st.error("Error al procesar la matriz. Asegúrate de que el archivo esté publicado como CSV.")
+    else:
+        st.warning("Carga los datos maestros en la Pestaña 1.")            
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
