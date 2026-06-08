@@ -618,38 +618,45 @@ with tab6:
             ---
             *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
             """)
-# --- PESTAÑA 7: MONITOR DE PEDIDOS (LÓGICA DE LECTURA BLINDADA) ---
+# --- PESTAÑA 7: MONITOR DE NIVELACIÓN COMERCIAL (TOP 20 Y LÓGICA FINAL) ---
 with tab7:
-    st.subheader("🎯 Monitor de Pedidos: Precisión Total")
+    st.subheader("🚀 Monitor de Nivelación Comercial: Prioridad Top 20")
     
     if 'df_m' in locals():
-        # Mantenemos tu selector funcional
-        tiendas_lista = sorted(df_m['Tienda'].astype(str).unique())
-        t_sel = st.selectbox("Selecciona Tienda:", tiendas_lista, key="sel_t7_final")
+        tiendas = sorted(df_m['Tienda'].astype(str).unique())
+        t_sel = st.selectbox("Selecciona Tienda:", tiendas, key="p7_tienda_final")
         
-        if st.button("Ejecutar Análisis", key="btn_t7_final"):
-            # Filtramos datos
+        if st.button("Ejecutar Nivelación Top 20", key="p7_ejecutar_final"):
+            # 1. Filtramos la tienda
             df_t = df_m[df_m['Tienda'].astype(str) == str(t_sel)].copy()
+            
+            # 2. Identificar el Top 20 por ventas totales (Columna 'Vtas')
+            top_20_modelos = df_t.groupby('Modelo')['Vtas'].sum().nlargest(20).index.tolist()
+            df_top = df_t[df_t['Modelo'].isin(top_20_modelos)].copy()
+            
+            st.write(f"Auditoría: Analizando los 20 modelos más vendidos en Tienda {t_sel}")
             
             resultados = []
             
-            # Iteramos con limpieza profunda
-            for _, row in df_t.iterrows():
+            # 3. Iteramos solo sobre el Top 20
+            for _, row in df_top.iterrows():
                 modelo = row['Modelo']
                 dpto = str(row.get('Departamento', 'dama')).lower().strip()
+                estatus = str(row.get('Estatus', '')).upper()
+                
+                # Filtro comercial
+                if estatus not in ["S", "P"]: continue 
                 
                 for i in range(1, 16):
-                    # LIMPIEZA CRÍTICA: Convertimos a cadena, quitamos espacios y forzamos número
-                    ex_raw = str(row.get(f'ex{i}', '0')).replace(',', '').strip()
-                    vt_raw = str(row.get(f'v{i}', '0')).replace(',', '').strip()
+                    # Lectura limpia y forzada
+                    ex_val = pd.to_numeric(row.get(f'ex{i}', 0), errors='coerce') or 0
+                    ped_val = pd.to_numeric(row.get(f'p{i}', 0), errors='coerce') or 0
+                    vt_val = pd.to_numeric(row.get(f'v{i}', 0), errors='coerce') or 0
                     
-                    ex_val = float(ex_raw) if ex_raw.replace('.','',1).isdigit() else 0.0
-                    vt_val = float(vt_raw) if vt_raw.replace('.','',1).isdigit() else 0.0
-                    
-                    # Ahora la condición es matemáticamente pura
-                    if ex_val == 0 and vt_val > 0:
-                        # Mapeo de tallas
+                    # REGLA DE NEGOCIO: Sin stock y Sin pedido en el Top 20
+                    if ex_val == 0 and ped_val == 0:
                         talla = f"ex{i}"
+                        # Mapeo de tallas
                         if dpto == 'dama': talla = str(220 + (i-3)*5) if i>=3 else "N/A"
                         elif dpto == 'caballero': talla = str(250 + (i-1)*5)
                         elif dpto == 'niño': talla = str(170 + (i-1)*5)
@@ -659,13 +666,23 @@ with tab7:
                             "Modelo": modelo,
                             "Talla": talla,
                             "Venta": vt_val,
-                            "Accion": "🚨 SUGERIR PEDIDO"
+                            "Existencia": ex_val,
+                            "Pedido": ped_val
                         })
             
+            # 4. Presentación final
             if resultados:
-                st.dataframe(pd.DataFrame(resultados).drop_duplicates())
+                df_res = pd.DataFrame(resultados).drop_duplicates()
+                # Priorizar por venta
+                df_res = df_res.sort_values("Venta", ascending=False)
+                
+                st.metric("Total de faltantes en Top 20", len(df_res))
+                st.dataframe(df_res, use_container_width=True)
+                
+                csv = df_res.to_csv(index=False).encode('utf-8')
+                st.download_button("📥 Descargar Sugerencias", csv, f"Sugerencias_Top20_{t_sel}.csv", "text/csv")
             else:
-                st.info(f"Tienda {t_sel}: Inventario equilibrado en el corte actual.")            
+                st.success("¡Excelente! Tu Top 20 de ventas está equilibrado.")            
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
