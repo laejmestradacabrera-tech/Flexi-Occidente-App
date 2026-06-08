@@ -618,43 +618,42 @@ with tab6:
             ---
             *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
             """)
-# --- PESTAÑA 7: CÓDIGO DE RECUPERACIÓN Y NIVELACIÓN ---
+# --- PESTAÑA 7: CÓDIGO ESTABLE Y DEFINITIVO ---
 with tab7:
     st.subheader("🚀 Monitor de Nivelación Comercial")
-    
-    # Verificación de datos existente sin recargar
-    if 'df_m' in globals() or 'df_m' in locals():
-        # Identificadores ÚNICOS (Esto evita el error en todas las pestañas)
-        tiendas_lista = sorted(df_m['Tienda'].astype(str).unique())
-        t_sel_final = st.selectbox("Selecciona Tienda:", tiendas_lista, key="unique_p7_tienda")
+
+    # 1. Verificamos datos
+    if 'df_m' in locals():
+        # Selección ÚNICA para esta pestaña
+        tiendas = sorted(df_m['Tienda'].astype(str).unique())
+        t_sel = st.selectbox("Selecciona Tienda:", tiendas, key="select_t7_final")
         
-        if st.button("Ejecutar Nivelación 2026", key="unique_p7_analisis"):
-            df_t = df_m[df_m['Tienda'].astype(str) == str(t_sel_final)].copy()
+        # 2. Botón con acción aislada
+        if st.button("Ejecutar Nivelación", key="btn_t7_final"):
+            df_t = df_m[df_m['Tienda'].astype(str) == str(t_sel)].copy()
             
-            # Filtro del Top 20 por Ventas Totales
-            df_top = df_t.groupby('Modelo')['Vtas'].sum().nlargest(20).index.tolist()
-            df_top_data = df_t[df_t['Modelo'].isin(df_top)].copy()
+            # Filtramos Top 20 por ventas totales
+            top_modelos = df_t.groupby('Modelo')['Vtas'].sum().nlargest(20).index
+            df_top = df_t[df_t['Modelo'].isin(top_modelos)].copy()
             
             resultados = []
             
-            for _, row in df_top_data.iterrows():
+            for _, row in df_top.iterrows():
                 modelo = row['Modelo']
                 dpto = str(row.get('Departamento', 'dama')).lower().strip()
                 estatus = str(row.get('Estatus', '')).upper()
                 
-                # Filtro: Solo comercializables
                 if estatus not in ["S", "P"]: continue 
                 
                 for i in range(1, 16):
-                    # Conversión numérica limpia
+                    # Lectura numérica pura
                     ex_v = pd.to_numeric(row.get(f'ex{i}', 0), errors='coerce') or 0
                     pe_v = pd.to_numeric(row.get(f'p{i}', 0), errors='coerce') or 0
                     vt_v = pd.to_numeric(row.get(f'v{i}', 0), errors='coerce') or 0
                     
-                    # Regla de negocio: Sin existencia y sin pedido
+                    # Lógica de nivelación: Sin stock y sin pedido
                     if ex_v == 0 and pe_v == 0:
-                        # Mapeo simple de tallas
-                        talla = f"ex{i}"
+                        talla = f"Talla_{i}"
                         if dpto == 'dama': talla = str(220 + (i-3)*5) if i>=3 else "N/A"
                         elif dpto == 'caballero': talla = str(250 + (i-1)*5)
                         elif dpto == 'niño': talla = str(170 + (i-1)*5)
@@ -665,15 +664,15 @@ with tab7:
                             "Existencia": ex_v, "Pedido": pe_v
                         })
             
-            # Resultados
+            # 3. Presentación limpia
             if resultados:
                 df_res = pd.DataFrame(resultados).drop_duplicates().sort_values("Venta", ascending=False)
-                st.metric("Total Faltantes", len(df_res))
+                st.metric("Total Faltantes (Top 20)", len(df_res))
                 st.dataframe(df_res, use_container_width=True)
             else:
-                st.success("Tienda equilibrada: No hay faltantes críticos en el Top 20.")
+                st.success("Inventario equilibrado en este corte.")
     else:
-        st.error("Error: El archivo maestro (df_m) no está disponible. Por favor, asegúrate de cargar la Pestaña 1.")            
+        st.warning("Datos no encontrados. Asegúrate de cargar el archivo maestro.")            
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
