@@ -618,14 +618,69 @@ with tab6:
             ---
             *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
             """)
-# --- PESTAÑA 7: RESTAURACIÓN Y AISLAMIENTO ---
-if 'tab7' in locals():
-    with tab7:
-        st.subheader("🛠️ Módulo en Mantenimiento")
-        st.write("El monitor de nivelación está en pausa para recuperar la estabilidad del sistema.")
-else:
-    # Si por alguna razón tab7 no está definida, solo escribimos en la pestaña 7
-    st.error("No se pudo localizar el contenedor de la Pestaña 7. Verifica la definición de tus pestañas.")            
+# --- PESTAÑA 7: MONITOR DE NIVELACIÓN COMERCIAL (DEFINITIVO) ---
+with tab7:
+    st.subheader("🚀 Monitor de Nivelación Comercial")
+    
+    # 1. Validación de datos maestros (df_m debe existir de la Pestaña 1)
+    if 'df_m' in locals():
+        # Carga única de la matriz de tallas
+        try:
+            df_tallas = pd.read_csv("Valores de tallas.xlsx - Hoja1.csv")
+        except:
+            st.error("No se encontró el archivo 'Valores de tallas.xlsx - Hoja1.csv'. Por favor súbelo a Drive.")
+            st.stop()
+
+        tiendas = sorted(df_m['Tienda'].astype(str).unique())
+        t_sel = st.selectbox("Selecciona Tienda para Nivelar:", tiendas)
+        
+        if st.button("Ejecutar Nivelación de Pedidos"):
+            df_t = df_m[df_m['Tienda'].astype(str) == str(t_sel)].copy()
+            
+            # Filtro Top 20 por ventas totales
+            top_modelos = df_t.groupby('Modelo')['Vtas'].sum().nlargest(20).index
+            df_top = df_t[df_t['Modelo'].isin(top_modelos)].copy()
+            
+            resultados = []
+            
+            for _, row in df_top.iterrows():
+                modelo = row['Modelo']
+                dpto = str(row.get('Departamento', 'dama')).capitalize().strip()
+                estatus = str(row.get('Estatus', '')).upper()
+                
+                if estatus not in ["S", "P"]: continue 
+                
+                # Buscamos la fila de tallas para este departamento
+                ref_talla = df_tallas[df_tallas['Valor'] == dpto]
+                if ref_talla.empty: continue
+                
+                for i in range(1, 16):
+                    ex_v = pd.to_numeric(row.get(f'ex{i}', 0), errors='coerce') or 0
+                    pe_v = pd.to_numeric(row.get(f'p{i}', 0), errors='coerce') or 0
+                    vt_v = pd.to_numeric(row.get(f'v{i}', 0), errors='coerce') or 0
+                    
+                    # REGLA DE NEGOCIO: Faltante real (Sin existencia y sin pedido)
+                    if ex_v == 0 and pe_v == 0:
+                        talla_real = ref_talla.iloc[0].get(f'ex{i}')
+                        
+                        if pd.notna(talla_real):
+                            resultados.append({
+                                "Modelo": modelo,
+                                "Talla": talla_real,
+                                "Venta": vt_v,
+                                "Existencia": ex_v,
+                                "Pedido": pe_v
+                            })
+            
+            if resultados:
+                # Prioridad de sugerencia por Venta
+                df_res = pd.DataFrame(resultados).drop_duplicates().sort_values("Venta", ascending=False)
+                st.metric("Total Faltantes (Top 20)", len(df_res))
+                st.dataframe(df_res, use_container_width=True)
+            else:
+                st.success("Tienda equilibrada: No hay faltantes críticos en el Top 20.")
+    else:
+        st.warning("Módulo de nivelación: esperando datos (asegúrate de que df_m se cargue en la Pestaña 1).")            
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
