@@ -618,23 +618,28 @@ with tab6:
             ---
             *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
             """)
-# --- PESTAÑA 7: MONITOR DE NIVELACIÓN COMERCIAL (DEFINITIVO) ---
+# --- PESTAÑA 7: MONITOR DE NIVELACIÓN COMERCIAL (CONECTADO A DRIVE) ---
 with tab7:
     st.subheader("🚀 Monitor de Nivelación Comercial")
     
-    # 1. Validación de datos maestros (df_m debe existir de la Pestaña 1)
-    if 'df_m' in locals():
-        # Carga única de la matriz de tallas
+    if 'df_m' in globals():
+        # ID DEL ARCHIVO DE TALLAS EN DRIVE
+        FILE_ID = "1doPM-PxkfUo7SjnBPVYlEJjkjbRo46hq"
+        URL = f"https://docs.google.com/spreadsheets/d/{FILE_ID}/export?format=csv&gid=656062356"
+        
         try:
-            df_tallas = pd.read_csv("Valores de tallas.xlsx - Hoja1.csv")
-        except:
-            st.error("No se encontró el archivo 'Valores de tallas.xlsx - Hoja1.csv'. Por favor súbelo a Drive.")
+            # Lectura directa desde Drive
+            df_tallas = pd.read_csv(URL)
+            # Limpieza para asegurar coincidencia de nombres
+            df_tallas['Valor'] = df_tallas['Valor'].astype(str).str.strip().str.capitalize()
+        except Exception as e:
+            st.error(f"Error conectando con Drive: {e}")
             st.stop()
 
         tiendas = sorted(df_m['Tienda'].astype(str).unique())
         t_sel = st.selectbox("Selecciona Tienda para Nivelar:", tiendas)
         
-        if st.button("Ejecutar Nivelación de Pedidos"):
+        if st.button("Ejecutar Análisis de Pedidos"):
             df_t = df_m[df_m['Tienda'].astype(str) == str(t_sel)].copy()
             
             # Filtro Top 20 por ventas totales
@@ -645,25 +650,26 @@ with tab7:
             
             for _, row in df_top.iterrows():
                 modelo = row['Modelo']
-                dpto = str(row.get('Departamento', 'dama')).capitalize().strip()
+                dpto = str(row.get('Departamento', '')).capitalize().strip()
                 estatus = str(row.get('Estatus', '')).upper()
                 
                 if estatus not in ["S", "P"]: continue 
                 
-                # Buscamos la fila de tallas para este departamento
+                # Buscamos la fila de tallas
                 ref_talla = df_tallas[df_tallas['Valor'] == dpto]
                 if ref_talla.empty: continue
                 
+                # Análisis de nivelación (1 a 15)
                 for i in range(1, 16):
                     ex_v = pd.to_numeric(row.get(f'ex{i}', 0), errors='coerce') or 0
                     pe_v = pd.to_numeric(row.get(f'p{i}', 0), errors='coerce') or 0
                     vt_v = pd.to_numeric(row.get(f'v{i}', 0), errors='coerce') or 0
                     
-                    # REGLA DE NEGOCIO: Faltante real (Sin existencia y sin pedido)
+                    # REGLA DE NIVELACIÓN: Sin existencia y sin pedido
                     if ex_v == 0 and pe_v == 0:
                         talla_real = ref_talla.iloc[0].get(f'ex{i}')
                         
-                        if pd.notna(talla_real):
+                        if pd.notna(talla_real) and str(talla_real).strip() != "":
                             resultados.append({
                                 "Modelo": modelo,
                                 "Talla": talla_real,
@@ -673,14 +679,13 @@ with tab7:
                             })
             
             if resultados:
-                # Prioridad de sugerencia por Venta
                 df_res = pd.DataFrame(resultados).drop_duplicates().sort_values("Venta", ascending=False)
-                st.metric("Total Faltantes (Top 20)", len(df_res))
+                st.metric("Total Faltantes", len(df_res))
                 st.dataframe(df_res, use_container_width=True)
             else:
-                st.success("Tienda equilibrada: No hay faltantes críticos en el Top 20.")
+                st.success("Tienda equilibrada.")
     else:
-        st.warning("Módulo de nivelación: esperando datos (asegúrate de que df_m se cargue en la Pestaña 1).")            
+        st.warning("Datos maestros no encontrados. Carga la Pestaña 1.")            
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
