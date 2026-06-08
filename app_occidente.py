@@ -618,68 +618,20 @@ with tab6:
             ---
             *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
             """)
-# --- PESTAÑA 7: MONITOR DE NIVELACIÓN (OPCIÓN A: TOP 20 PRIORIZADO) ---
+# --- PESTAÑA 7: INSPECCIÓN DE ESTRUCTURA (DIAGNÓSTICO) ---
 with tab7:
-    st.subheader("🚀 Monitor de Nivelación Comercial (Top 20)")
+    st.subheader("🔍 Diagnóstico de Datos (Pestaña 7)")
     
     if 'df_m' in globals():
-        # Detección automática de la columna de ventas
-        cols_venta = [c for c in df_m.columns if 'Vta' in c or 'Venta' in c]
-        nombre_col_venta = cols_venta[0] if cols_venta else None
+        st.write("### Columnas detectadas en tu archivo de Ventas (df_m):")
+        # Mostramos la lista real de columnas para ver el nombre exacto
+        st.write(df_m.columns.tolist())
         
-        if not nombre_col_venta:
-            st.error("No se detectó la columna de ventas. Asegúrate de que exista.")
-            st.stop()
-
-        # ID DE TU ARCHIVO EN DRIVE
-        FILE_ID = "1doPM-PxkfUo7SjnBPVYlEJjkjbRo46hq"
-        URL = f"https://docs.google.com/spreadsheets/d/{FILE_ID}/export?format=xlsx"
-        
-        try:
-            # Lectura del archivo de tallas
-            df_tallas = pd.read_excel(URL, sheet_name="Hoja1")
-            df_tallas['Valor'] = df_tallas['Valor'].astype(str).str.strip().str.capitalize()
-            
-            tiendas = sorted(df_m['Tienda'].astype(str).unique())
-            t_sel = st.selectbox("Selecciona Tienda para Análisis:", tiendas)
-            
-            if st.button("Ejecutar Análisis Top 20"):
-                df_t = df_m[df_m['Tienda'].astype(str) == str(t_sel)].copy()
-                
-                # Filtramos el Top 20 usando la columna detectada automáticamente
-                top_modelos = df_t.groupby('Modelo')[nombre_col_venta].sum().nlargest(20).index
-                df_top = df_t[df_t['Modelo'].isin(top_modelos)].copy()
-                
-                resultados = []
-                for _, row in df_top.iterrows():
-                    dpto = str(row.get('Departamento', '')).capitalize().strip()
-                    ref = df_tallas[df_tallas['Valor'] == dpto]
-                    if ref.empty: continue
-                    
-                    for i in range(1, 16):
-                        ex = pd.to_numeric(row.get(f'ex{i}', 0), errors='coerce') or 0
-                        pe = pd.to_numeric(row.get(f'p{i}', 0), errors='coerce') or 0
-                        vt = pd.to_numeric(row.get(f'v{i}', 0), errors='coerce') or 0
-                        
-                        # REGLA: Sin existencia y sin pedido
-                        if ex == 0 and pe == 0:
-                            talla = ref.iloc[0].get(f'ex{i}')
-                            if pd.notna(talla) and str(talla).strip() != "":
-                                resultados.append({
-                                    "Modelo": row['Modelo'], 
-                                    "Talla": talla, 
-                                    "Venta_Prioridad": vt
-                                })
-                
-                if resultados:
-                    df_res = pd.DataFrame(resultados).drop_duplicates().sort_values("Venta_Prioridad", ascending=False)
-                    st.dataframe(df_res, use_container_width=True)
-                else:
-                    st.success("Tienda equilibrada: No hay faltantes en el Top 20.")
-        except Exception as e:
-            st.error(f"Error técnico: {e}")
+        st.write("---")
+        st.write("### Primeras 5 filas (para verificar contenido):")
+        st.dataframe(df_m.head(5))
     else:
-        st.warning("Carga los datos maestros en la Pestaña 1.")            
+        st.error("df_m no está cargado en memoria. Revisa la Pestaña 1.")            
  # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
