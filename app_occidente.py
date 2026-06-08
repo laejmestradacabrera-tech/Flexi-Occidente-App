@@ -618,18 +618,18 @@ with tab6:
             ---
             *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
             """)
-# --- PESTAÑA 7: MONITOR DE NIVELACIÓN COMERCIAL (INTEGRACIÓN SEGURA) ---
+# --- PESTAÑA 7: CÓDIGO DE RECUPERACIÓN Y NIVELACIÓN ---
 with tab7:
     st.subheader("🚀 Monitor de Nivelación Comercial")
     
-    # Verificación de conexión: Solo usamos el df_m que ya existe
+    # Verificación de datos existente sin recargar
     if 'df_m' in globals() or 'df_m' in locals():
-        tiendas = sorted(df_m['Tienda'].astype(str).unique())
-        t_sel = st.selectbox("Selecciona Tienda:", tiendas, key="p7_tienda_selector")
+        # Identificadores ÚNICOS (Esto evita el error en todas las pestañas)
+        tiendas_lista = sorted(df_m['Tienda'].astype(str).unique())
+        t_sel_final = st.selectbox("Selecciona Tienda:", tiendas_lista, key="unique_p7_tienda")
         
-        if st.button("Ejecutar Nivelación", key="p7_btn_analisis"):
-            # Filtrado de tienda
-            df_t = df_m[df_m['Tienda'].astype(str) == str(t_sel)].copy()
+        if st.button("Ejecutar Nivelación 2026", key="unique_p7_analisis"):
+            df_t = df_m[df_m['Tienda'].astype(str) == str(t_sel_final)].copy()
             
             # Filtro del Top 20 por Ventas Totales
             df_top = df_t.groupby('Modelo')['Vtas'].sum().nlargest(20).index.tolist()
@@ -637,52 +637,43 @@ with tab7:
             
             resultados = []
             
-            # Iteración sobre el Top 20
             for _, row in df_top_data.iterrows():
                 modelo = row['Modelo']
                 dpto = str(row.get('Departamento', 'dama')).lower().strip()
                 estatus = str(row.get('Estatus', '')).upper()
                 
-                # Filtro comercial (ajusta según tus siglas)
+                # Filtro: Solo comercializables
                 if estatus not in ["S", "P"]: continue 
                 
                 for i in range(1, 16):
-                    # Conversión forzada (Limpieza Profunda)
-                    ex_val = pd.to_numeric(row.get(f'ex{i}', 0), errors='coerce') or 0
-                    ped_val = pd.to_numeric(row.get(f'p{i}', 0), errors='coerce') or 0
-                    vt_val = pd.to_numeric(row.get(f'v{i}', 0), errors='coerce') or 0
+                    # Conversión numérica limpia
+                    ex_v = pd.to_numeric(row.get(f'ex{i}', 0), errors='coerce') or 0
+                    pe_v = pd.to_numeric(row.get(f'p{i}', 0), errors='coerce') or 0
+                    vt_v = pd.to_numeric(row.get(f'v{i}', 0), errors='coerce') or 0
                     
-                    # Lógica de Negocio: Sin stock y Sin pedido en tránsito
-                    if ex_val == 0 and ped_val == 0:
+                    # Regla de negocio: Sin existencia y sin pedido
+                    if ex_v == 0 and pe_v == 0:
+                        # Mapeo simple de tallas
                         talla = f"ex{i}"
-                        # Mapeo según departamento
                         if dpto == 'dama': talla = str(220 + (i-3)*5) if i>=3 else "N/A"
                         elif dpto == 'caballero': talla = str(250 + (i-1)*5)
                         elif dpto == 'niño': talla = str(170 + (i-1)*5)
                         elif dpto == 'joven': talla = str(215 + (i-1)*5)
                         
                         resultados.append({
-                            "Modelo": modelo,
-                            "Talla": talla,
-                            "Venta": vt_val,
-                            "Existencia": ex_val,
-                            "Pedido": ped_val
+                            "Modelo": modelo, "Talla": talla, "Venta": vt_v,
+                            "Existencia": ex_v, "Pedido": pe_v
                         })
             
-            # Resultados y Exportación
+            # Resultados
             if resultados:
-                df_res = pd.DataFrame(resultados).drop_duplicates()
-                df_res = df_res.sort_values("Venta", ascending=False)
-                
-                st.metric("Total de incidencias", len(df_res))
+                df_res = pd.DataFrame(resultados).drop_duplicates().sort_values("Venta", ascending=False)
+                st.metric("Total Faltantes", len(df_res))
                 st.dataframe(df_res, use_container_width=True)
-                
-                csv = df_res.to_csv(index=False).encode('utf-8')
-                st.download_button("📥 Descargar Reporte", csv, f"Nivelacion_{t_sel}.csv", "text/csv")
             else:
-                st.success("Tienda equilibrada (Top 20).")
+                st.success("Tienda equilibrada: No hay faltantes críticos en el Top 20.")
     else:
-        st.warning("El archivo maestro (df_m) no está cargado. Por favor, verifica la pestaña 1.")            
+        st.error("Error: El archivo maestro (df_m) no está disponible. Por favor, asegúrate de cargar la Pestaña 1.")            
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
