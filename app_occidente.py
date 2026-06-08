@@ -618,74 +618,52 @@ with tab6:
             ---
             *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
             """)
-# --- PESTAÑA 7: MONITOR DE NIVELACIÓN COMERCIAL (CONECTADO A DRIVE) ---
+# --- PESTAÑA 7: LECTURA ROBUSTA DESDE DRIVE (SOLUCIÓN DEFINITIVA) ---
 with tab7:
     st.subheader("🚀 Monitor de Nivelación Comercial")
     
     if 'df_m' in globals():
-        # ID DEL ARCHIVO DE TALLAS EN DRIVE
         FILE_ID = "1doPM-PxkfUo7SjnBPVYlEJjkjbRo46hq"
-        URL = f"https://docs.google.com/spreadsheets/d/{FILE_ID}/export?format=csv&gid=656062356"
+        URL = f"https://docs.google.com/spreadsheets/d/{FILE_ID}/gviz/tq?tqx=out:csv&gid=656062356"
         
         try:
-            # Lectura directa desde Drive
+            # Usamos el motor de Google Visualization API para forzar la descarga de datos, no de HTML
             df_tallas = pd.read_csv(URL)
-            # Limpieza para asegurar coincidencia de nombres
             df_tallas['Valor'] = df_tallas['Valor'].astype(str).str.strip().str.capitalize()
-        except Exception as e:
-            st.error(f"Error conectando con Drive: {e}")
-            st.stop()
-
-        tiendas = sorted(df_m['Tienda'].astype(str).unique())
-        t_sel = st.selectbox("Selecciona Tienda para Nivelar:", tiendas)
-        
-        if st.button("Ejecutar Análisis de Pedidos"):
-            df_t = df_m[df_m['Tienda'].astype(str) == str(t_sel)].copy()
             
-            # Filtro Top 20 por ventas totales
-            top_modelos = df_t.groupby('Modelo')['Vtas'].sum().nlargest(20).index
-            df_top = df_t[df_t['Modelo'].isin(top_modelos)].copy()
+            # --- LÓGICA DE PROCESAMIENTO ---
+            tiendas = sorted(df_m['Tienda'].astype(str).unique())
+            t_sel = st.selectbox("Selecciona Tienda:", tiendas)
             
-            resultados = []
-            
-            for _, row in df_top.iterrows():
-                modelo = row['Modelo']
-                dpto = str(row.get('Departamento', '')).capitalize().strip()
-                estatus = str(row.get('Estatus', '')).upper()
+            if st.button("Ejecutar Análisis"):
+                df_t = df_m[df_m['Tienda'].astype(str) == str(t_sel)].copy()
+                top_modelos = df_t.groupby('Modelo')['Vtas'].sum().nlargest(20).index
+                df_top = df_t[df_t['Modelo'].isin(top_modelos)].copy()
                 
-                if estatus not in ["S", "P"]: continue 
-                
-                # Buscamos la fila de tallas
-                ref_talla = df_tallas[df_tallas['Valor'] == dpto]
-                if ref_talla.empty: continue
-                
-                # Análisis de nivelación (1 a 15)
-                for i in range(1, 16):
-                    ex_v = pd.to_numeric(row.get(f'ex{i}', 0), errors='coerce') or 0
-                    pe_v = pd.to_numeric(row.get(f'p{i}', 0), errors='coerce') or 0
-                    vt_v = pd.to_numeric(row.get(f'v{i}', 0), errors='coerce') or 0
+                resultados = []
+                for _, row in df_top.iterrows():
+                    dpto = str(row.get('Departamento', '')).capitalize().strip()
+                    ref = df_tallas[df_tallas['Valor'] == dpto]
+                    if ref.empty: continue
                     
-                    # REGLA DE NIVELACIÓN: Sin existencia y sin pedido
-                    if ex_v == 0 and pe_v == 0:
-                        talla_real = ref_talla.iloc[0].get(f'ex{i}')
+                    for i in range(1, 16):
+                        ex = pd.to_numeric(row.get(f'ex{i}', 0), errors='coerce') or 0
+                        pe = pd.to_numeric(row.get(f'p{i}', 0), errors='coerce') or 0
+                        vt = pd.to_numeric(row.get(f'v{i}', 0), errors='coerce') or 0
                         
-                        if pd.notna(talla_real) and str(talla_real).strip() != "":
-                            resultados.append({
-                                "Modelo": modelo,
-                                "Talla": talla_real,
-                                "Venta": vt_v,
-                                "Existencia": ex_v,
-                                "Pedido": pe_v
-                            })
-            
-            if resultados:
-                df_res = pd.DataFrame(resultados).drop_duplicates().sort_values("Venta", ascending=False)
-                st.metric("Total Faltantes", len(df_res))
-                st.dataframe(df_res, use_container_width=True)
-            else:
-                st.success("Tienda equilibrada.")
-    else:
-        st.warning("Datos maestros no encontrados. Carga la Pestaña 1.")            
+                        if ex == 0 and pe == 0:
+                            talla = ref.iloc[0].get(f'ex{i}')
+                            if pd.notna(talla) and str(talla).strip() != "":
+                                resultados.append({"Modelo": row['Modelo'], "Talla": talla, "Venta": vt})
+                
+                if resultados:
+                    df_res = pd.DataFrame(resultados).drop_duplicates().sort_values("Venta", ascending=False)
+                    st.dataframe(df_res, use_container_width=True)
+                else:
+                    st.success("Tienda equilibrada.")
+                    
+        except Exception as e:
+            st.error("Error técnico al conectar con la matriz. Estamos ajustando el acceso.")            
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
