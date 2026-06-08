@@ -618,45 +618,44 @@ with tab6:
             ---
             *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
             """)
-# --- PESTAÑA 7: MONITOR DE NIVELACIÓN COMERCIAL (TOP 20 Y LÓGICA FINAL) ---
+# --- PESTAÑA 7: MONITOR DE NIVELACIÓN COMERCIAL (INTEGRACIÓN SEGURA) ---
 with tab7:
-    st.subheader("🚀 Monitor de Nivelación Comercial: Prioridad Top 20")
+    st.subheader("🚀 Monitor de Nivelación Comercial")
     
-    if 'df_m' in locals():
+    # Verificación de conexión: Solo usamos el df_m que ya existe
+    if 'df_m' in globals() or 'df_m' in locals():
         tiendas = sorted(df_m['Tienda'].astype(str).unique())
-        t_sel = st.selectbox("Selecciona Tienda:", tiendas, key="p7_tienda_final")
+        t_sel = st.selectbox("Selecciona Tienda:", tiendas, key="p7_tienda_selector")
         
-        if st.button("Ejecutar Nivelación Top 20", key="p7_ejecutar_final"):
-            # 1. Filtramos la tienda
+        if st.button("Ejecutar Nivelación", key="p7_btn_analisis"):
+            # Filtrado de tienda
             df_t = df_m[df_m['Tienda'].astype(str) == str(t_sel)].copy()
             
-            # 2. Identificar el Top 20 por ventas totales (Columna 'Vtas')
-            top_20_modelos = df_t.groupby('Modelo')['Vtas'].sum().nlargest(20).index.tolist()
-            df_top = df_t[df_t['Modelo'].isin(top_20_modelos)].copy()
-            
-            st.write(f"Auditoría: Analizando los 20 modelos más vendidos en Tienda {t_sel}")
+            # Filtro del Top 20 por Ventas Totales
+            df_top = df_t.groupby('Modelo')['Vtas'].sum().nlargest(20).index.tolist()
+            df_top_data = df_t[df_t['Modelo'].isin(df_top)].copy()
             
             resultados = []
             
-            # 3. Iteramos solo sobre el Top 20
-            for _, row in df_top.iterrows():
+            # Iteración sobre el Top 20
+            for _, row in df_top_data.iterrows():
                 modelo = row['Modelo']
                 dpto = str(row.get('Departamento', 'dama')).lower().strip()
                 estatus = str(row.get('Estatus', '')).upper()
                 
-                # Filtro comercial
+                # Filtro comercial (ajusta según tus siglas)
                 if estatus not in ["S", "P"]: continue 
                 
                 for i in range(1, 16):
-                    # Lectura limpia y forzada
+                    # Conversión forzada (Limpieza Profunda)
                     ex_val = pd.to_numeric(row.get(f'ex{i}', 0), errors='coerce') or 0
                     ped_val = pd.to_numeric(row.get(f'p{i}', 0), errors='coerce') or 0
                     vt_val = pd.to_numeric(row.get(f'v{i}', 0), errors='coerce') or 0
                     
-                    # REGLA DE NEGOCIO: Sin stock y Sin pedido en el Top 20
+                    # Lógica de Negocio: Sin stock y Sin pedido en tránsito
                     if ex_val == 0 and ped_val == 0:
                         talla = f"ex{i}"
-                        # Mapeo de tallas
+                        # Mapeo según departamento
                         if dpto == 'dama': talla = str(220 + (i-3)*5) if i>=3 else "N/A"
                         elif dpto == 'caballero': talla = str(250 + (i-1)*5)
                         elif dpto == 'niño': talla = str(170 + (i-1)*5)
@@ -670,19 +669,20 @@ with tab7:
                             "Pedido": ped_val
                         })
             
-            # 4. Presentación final
+            # Resultados y Exportación
             if resultados:
                 df_res = pd.DataFrame(resultados).drop_duplicates()
-                # Priorizar por venta
                 df_res = df_res.sort_values("Venta", ascending=False)
                 
-                st.metric("Total de faltantes en Top 20", len(df_res))
+                st.metric("Total de incidencias", len(df_res))
                 st.dataframe(df_res, use_container_width=True)
                 
                 csv = df_res.to_csv(index=False).encode('utf-8')
-                st.download_button("📥 Descargar Sugerencias", csv, f"Sugerencias_Top20_{t_sel}.csv", "text/csv")
+                st.download_button("📥 Descargar Reporte", csv, f"Nivelacion_{t_sel}.csv", "text/csv")
             else:
-                st.success("¡Excelente! Tu Top 20 de ventas está equilibrado.")            
+                st.success("Tienda equilibrada (Top 20).")
+    else:
+        st.warning("El archivo maestro (df_m) no está cargado. Por favor, verifica la pestaña 1.")            
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
