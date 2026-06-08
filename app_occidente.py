@@ -618,52 +618,62 @@ with tab6:
             ---
             *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
             """)
-# --- PESTAÑA 7: MONITOR DE PEDIDOS (VERSIÓN CORREGIDA Y ESTABLE) ---
+# --- PESTAÑA 7: MONITOR DE PEDIDOS (VERSIÓN LECTURA ESTRICTA) ---
 with tab7:
-    st.subheader("🎯 Monitor de Pedidos: Precisión Total")
+    st.subheader("🎯 Monitor de Pedidos: Análisis de Quiebres")
     
-    # Verificamos que df_m exista (cargado en las pestañas anteriores)
     if 'df_m' in locals():
-        # Usamos variables con nombres únicos para esta pestaña
-        tiendas_lista = sorted(df_m['Tienda'].unique())
-        t_sel_7 = st.selectbox("Selecciona Tienda:", tiendas_lista, key="sel_t_7")
+        # Selección de tienda
+        tiendas_lista = sorted(df_m['Tienda'].astype(str).unique())
+        t_sel = st.selectbox("Selecciona Tienda para Nivelar:", tiendas_lista, key="sel_tienda_p7_v2")
         
-        if st.button("Ejecutar Análisis", key="btn_a_7"):
-            # Filtro de tienda
-            df_t = df_m[df_m['Tienda'].astype(str) == str(t_sel_7)].copy()
+        if st.button("Ejecutar Análisis de Pedidos", key="btn_ejecutar_p7_v2"):
+            # Filtrado estricto
+            df_t = df_m[df_m['Tienda'].astype(str) == str(t_sel)].copy()
             
-            # Diagnóstico rápido como pediste
-            st.write(f"--- Diagnóstico Tienda {t_sel_7} ---")
-            st.write("Registros encontrados:", len(df_t))
+            # Filtramos solo el Top 20 por ventas (columna Vtas)
+            df_top = df_t.nlargest(20, 'Vtas')
             
-            # Identificar modelos con quiebre (ex=0 y v>0)
             resultados = []
-            for _, row in df_t.iterrows():
+            
+            # Procesamiento de lectura
+            for _, row in df_top.iterrows():
                 modelo = row['Modelo']
-                dpto = str(row.get('Departamento', 'DAMA')).upper()
+                dpto = str(row.get('Departamento', 'dama')).lower()
                 
+                # Revisión de las 15 tallas
                 for i in range(1, 16):
-                    # Usamos los nombres de columna tal cual vienen en tu CSV: ex1, v1
-                    ex_val = float(row.get(f'ex{i}', 0))
-                    vt_val = float(row.get(f'v{i}', 0))
+                    # Forzamos conversión numérica de las columnas reales del CSV
+                    ex_val = pd.to_numeric(row.get(f'ex{i}', 0), errors='coerce') or 0
+                    vt_val = pd.to_numeric(row.get(f'v{i}', 0), errors='coerce') or 0
                     
-                    # Criterio claro: Sin existencia (0) pero con venta ( >0)
+                    # Lógica de quiebre (Sin existencia + Con ventas)
                     if ex_val == 0 and vt_val > 0:
-                        # Cálculo de talla basado en Dpto
+                        # Mapeo de tallas según el dpto detectado
                         talla = f"ex{i}"
-                        if dpto == 'DAMA': talla = str(220 + (i-3)*5) if i>=3 else "ex"
-                        elif dpto == 'CABALLERO': talla = str(250 + (i-1)*5)
-                        elif dpto == 'NIÑO': talla = str(170 + (i-1)*5)
-                        elif dpto == 'JOVEN': talla = str(215 + (i-1)*5)
+                        if dpto == 'dama': talla = str(220 + (i-3)*5) if i>=3 else "N/A"
+                        elif dpto == 'caballero': talla = str(250 + (i-1)*5)
+                        elif dpto == 'niño': talla = str(170 + (i-1)*5)
+                        elif dpto == 'joven': talla = str(215 + (i-1)*5)
                         
-                        resultados.append({"Modelo": modelo, "Talla": talla, "Estado": "FALTANTE"})
+                        resultados.append({
+                            "Modelo": modelo,
+                            "Talla": talla,
+                            "Venta": vt_val,
+                            "Accion": "🚨 SUGERIR PEDIDO"
+                        })
             
             if resultados:
-                st.dataframe(pd.DataFrame(resultados).drop_duplicates())
+                st.dataframe(pd.DataFrame(resultados).drop_duplicates(), use_container_width=True)
             else:
-                st.success("Tienda equilibrada: No se detectaron ventas (v) sin existencias (ex) en este corte.")
-    else:
-        st.error("Error: df_m no encontrado. Por favor, asegúrate de cargar el archivo en la pestaña inicial.")            
+                st.info(f"Tienda {t_sel}: Inventario equilibrado en el Top 20.")
+                st.write("---")
+                st.write("Diagnóstico rápido: Verificando datos para el modelo CH424001P0NE...")
+                check = df_t[df_t['Modelo'] == 'CH424001P0NE']
+                if not check.empty:
+                    st.write("Modelo encontrado. Valor de existencias:", check['ex_tot'].values[0], "Valor de ventas:", check['Vtas'].values[0])
+                else:
+                    st.write("El modelo CH424001P0NE no aparece en los registros de esta tienda.")            
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
