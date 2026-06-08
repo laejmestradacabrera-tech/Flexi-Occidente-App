@@ -618,27 +618,37 @@ with tab6:
             ---
             *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
             """)
- # --- PESTAÑA 7: LECTURA ROBUSTA DE EXCEL (SOLUCIÓN DEFINITIVA) ---
+# --- PESTAÑA 7: MONITOR DE NIVELACIÓN (OPCIÓN A: TOP 20 PRIORIZADO) ---
 with tab7:
-    st.subheader("🚀 Monitor de Nivelación Comercial")
+    st.subheader("🚀 Monitor de Nivelación Comercial (Top 20)")
     
     if 'df_m' in globals():
-        # ID DE TU ARCHIVO
+        # Detección automática de la columna de ventas
+        cols_venta = [c for c in df_m.columns if 'Vta' in c or 'Venta' in c]
+        nombre_col_venta = cols_venta[0] if cols_venta else None
+        
+        if not nombre_col_venta:
+            st.error("No se detectó la columna de ventas. Asegúrate de que exista.")
+            st.stop()
+
+        # ID DE TU ARCHIVO EN DRIVE
         FILE_ID = "1doPM-PxkfUo7SjnBPVYlEJjkjbRo46hq"
         URL = f"https://docs.google.com/spreadsheets/d/{FILE_ID}/export?format=xlsx"
         
         try:
-            # pd.read_excel puede leer el flujo de datos directamente desde la URL de exportación
+            # Lectura del archivo de tallas
             df_tallas = pd.read_excel(URL, sheet_name="Hoja1")
             df_tallas['Valor'] = df_tallas['Valor'].astype(str).str.strip().str.capitalize()
             
             tiendas = sorted(df_m['Tienda'].astype(str).unique())
-            t_sel = st.selectbox("Selecciona Tienda:", tiendas)
+            t_sel = st.selectbox("Selecciona Tienda para Análisis:", tiendas)
             
-            if st.button("Ejecutar Análisis"):
+            if st.button("Ejecutar Análisis Top 20"):
                 df_t = df_m[df_m['Tienda'].astype(str) == str(t_sel)].copy()
-                top_m = df_t.groupby('Modelo')['Vtas'].sum().nlargest(20).index
-                df_top = df_t[df_t['Modelo'].isin(top_m)].copy()
+                
+                # Filtramos el Top 20 usando la columna detectada automáticamente
+                top_modelos = df_t.groupby('Modelo')[nombre_col_venta].sum().nlargest(20).index
+                df_top = df_t[df_t['Modelo'].isin(top_modelos)].copy()
                 
                 resultados = []
                 for _, row in df_top.iterrows():
@@ -651,22 +661,26 @@ with tab7:
                         pe = pd.to_numeric(row.get(f'p{i}', 0), errors='coerce') or 0
                         vt = pd.to_numeric(row.get(f'v{i}', 0), errors='coerce') or 0
                         
+                        # REGLA: Sin existencia y sin pedido
                         if ex == 0 and pe == 0:
                             talla = ref.iloc[0].get(f'ex{i}')
                             if pd.notna(talla) and str(talla).strip() != "":
-                                resultados.append({"Modelo": row['Modelo'], "Talla": talla, "Venta": vt})
+                                resultados.append({
+                                    "Modelo": row['Modelo'], 
+                                    "Talla": talla, 
+                                    "Venta_Prioridad": vt
+                                })
                 
                 if resultados:
-                    df_res = pd.DataFrame(resultados).drop_duplicates().sort_values("Venta", ascending=False)
+                    df_res = pd.DataFrame(resultados).drop_duplicates().sort_values("Venta_Prioridad", ascending=False)
                     st.dataframe(df_res, use_container_width=True)
                 else:
-                    st.success("Tienda equilibrada.")
-                    
+                    st.success("Tienda equilibrada: No hay faltantes en el Top 20.")
         except Exception as e:
-            st.error(f"Error técnico de lectura (Excel): {e}. Asegúrate de que el archivo esté compartido como Lector.")
+            st.error(f"Error técnico: {e}")
     else:
-        st.warning("Carga los datos maestros en la Pestaña 1.")           
-# --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
+        st.warning("Carga los datos maestros en la Pestaña 1.")            
+ # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
     if st.button("Verificar Conexión y Cargar Datos"):
