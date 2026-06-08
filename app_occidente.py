@@ -618,8 +618,14 @@ with tab6:
             ---
             *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
             """)
-# --- PESTAÑA 7: RESTAURACIÓN DE ESTADO ---
-st.write("Módulo de Nivelación pausado para restaurar la estabilidad.")            
+# --- PESTAÑA 7: RESTAURACIÓN Y AISLAMIENTO ---
+if 'tab7' in locals():
+    with tab7:
+        st.subheader("🛠️ Módulo en Mantenimiento")
+        st.write("El monitor de nivelación está en pausa para recuperar la estabilidad del sistema.")
+else:
+    # Si por alguna razón tab7 no está definida, solo escribimos en la pestaña 7
+    st.error("No se pudo localizar el contenedor de la Pestaña 7. Verifica la definición de tus pestañas.")            
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
