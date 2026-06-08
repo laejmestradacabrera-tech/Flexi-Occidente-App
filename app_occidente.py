@@ -618,57 +618,8 @@ with tab6:
             ---
             *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
             """)
-# --- PESTAÑA 7: CÓDIGO SIN KEYS (SOLUCIÓN AL ERROR) ---
-with tab7:
-    st.subheader("🚀 Monitor de Nivelación Comercial")
-    
-    if 'df_m' in locals():
-        tiendas = sorted(df_m['Tienda'].astype(str).unique())
-        # Eliminamos 'key' para que Streamlit gestione el ID dinámicamente
-        t_sel = st.selectbox("Selecciona Tienda:", tiendas)
-        
-        if st.button("Ejecutar Nivelación"):
-            df_t = df_m[df_m['Tienda'].astype(str) == str(t_sel)].copy()
-            
-            # Filtro del Top 20 por Ventas Totales
-            df_top_modelos = df_t.groupby('Modelo')['Vtas'].sum().nlargest(20).index
-            df_top = df_t[df_t['Modelo'].isin(df_top_modelos)].copy()
-            
-            resultados = []
-            
-            for _, row in df_top.iterrows():
-                modelo = row['Modelo']
-                dpto = str(row.get('Departamento', 'dama')).lower().strip()
-                estatus = str(row.get('Estatus', '')).upper()
-                
-                if estatus not in ["S", "P"]: continue 
-                
-                for i in range(1, 16):
-                    # Conversión limpia
-                    ex_v = pd.to_numeric(row.get(f'ex{i}', 0), errors='coerce') or 0
-                    pe_v = pd.to_numeric(row.get(f'p{i}', 0), errors='coerce') or 0
-                    vt_v = pd.to_numeric(row.get(f'v{i}', 0), errors='coerce') or 0
-                    
-                    # Regla de negocio: Sin existencia y sin pedido
-                    if ex_v == 0 and pe_v == 0:
-                        talla = f"Talla_{i}"
-                        if dpto == 'dama': talla = str(220 + (i-3)*5) if i>=3 else "N/A"
-                        elif dpto == 'caballero': talla = str(250 + (i-1)*5)
-                        elif dpto == 'niño': talla = str(170 + (i-1)*5)
-                        elif dpto == 'joven': talla = str(215 + (i-1)*5)
-                        
-                        resultados.append({
-                            "Modelo": modelo, "Talla": talla, "Venta": vt_v,
-                            "Existencia": ex_v, "Pedido": pe_v
-                        })
-            
-            # Presentación
-            if resultados:
-                df_res = pd.DataFrame(resultados).drop_duplicates().sort_values("Venta", ascending=False)
-                st.metric("Total Faltantes", len(df_res))
-                st.dataframe(df_res, use_container_width=True)
-            else:
-                st.success("Tienda equilibrada.")            
+# --- PESTAÑA 7: RESTAURACIÓN DE ESTADO ---
+st.write("Módulo de Nivelación pausado para restaurar la estabilidad.")            
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
