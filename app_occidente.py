@@ -618,46 +618,51 @@ with tab6:
             ---
             *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
             """)
-# --- PESTAÑA 7: NIVELACIÓN COMERCIAL (CONFIGURACIÓN DEFINITIVA) ---
+# --- PESTAÑA 7: NIVELACIÓN COMERCIAL (CON SELECTOR DE TIENDA) ---
 with tab7:
-    st.subheader("🚀 Monitor de Nivelación: Precisión Total")
+    st.subheader("🚀 Monitor de Nivelación: Calzado Top 20")
     
-    if st.button("Ejecutar Análisis Maestro"):
-        # 1. Cargamos archivos
+    # 1. Carga de archivos (asegúrate de que los nombres sean exactos en Drive)
+    try:
         df_ventas = pd.read_excel("Ventas.xlsx")
-        df_tallas = pd.read_excel("Valores de tallas.xlsx", header=None)
+        df_tallas = pd.read_excel("Valores de tallas.xlsx")
         
-        resultados = []
+        # 2. Selector de Tienda
+        tiendas = sorted(df_ventas['Tienda'].unique().tolist())
+        tienda_sel = st.selectbox("Selecciona la Tienda para analizar:", tiendas)
         
-        # 2. Función para buscar tallas según departamento
-        def obtener_tallas(dpto):
-            # Busca la fila donde está el nombre del departamento
-            fila_idx = df_tallas[df_tallas[0] == dpto].index[0]
-            # La fila de tallas está inmediatamente abajo (fila_idx + 1)
-            return df_tallas.iloc[fila_idx + 1, 1:16].tolist()
-
-        # 3. Procesar bloques de 3 filas (Venta, Ex, Ped)
-        for i in range(0, len(df_ventas), 3):
-            try:
-                bloque = df_ventas.iloc[i:i+3]
-                modelo = bloque.iloc[0, 1] # CLAVE
-                dpto = bloque.iloc[0, 4]   # DEPARTAMENTO
-                
-                tallas = obtener_tallas(dpto)
-                
-                fila_ex = bloque.iloc[1]
-                fila_pe = bloque.iloc[2]
-                
-                for j in range(15): # Columnas ex1 a ex15
-                    if (pd.isna(fila_ex.iloc[j+5]) or fila_ex.iloc[j+5] == 0) and \
-                       (pd.isna(fila_pe.iloc[j+5]) or fila_pe.iloc[j+5] == 0):
-                        resultados.append({
-                            "Modelo": modelo,
-                            "Talla": tallas[j]
-                        })
-            except: continue
+        if st.button("Ejecutar Análisis Maestro"):
+            # Filtramos el df para la tienda seleccionada
+            df_tienda = df_ventas[df_ventas['Tienda'] == tienda_sel].copy()
             
-        st.dataframe(pd.DataFrame(resultados))            
+            # Obtener Top 20 de la tienda seleccionada
+            top_20 = df_tienda.groupby('Modelo')['Vtas'].sum().nlargest(20).index
+            df_top = df_tienda[df_tienda['Modelo'].isin(top_20)]
+            
+            resultados = []
+            
+            # 3. Recorrer fila por fila (Estructura Plana)
+            for _, row in df_top.iterrows():
+                dpto = row['Departamento']
+                tallas_row = df_tallas[df_tallas['Valor'] == dpto]
+                if tallas_row.empty: continue
+                
+                # 4. Condicional ex=0 y p=0 para cada columna de 1 a 15
+                for i in range(1, 16):
+                    ex_val = row.get(f'ex{i}', 0)
+                    p_val = row.get(f'p{i}', 0)
+                    
+                    if (pd.isna(ex_val) or ex_val == 0) and (pd.isna(p_val) or p_val == 0):
+                        talla_fisica = tallas_row.iloc[0][f'ex{i}']
+                        resultados.append({
+                            "Modelo": row['Modelo'],
+                            "Talla": talla_fisica
+                        })
+            
+            st.dataframe(pd.DataFrame(resultados))
+            
+    except Exception as e:
+        st.error(f"Error al leer archivos o procesar tienda: {e}")            
  # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
