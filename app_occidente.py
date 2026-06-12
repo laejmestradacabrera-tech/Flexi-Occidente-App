@@ -618,15 +618,56 @@ with tab6:
             ---
             *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
             """)
-# --- PESTAÑA 7: DIAGNÓSTICO DE ARCHIVOS ---
+# --- PESTAÑA 7: NIVELACIÓN COMERCIAL (CONEXIÓN DIRECTA A DRIVE) ---
 with tab7:
-    st.subheader("🕵️‍♂️ Diagnóstico de Archivos en Drive")
-    import os
+    st.subheader("🚀 Monitor de Nivelación: Precisión Total")
     
-    # Esto listará todos los archivos que el sistema puede ver
-    archivos_disponibles = os.listdir('.')
-    st.write("Archivos que el sistema detecta en esta carpeta:")
-    st.write(archivos_disponibles)            
+    # 1. Cargamos archivos directamente desde Drive
+    # Usamos la ruta que el sistema reconoce en tu unidad
+    try:
+        df_ventas = pd.read_excel("Ventas.xlsx") # Si el sistema pide nombre, usaremos el que identificamos
+        df_tallas = pd.read_excel("Valores de tallas.xlsx")
+        
+        # 2. Selector de Tienda
+        tiendas = sorted(df_ventas['Tienda'].unique().tolist())
+        tienda_sel = st.selectbox("Selecciona la Tienda:", tiendas)
+        
+        if st.button("Ejecutar Análisis Maestro"):
+            # Filtramos tienda y excluimos proveedores accesorios (415, 426, 427)
+            df_tienda = df_ventas[(df_ventas['Tienda'] == tienda_sel) & 
+                                 (~df_ventas['Proveedor'].isin([415, 426, 427]))].copy()
+            
+            # Top 20 basado en 'Vtas'
+            top_20 = df_tienda.groupby('Modelo')['Vtas'].sum().nlargest(20).index
+            df_top = df_tienda[df_tienda['Modelo'].isin(top_20)]
+            
+            resultados = []
+            
+            # 3. Recorrer fila por fila
+            for _, row in df_top.iterrows():
+                dpto = str(row['Departamento']).strip().lower()
+                
+                # Buscamos la fila en 'Valores de tallas' que coincida con el dpto
+                tallas_row = df_tallas[df_tallas['Valor'].astype(str).str.lower() == dpto]
+                
+                if not tallas_row.empty:
+                    # 4. Condicional: ex=0 y p=0 para cada columna de 1 a 15
+                    for i in range(1, 16):
+                        ex_val = row.get(f'ex{i}', 0)
+                        p_val = row.get(f'p{i}', 0)
+                        
+                        if (pd.isna(ex_val) or ex_val == 0) and (pd.isna(p_val) or p_val == 0):
+                            # Obtenemos la talla física del archivo de referencia
+                            talla_fisica = tallas_row.iloc[0][f'ex{i}']
+                            resultados.append({
+                                "Modelo": row['Modelo'],
+                                "Talla": talla_fisica
+                            })
+            
+            st.dataframe(pd.DataFrame(resultados).drop_duplicates())
+            
+    except Exception as e:
+        st.error(f"Error al conectar con Drive: {e}")            
  # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
