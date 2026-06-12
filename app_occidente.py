@@ -618,58 +618,46 @@ with tab6:
             ---
             *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
             """)
-# --- PESTAÑA 7: MONITOR DE NIVELACIÓN COMERCIAL (CONFIGURACIÓN FINAL) ---
+# --- PESTAÑA 7: NIVELACIÓN COMERCIAL (CONFIGURACIÓN DEFINITIVA) ---
 with tab7:
-    st.subheader("🚀 Monitor de Nivelación: Calzado Top 20")
+    st.subheader("🚀 Monitor de Nivelación: Precisión Total")
     
-    if 'df_m' in globals():
-        # URL DEL ARCHIVO DE TALLAS (Tu Drive)
-        FILE_ID = "1doPM-PxkfUo7SjnBPVYlEJjkjbRo46hq"
-        URL = f"https://docs.google.com/spreadsheets/d/{FILE_ID}/export?format=xlsx"
+    if st.button("Ejecutar Análisis Maestro"):
+        # 1. Cargamos archivos
+        df_ventas = pd.read_excel("Ventas.xlsx")
+        df_tallas = pd.read_excel("Valores de tallas.xlsx", header=None)
         
-        try:
-            df_tallas = pd.read_excel(URL, sheet_name="Hoja1")
-            df_tallas['Valor'] = df_tallas['Valor'].astype(str).str.strip().str.capitalize()
-            
-            # FILTRO DE SEGURIDAD: Excluir accesorios y bolsas
-            # Excluimos proveedores 415, 426 y 427
-            df_calzado = df_m[~df_m['Proveedor'].isin([415, 426, 427])].copy()
-            
-            tiendas = sorted(df_calzado['Tienda'].astype(str).unique())
-            t_sel = st.selectbox("Selecciona Tienda para Nivelar:", tiendas)
-            
-            if st.button("Ejecutar Análisis de Calzado"):
-                df_t = df_calzado[df_calzado['Tienda'].astype(str) == str(t_sel)].copy()
+        resultados = []
+        
+        # 2. Función para buscar tallas según departamento
+        def obtener_tallas(dpto):
+            # Busca la fila donde está el nombre del departamento
+            fila_idx = df_tallas[df_tallas[0] == dpto].index[0]
+            # La fila de tallas está inmediatamente abajo (fila_idx + 1)
+            return df_tallas.iloc[fila_idx + 1, 1:16].tolist()
+
+        # 3. Procesar bloques de 3 filas (Venta, Ex, Ped)
+        for i in range(0, len(df_ventas), 3):
+            try:
+                bloque = df_ventas.iloc[i:i+3]
+                modelo = bloque.iloc[0, 1] # CLAVE
+                dpto = bloque.iloc[0, 4]   # DEPARTAMENTO
                 
-                # Usamos la columna "Pares" para el Top 20
-                top_modelos = df_t.groupby('Modelo')['Pares'].sum().nlargest(20).index
-                df_top = df_t[df_t['Modelo'].isin(top_modelos)].copy()
+                tallas = obtener_tallas(dpto)
                 
-                resultados = []
-                for _, row in df_top.iterrows():
-                    dpto = str(row.get('Descripcion', '')).split()[0].capitalize() # Ajuste según descripción
-                    ref = df_tallas[df_tallas['Valor'] == dpto]
-                    if ref.empty: continue
-                    
-                    for i in range(1, 16):
-                        ex = pd.to_numeric(row.get(f'ex{i}', 0), errors='coerce') or 0
-                        pe = pd.to_numeric(row.get(f'p{i}', 0), errors='coerce') or 0
-                        
-                        # REGLA: Sin existencia y sin pedido
-                        if ex == 0 and pe == 0:
-                            talla = ref.iloc[0].get(f'ex{i}')
-                            if pd.notna(talla) and str(talla).strip() != "":
-                                resultados.append({"Modelo": row['Modelo'], "Talla": talla})
+                fila_ex = bloque.iloc[1]
+                fila_pe = bloque.iloc[2]
                 
-                if resultados:
-                    df_res = pd.DataFrame(resultados).drop_duplicates()
-                    st.dataframe(df_res, use_container_width=True)
-                else:
-                    st.success("Tienda equilibrada: No hay faltantes en el calzado Top 20.")
-        except Exception as e:
-            st.error(f"Error en el análisis: {e}")
-    else:
-        st.warning("Carga los datos maestros en la Pestaña 1.")            
+                for j in range(15): # Columnas ex1 a ex15
+                    if (pd.isna(fila_ex.iloc[j+5]) or fila_ex.iloc[j+5] == 0) and \
+                       (pd.isna(fila_pe.iloc[j+5]) or fila_pe.iloc[j+5] == 0):
+                        resultados.append({
+                            "Modelo": modelo,
+                            "Talla": tallas[j]
+                        })
+            except: continue
+            
+        st.dataframe(pd.DataFrame(resultados))            
  # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
