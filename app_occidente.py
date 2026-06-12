@@ -618,34 +618,33 @@ with tab6:
             ---
             *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
             """)
-# --- PESTAÑA 7: NIVELACIÓN COMERCIAL (FLUJO DE ESTADO) ---
+# --- PESTAÑA 7: MONITOR DE NIVELACIÓN FLEXI OCCIDENTE ---
 with tab7:
-    st.subheader("🚀 Monitor de Nivelación: Precisión Total")
-
-    # 1. Carga inteligente con memoria (Session State)
+    # Encabezado profesional
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        st.markdown("## 📈") # Logo alusivo a nivelación
+    with col2:
+        st.subheader("Monitor de Nivelación Flexi Occidente")
+    
+    # Carga de datos con sesión
     if 'data_loaded' not in st.session_state:
-        try:
-            st.session_state.df_ventas = pd.read_excel("Ventas.xlsx")
-            st.session_state.df_tallas = pd.read_excel("Valores de tallas.xlsx")
-            st.session_state.data_loaded = True
-        except Exception as e:
-            st.error(f"Error al cargar archivos: {e}")
-            st.stop()
+        st.session_state.df_ventas = pd.read_excel("Ventas.xlsx")
+        st.session_state.df_tallas = pd.read_excel("Valores de tallas.xlsx")
+        st.session_state.data_loaded = True
 
-    # 2. Selector de Tienda (siempre visible)
     tiendas = sorted(st.session_state.df_ventas['Tienda'].unique().tolist())
     tienda_sel = st.selectbox("Selecciona la Tienda para analizar:", tiendas)
-
-    # 3. Botón de Análisis Maestro
-    if st.button("Ejecutar Análisis Maestro"):
-        # Usamos los datos guardados en memoria
+    
+    if st.button("Ejecutar Análisis"):
+        # Filtro directo
         df_tienda = st.session_state.df_ventas[
             (st.session_state.df_ventas['Tienda'] == tienda_sel) & 
             (~st.session_state.df_ventas['Proveedor'].isin([415, 426, 427]))
         ].copy()
         
         top_20 = df_tienda.groupby('Modelo')['Vtas'].sum().nlargest(20).index
-        df_top = df_tienda[df_tienda['Modelo'].isin(top_20)]
+        df_top = df_tienda[df_tienda['Modelo'].isin(top_20)].copy()
         
         resultados = []
         for _, row in df_top.iterrows():
@@ -659,12 +658,23 @@ with tab7:
                     ex_val = row.get(f'ex{i}', 0)
                     p_val = row.get(f'p{i}', 0)
                     
+                    # Condicional sin tocar nada de la lógica actual
                     if (pd.isna(ex_val) or ex_val == 0) and (pd.isna(p_val) or p_val == 0):
                         talla_fisica = tallas_row.iloc[0][f'ex{i}']
-                        resultados.append({"Modelo": row['Modelo'], "Talla": talla_fisica})
+                        # Solo agregamos si la talla es válida
+                        if pd.notna(talla_fisica):
+                            resultados.append({
+                                "Departamento": row['Departamento'].capitalize(),
+                                "Modelo": row['Modelo'],
+                                "Talla": talla_fisica
+                            })
         
         if resultados:
-            st.dataframe(pd.DataFrame(resultados).drop_duplicates())
+            df_final = pd.DataFrame(resultados).drop_duplicates()
+            # Despliegue en bloques por departamento
+            for dpto in df_final['Departamento'].unique():
+                st.write(f"### Bloque: {dpto}")
+                st.dataframe(df_final[df_final['Departamento'] == dpto][['Modelo', 'Talla']])
         else:
             st.success("¡Excelente! No hay faltantes en el Top 20.")            
  # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
