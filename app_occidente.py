@@ -618,59 +618,55 @@ with tab6:
             ---
             *Nota Final: La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.*
             """)
-# --- PESTAÑA 7: NIVELACIÓN COMERCIAL (CORRECCIÓN DE NOMBRE) ---
+# --- PESTAÑA 7: NIVELACIÓN COMERCIAL (FLUJO DE ESTADO) ---
 with tab7:
     st.subheader("🚀 Monitor de Nivelación: Precisión Total")
-    
-    if st.button("Ejecutar Análisis Maestro"):
+
+    # 1. Carga inteligente con memoria (Session State)
+    if 'data_loaded' not in st.session_state:
         try:
-            # CORREGIDO: Lectura usando 'Ventas.xlsx' (con V mayúscula)
-            df_ventas = pd.read_excel("Ventas.xlsx")
-            df_tallas = pd.read_excel("Valores de tallas.xlsx")
-            
-            # Selector de Tienda
-            tiendas = sorted(df_ventas['Tienda'].unique().tolist())
-            tienda_sel = st.selectbox("Selecciona la Tienda para analizar:", tiendas)
-            
-            # Filtramos la tienda y eliminamos proveedores accesorios (415, 426, 427)
-            df_tienda = df_ventas[(df_ventas['Tienda'] == tienda_sel) & 
-                                 (~df_ventas['Proveedor'].isin([415, 426, 427]))].copy()
-            
-            # Top 20 basado en 'Vtas'
-            top_20 = df_tienda.groupby('Modelo')['Vtas'].sum().nlargest(20).index
-            df_top = df_tienda[df_tienda['Modelo'].isin(top_20)]
-            
-            resultados = []
-            
-            # Lógica de nivelación fila por fila
-            for _, row in df_top.iterrows():
-                dpto = str(row['Departamento']).strip().lower()
-                # Buscamos la fila correspondiente en Valores de tallas
-                tallas_row = df_tallas[df_tallas['Valor'].astype(str).str.lower() == dpto]
-                
-                if not tallas_row.empty:
-                    # Evaluamos columnas ex1 a ex15
-                    for i in range(1, 16):
-                        ex_val = row.get(f'ex{i}', 0)
-                        p_val = row.get(f'p{i}', 0)
-                        
-                        # Condición: Sugerir pedido si ambos son 0 o vacíos
-                        if (pd.isna(ex_val) or ex_val == 0) and (pd.isna(p_val) or p_val == 0):
-                            # Obtenemos el valor de la talla física
-                            talla_fisica = tallas_row.iloc[0][f'ex{i}']
-                            resultados.append({
-                                "Modelo": row['Modelo'],
-                                "Talla": talla_fisica
-                            })
-            
-            # Mostrar resultados
-            if resultados:
-                st.dataframe(pd.DataFrame(resultados).drop_duplicates())
-            else:
-                st.success("¡Excelente! No hay faltantes en el Top 20.")
-            
+            st.session_state.df_ventas = pd.read_excel("Ventas.xlsx")
+            st.session_state.df_tallas = pd.read_excel("Valores de tallas.xlsx")
+            st.session_state.data_loaded = True
         except Exception as e:
-            st.error(f"Error al procesar los archivos 'Ventas.xlsx' o 'Valores de tallas.xlsx': {e}")            
+            st.error(f"Error al cargar archivos: {e}")
+            st.stop()
+
+    # 2. Selector de Tienda (siempre visible)
+    tiendas = sorted(st.session_state.df_ventas['Tienda'].unique().tolist())
+    tienda_sel = st.selectbox("Selecciona la Tienda para analizar:", tiendas)
+
+    # 3. Botón de Análisis Maestro
+    if st.button("Ejecutar Análisis Maestro"):
+        # Usamos los datos guardados en memoria
+        df_tienda = st.session_state.df_ventas[
+            (st.session_state.df_ventas['Tienda'] == tienda_sel) & 
+            (~st.session_state.df_ventas['Proveedor'].isin([415, 426, 427]))
+        ].copy()
+        
+        top_20 = df_tienda.groupby('Modelo')['Vtas'].sum().nlargest(20).index
+        df_top = df_tienda[df_tienda['Modelo'].isin(top_20)]
+        
+        resultados = []
+        for _, row in df_top.iterrows():
+            dpto = str(row['Departamento']).strip().lower()
+            tallas_row = st.session_state.df_tallas[
+                st.session_state.df_tallas['Valor'].astype(str).str.lower() == dpto
+            ]
+            
+            if not tallas_row.empty:
+                for i in range(1, 16):
+                    ex_val = row.get(f'ex{i}', 0)
+                    p_val = row.get(f'p{i}', 0)
+                    
+                    if (pd.isna(ex_val) or ex_val == 0) and (pd.isna(p_val) or p_val == 0):
+                        talla_fisica = tallas_row.iloc[0][f'ex{i}']
+                        resultados.append({"Modelo": row['Modelo'], "Talla": talla_fisica})
+        
+        if resultados:
+            st.dataframe(pd.DataFrame(resultados).drop_duplicates())
+        else:
+            st.success("¡Excelente! No hay faltantes en el Top 20.")            
  # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
