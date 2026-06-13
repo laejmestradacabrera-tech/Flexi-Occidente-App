@@ -6,38 +6,30 @@ from email.mime.text import MIMEText
 import datetime
 from fpdf import FPDF
 import openpyxl
+# --- CONEXIÓN CENTRALIZADA (Poner después de los imports) ---
 from oauth2client.service_account import ServiceAccountCredentials
 import gspread
-
-# --- CONEXIÓN CENTRALIZADA ---
-scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/spreadsheets']
+scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
 creds = ServiceAccountCredentials.from_json_keyfile_dict(dict(st.secrets["gcp_service_account"]), scope)
 client = gspread.authorize(creds)
-
-# Acceso a archivos
 archivo_ventas = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM')
-sheet_bitacora = client.open("Bitacora_Estrategica").sheet1
-
-# --- FUNCIONES DE BITÁCORA ---
+# --- FUNCIONES DE BITÁCORA (FINAL) ---
 def cargar_tiendas():
     nombre_archivo = "CORREO DE TIENDAS.xlsx"
     try:
+        # Usamos read_excel porque su archivo es .xlsx
         return pd.read_excel(nombre_archivo)
     except Exception as e:
         st.error(f"Error al cargar el archivo de Excel '{nombre_archivo}': {e}")
         return pd.DataFrame({'NOMBRE': ['Error'], 'ENCARGADO': ['Sin datos']})
 
 def guardar_incidencia(datos):
-    fila = [
-        datos["Fecha"], 
-        datos["Tienda"], 
-        datos["Encargado"], 
-        datos["Factor"], 
-        datos["Notas"], 
-        "",  # Analisis_Mensual
-        ""   # Periodo_Corte
-    ]
-    sheet_bitacora.append_row(fila)
+    archivo_csv = "bitacora_incidencias.csv"
+    df_nuevo = pd.DataFrame([datos])
+    if not os.path.exists(archivo_csv):
+        df_nuevo.to_csv(archivo_csv, index=False)
+    else:
+        df_nuevo.to_csv(archivo_csv, mode='a', header=False, index=False)
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(page_title="Monitor Comercial Flexi Occidente", layout="wide")
 
