@@ -495,45 +495,81 @@ with tab_bitacora:
     st.subheader("📝 Registro de Incidencias Operativas")
     df_tiendas = cargar_tiendas()
     
-    # 1. Selección de tienda reactiva
     tienda_seleccionada = st.selectbox("Selecciona la Tienda:", df_tiendas['NOMBRE'].unique())
-    
-    # 2. Búsqueda y visualización INMEDIATA del encargado
     fila_tienda = df_tiendas[df_tiendas['NOMBRE'] == tienda_seleccionada]
-    if not fila_tienda.empty:
-        encargado_actual = fila_tienda['ENCARGADO'].values[0]
-        st.info(f"**Encargado(a) detectado(a):** {encargado_actual}")
-    else:
-        encargado_actual = "No encontrado"
-        st.warning(f"**Encargado(a):** {encargado_actual}")
+    encargado_actual = fila_tienda['ENCARGADO'].values[0] if not fila_tienda.empty else "No encontrado"
+    st.info(f"**Encargado(a):** {encargado_actual}")
         
-    # 3. Datos de la incidencia (con fecha corregida)
-    fecha_mexico = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
-    fecha = st.date_input("Fecha", fecha_mexico.date())
+    fecha = st.date_input("Fecha", datetime.datetime.utcnow().date())
     factor = st.selectbox("Factor Principal:", [
         "👟 Faltante de Tallas (Proyecto Tallas Extremas)",
-        "🌧️ Clima adverso", 
-        "📉 Bajo tráfico atípico", 
-        "🧑‍🤝‍🧑 Plantilla incompleta", 
-        "🔌 Falla: VPN FortiClient", 
-        "💻 Falla: Sistema/Terminales", 
-        "🚧 Afectación de acceso", 
-        "🎉 Factor externo"
+        "🌧️ Clima adverso", "📉 Bajo tráfico atípico", "🧑‍🤝‍🧑 Plantilla incompleta", 
+        "🔌 Falla: VPN FortiClient", "💻 Falla: Sistema/Terminales", 
+        "🚧 Afectación de acceso", "🎉 Factor externo"
     ])
+    
+    # NUEVA LÓGICA: Campos dinámicos para Tallas
+    modelo_captura = ""
+    talla_captura = 0
+    precio_captura = 0.0
+    status_validacion = "N/A"
+
+    if "Faltante de Tallas" in factor:
+        modelo_captura = st.text_input("Modelo:")
+        talla_captura = st.number_input("Talla:", min_value=150, max_value=350, step=5)
+        precio_captura = st.number_input("Precio:", min_value=0.0)
+
     notas = st.text_area("Detalles adicionales:")
     
-    # 4. Botón de guardado
     if st.button("💾 Guardar en Bitácora"):
-        datos = {
-            "Fecha": str(fecha),
-            "Tienda": tienda_seleccionada,
-            "Encargado": encargado_actual,
-            "Factor": factor,
-            "Notas": notas
-        }
-        guardar_incidencia(datos)
-        st.success(f"✅ Incidencia registrada para {tienda_seleccionada}")
+        # Validación de Stock si es Faltante de Tallas
+        if "Faltante de Tallas" in factor:
+            try:
+                # Carga de archivos del repo
+                df_ventas = pd.read_excel("Ventas.xlsx")
+                df_tallas = pd.read_excel("Valores de tallas.xlsx")
+                
+                # 1. Buscar correspondencia de talla
+                # El sistema filtra por el depto del modelo en Ventas para saber qué fila de tallas usar
+                modelo_row = df_ventas[df_ventas['Modelo'] == modelo_captura]
+                if modelo_row.empty:
+                    st.error("❌ Modelo no encontrado en sistema.")
+                    st.stop()
+                
+                depto = str(modelo_row.iloc[0]['Departamento']).strip()
+                tallas_row = df_tallas[df_tallas['Valor'].astype(str).str.strip() == depto]
+                
+                # 2. Encontrar qué columna 'ex' corresponde a la talla solicitada
+                # Buscamos en el catálogo qué columna exX tiene el valor de la talla
+                col_talla = None
+                for i in range(1, 16):
+                    if tallas_row.iloc[0][f'ex{i}'] == talla_captura:
+                        col_talla = f'ex{i}'
+                        break
+                
+                if not col_talla:
+                    st.error("❌ Talla no válida para este departamento (Bloqueo de seguridad).")
+                    st.stop()
+                
+                # 3. Validar existencia
+                existencia = modelo_row.iloc[0][col_talla]
+                if existencia > 0:
+                    st.error(f"❌ Error: Modelo con existencia física ({existencia} pzas). No procede incidencia.")
+                    st.stop()
+                
+                status_validacion = "VALIDADO"
+            except Exception as e:
+                st.error(f"Error en validación: {e}")
+                st.stop()
 
+        # Guardado en Google Sheets (incluye nuevas columnas H, I, J, K)
+        fila = [
+            str(fecha), tienda_seleccionada, encargado_actual, factor, notas,
+            "", "", # Columnas F y G vacías
+            modelo_captura, talla_captura, precio_captura, status_validacion
+        ]
+        sheet_bitacora.append_row(fila)
+        st.success(f"✅ Incidencia registrada para {tienda_seleccionada}")
 # --- PESTAÑA 5: RUTA DEL CLIENTE ---
 with tab5:
     st.subheader("🧭 Protocolo Operativo en Piso de Venta")
