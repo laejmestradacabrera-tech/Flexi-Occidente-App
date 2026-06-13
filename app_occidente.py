@@ -620,12 +620,10 @@ with tab6:
             """)
 # --- PESTAÑA 7: MONITOR DE NIVELACIÓN FLEXI OCCIDENTE ---
 with tab7:
-    # Encabezado profesional
-    col1, col2 = st.columns([1, 4])
-    with col1:
-        st.markdown("## 📈") # Logo alusivo a nivelación
-    with col2:
-        st.subheader("Monitor de Nivelación Flexi Occidente")
+    # Encabezado institucional (Rojo Flexi Oscuro)
+    st.markdown("""
+        <h2 style='color: #B22222;'>📈 Monitor de Nivelación Flexi Occidente</h2>
+    """, unsafe_allow_html=True)
     
     # Carga de datos con sesión
     if 'data_loaded' not in st.session_state:
@@ -658,10 +656,8 @@ with tab7:
                     ex_val = row.get(f'ex{i}', 0)
                     p_val = row.get(f'p{i}', 0)
                     
-                    # Condicional sin tocar nada de la lógica actual
                     if (pd.isna(ex_val) or ex_val == 0) and (pd.isna(p_val) or p_val == 0):
                         talla_fisica = tallas_row.iloc[0][f'ex{i}']
-                        # Solo agregamos si la talla es válida
                         if pd.notna(talla_fisica):
                             resultados.append({
                                 "Departamento": row['Departamento'].capitalize(),
@@ -671,9 +667,9 @@ with tab7:
         
         if resultados:
             df_final = pd.DataFrame(resultados).drop_duplicates()
-            # Despliegue en bloques por departamento
+            # Despliegue en bloques con títulos institucionales
             for dpto in df_final['Departamento'].unique():
-                st.write(f"### Bloque: {dpto}")
+                st.markdown(f"<h3 style='color: #B22222;'>Bloque: {dpto}</h3>", unsafe_allow_html=True)
                 st.dataframe(df_final[df_final['Departamento'] == dpto][['Modelo', 'Talla']])
         else:
             st.success("¡Excelente! No hay faltantes en el Top 20.")            
