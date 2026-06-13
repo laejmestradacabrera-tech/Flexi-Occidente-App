@@ -6,30 +6,45 @@ from email.mime.text import MIMEText
 import datetime
 from fpdf import FPDF
 import openpyxl
-# --- CONEXIÓN CENTRALIZADA (Poner después de los imports) ---
 from oauth2client.service_account import ServiceAccountCredentials
 import gspread
-scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+
+# --- CONFIGURACIÓN CENTRALIZADA DE GOOGLE ---
+scope = [
+    'https://spreadsheets.google.com/feeds', 
+    'https://www.googleapis.com/auth/drive', 
+    'https://www.googleapis.com/auth/spreadsheets'
+]
+
 creds = ServiceAccountCredentials.from_json_keyfile_dict(dict(st.secrets["gcp_service_account"]), scope)
 client = gspread.authorize(creds)
-archivo_ventas = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM')
-# --- FUNCIONES DE BITÁCORA (FINAL) ---
+
+# Conexiones usando el ID que me confirmaste
+ID_ARCHIVO = '1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM'
+archivo_ventas = client.open_by_key(ID_ARCHIVO)
+sheet_bitacora = client.open_by_key(ID_ARCHIVO).sheet1
+
+# --- FUNCIONES ---
 def cargar_tiendas():
     nombre_archivo = "CORREO DE TIENDAS.xlsx"
     try:
-        # Usamos read_excel porque su archivo es .xlsx
         return pd.read_excel(nombre_archivo)
     except Exception as e:
-        st.error(f"Error al cargar el archivo de Excel '{nombre_archivo}': {e}")
+        st.error(f"Error al cargar el archivo de Excel: {e}")
         return pd.DataFrame({'NOMBRE': ['Error'], 'ENCARGADO': ['Sin datos']})
 
 def guardar_incidencia(datos):
-    archivo_csv = "bitacora_incidencias.csv"
-    df_nuevo = pd.DataFrame([datos])
-    if not os.path.exists(archivo_csv):
-        df_nuevo.to_csv(archivo_csv, index=False)
-    else:
-        df_nuevo.to_csv(archivo_csv, mode='a', header=False, index=False)
+    # Esta función envía el dato directo a Google Sheets
+    fila = [
+        datos["Fecha"], 
+        datos["Tienda"], 
+        datos["Encargado"], 
+        datos["Factor"], 
+        datos["Notas"], 
+        "",  # Analisis_Mensual vacío
+        ""   # Periodo_Corte vacío
+    ]
+    sheet_bitacora.append_row(fila)
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(page_title="Monitor Comercial Flexi Occidente", layout="wide")
 
