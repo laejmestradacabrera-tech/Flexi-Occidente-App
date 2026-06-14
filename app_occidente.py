@@ -59,66 +59,73 @@ def validar_captura_stock(tienda, modelo, talla_input, df_ventas, df_tallas):
     import re
     import pandas as pd
     
-    # 1. Normalizar Tienda y Modelo
-    modelo_str = str(modelo).strip().replace('.0', '')
-    df_ventas['Modelo_norm'] = df_ventas['Modelo'].astype(str).str.strip().str.replace('.0', '', regex=False)
+    # 1. Limpieza estricta de nombres de columnas para evitar fallos
+    df_ventas.columns = df_ventas.columns.str.strip().str.lower()
+    df_tallas.columns = df_tallas.columns.str.strip().str.lower()
+    
+    # 2. Normalizar Tienda y Modelo (Todo a mayúsculas para un cruce perfecto)
+    modelo_str = str(modelo).strip().upper()
+    df_ventas['modelo_str'] = df_ventas['modelo'].astype(str).str.strip().str.upper()
     
     nums = re.findall(r'\d+', str(tienda))
-    tienda_num = nums[0] if nums else str(tienda).strip().lower()
-    df_ventas['Tienda_norm'] = df_ventas['Tienda'].astype(str).str.strip().str.lower()
+    tienda_num = nums[0] if nums else str(tienda).strip()
+    df_ventas['tienda_str'] = df_ventas['tienda'].astype(str).str.strip()
     
-    # 2. Filtrar el modelo en la tienda (Archivo Ventas)
-    if nums:
-        df_tienda = df_ventas[(df_ventas['Tienda_norm'].str.contains(tienda_num, na=False)) & (df_ventas['Modelo_norm'] == modelo_str)]
-    else:
-        df_tienda = df_ventas[(df_ventas['Tienda_norm'] == tienda_num) & (df_ventas['Modelo_norm'] == modelo_str)]
+    # 3. Filtrar en Ventas: Tienda y Modelo
+    df_filtro = df_ventas[(df_ventas['tienda_str'].str.contains(tienda_num, na=False)) & (df_ventas['modelo_str'] == modelo_str)]
     
-    if df_tienda.empty:
-        return True, ""
+    if df_filtro.empty:
+        return True, "" # No existe el modelo en la tienda, quiebre válido
         
-    # 3. Normalizar la Talla capturada (Convierte 250 a 25.0 para evitar errores si es que aún usabas ese formato)
-    # Ahora buscamos el entero exacto, por ejemplo, "250"
+    # 4. Normalizar la Talla de Entrada (Ej: Si capturan 250 o 25.0, lo volvemos "250")
     try:
-        talla_buscar = str(int(float(talla_input)))
+        talla_input_num = float(talla_input)
+        if talla_input_num < 100:
+            talla_input_num = talla_input_num * 10
+        talla_input_str = str(int(talla_input_num))
     except:
-        talla_buscar = str(talla_input).strip()
+        talla_input_str = str(talla_input).strip()
         
-    df_tallas['Valor_norm'] = df_tallas['Valor'].astype(str).str.strip().str.lower()
+    df_tallas['valor_str'] = df_tallas['valor'].astype(str).str.strip().str.upper()
     
-    # 4. LÓGICA EXACTA DE COLUMNAS: Buscar en qué columna "ex" está la talla y revisarla
-    for _, row_v in df_tienda.iterrows():
-        dpto = str(row_v['Departamento']).strip().lower()
-        tallas_row = df_tallas[df_tallas['Valor_norm'] == dpto]
+    # 5. LÓGICA LAE: Buscar existencias > 0 primero, y luego validar qué talla es
+    for _, row in df_filtro.iterrows():
+        dpto = str(row.get('departamento', '')).strip().upper() # Cruza "dama" con "DAMA"
         
-        if not tallas_row.empty:
-            columna_correcta = None
+        # Filtramos la matriz de tallas para ese departamento
+        talla_row = df_tallas[df_tallas['valor_str'] == dpto]
+        if talla_row.empty:
+            continue
             
-            # PASO A: Buscar la talla en el archivo "Valores de tallas"
-            for i in range(1, 16):
-                col_name = f'ex{i}'
-                talla_matriz = str(tallas_row.iloc[0].get(col_name, '')).strip()
+        # Recorrer las columnas ex1 a ex15
+        for i in range(1, 16):
+            col_ex = f'ex{i}'
+            
+            # PASO A: Verificar si HAY EXISTENCIA física primero en el archivo VENTAS
+            existencia = row.get(col_ex, 0)
+            try:
+                existencia_val = float(existencia)
+            except:
+                existencia_val = 0.0
                 
-                try:
-                    if talla_matriz and talla_matriz != 'nan':
-                        talla_matriz = str(int(float(talla_matriz)))
-                except:
-                    pass
-                    
-                if talla_matriz == talla_buscar:
-                    columna_correcta = col_name
-                    break # Encontramos la columna correcta (ej. ex8)
-            
-            # PASO B: Revisar esa columna exacta en "Ventas"
-            if columna_correcta:
-                existencia = row_v.get(columna_correcta, 0)
-                try:
-                    existencia_num = float(existencia)
-                except:
-                    existencia_num = 0.0
-                    
-                if pd.notna(existencia) and existencia_num > 0:
-                    return False, f"⛔ CAPTURA BLOQUEADA: Existen {int(existencia_num)} par(es) físicos del modelo {modelo} en talla {talla_input}. Audite su inventario."
-                    
+            if pd.notna(existencia) and existencia_val > 0:
+                
+                # PASO B: Si hay existencia, preguntamos de qué talla es esa columna a "Valores de tallas"
+                talla_matriz = talla_row.iloc[0].get(col_ex, '')
+                
+                if pd.notna(talla_matriz) and str(talla_matriz).strip() != '':
+                    try:
+                        talla_matriz_num = float(talla_matriz)
+                        if talla_matriz_num < 100:
+                            talla_matriz_num = talla_matriz_num * 10
+                        talla_matriz_str = str(int(talla_matriz_num))
+                    except:
+                        talla_matriz_str = str(talla_matriz).strip()
+                        
+                    # PASO C: Si la talla de la encargada coincide con la talla que SÍ tiene stock -> BLOQUEA
+                    if talla_matriz_str == talla_input_str:
+                        return False, f"⛔ CAPTURA BLOQUEADA: El sistema encontró {int(existencia_val)} par(es) físicos en la bodega para el modelo {modelo_str} en talla {talla_input}. Por favor, audite su inventario físico."
+                        
     return True, ""    
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(page_title="Monitor Comercial Flexi Occidente", layout="wide")
