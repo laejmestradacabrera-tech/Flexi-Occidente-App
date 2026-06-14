@@ -57,17 +57,17 @@ def cargar_archivos_locales():
     return True
 def validar_captura_stock(tienda, modelo, talla_input, df_ventas, df_tallas):
     import re
+    import pandas as pd
     
-    # 1. Normalizar el Modelo (quita decimales .0 y espacios ocultos)
+    # 1. Normalizar Tienda y Modelo
     modelo_str = str(modelo).strip().replace('.0', '')
     df_ventas['Modelo_norm'] = df_ventas['Modelo'].astype(str).str.strip().str.replace('.0', '', regex=False)
     
-    # 2. Normalizar la Tienda (extrae SOLO el número, ej. de "Tienda 56" saca "56")
     nums = re.findall(r'\d+', str(tienda))
     tienda_num = nums[0] if nums else str(tienda).strip().lower()
     df_ventas['Tienda_norm'] = df_ventas['Tienda'].astype(str).str.strip().str.lower()
     
-    # 3. Filtrar el inventario de forma robusta
+    # 2. Filtrar el modelo en la tienda (Archivo Ventas)
     if nums:
         df_tienda = df_ventas[(df_ventas['Tienda_norm'].str.contains(tienda_num, na=False)) & (df_ventas['Modelo_norm'] == modelo_str)]
     else:
@@ -76,37 +76,50 @@ def validar_captura_stock(tienda, modelo, talla_input, df_ventas, df_tallas):
     if df_tienda.empty:
         return True, ""
         
-    # 4. Buscar la talla
+    # 3. Normalizar la Talla capturada (Convierte 250 a 25.0 para evitar errores si es que aún usabas ese formato)
+    # Ahora buscamos el entero exacto, por ejemplo, "250"
+    try:
+        talla_buscar = str(int(float(talla_input)))
+    except:
+        talla_buscar = str(talla_input).strip()
+        
     df_tallas['Valor_norm'] = df_tallas['Valor'].astype(str).str.strip().str.lower()
     
+    # 4. LÓGICA EXACTA DE COLUMNAS: Buscar en qué columna "ex" está la talla y revisarla
     for _, row_v in df_tienda.iterrows():
         dpto = str(row_v['Departamento']).strip().lower()
         tallas_row = df_tallas[df_tallas['Valor_norm'] == dpto]
         
         if not tallas_row.empty:
+            columna_correcta = None
+            
+            # PASO A: Buscar la talla en el archivo "Valores de tallas"
             for i in range(1, 16):
-                talla_fisica = str(tallas_row.iloc[0].get(f'ex{i}', '')).strip()
-                if not talla_fisica or talla_fisica == 'nan':
-                    continue
-                    
-                son_iguales = False
+                col_name = f'ex{i}'
+                talla_matriz = str(tallas_row.iloc[0].get(col_name, '')).strip()
+                
                 try:
-                    t_input = float(talla_input) / 10.0 if float(talla_input) >= 100 else float(talla_input)
-                    son_iguales = t_input == float(talla_fisica)
+                    if talla_matriz and talla_matriz != 'nan':
+                        talla_matriz = str(int(float(talla_matriz)))
                 except:
-                    son_iguales = str(talla_input) == talla_fisica
+                    pass
                     
-                if son_iguales:
-                    existencia = row_v.get(f'ex{i}', 0)
-                    try:
-                        existencia_float = float(existencia)
-                    except:
-                        existencia_float = 0.0
-                        
-                    if pd.notna(existencia) and existencia_float > 0:
-                        return False, f"⛔ CAPTURA BLOQUEADA: El sistema detecta {int(existencia_float)} par(es) físicos del modelo {modelo} en bodega. Audite su inventario."
-                        
-    return True, ""
+                if talla_matriz == talla_buscar:
+                    columna_correcta = col_name
+                    break # Encontramos la columna correcta (ej. ex8)
+            
+            # PASO B: Revisar esa columna exacta en "Ventas"
+            if columna_correcta:
+                existencia = row_v.get(columna_correcta, 0)
+                try:
+                    existencia_num = float(existencia)
+                except:
+                    existencia_num = 0.0
+                    
+                if pd.notna(existencia) and existencia_num > 0:
+                    return False, f"⛔ CAPTURA BLOQUEADA: Existen {int(existencia_num)} par(es) físicos del modelo {modelo} en talla {talla_input}. Audite su inventario."
+                    
+    return True, ""    
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(page_title="Monitor Comercial Flexi Occidente", layout="wide")
 
