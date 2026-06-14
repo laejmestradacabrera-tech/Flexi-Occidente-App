@@ -55,17 +55,33 @@ def cargar_archivos_locales():
         except Exception as e:
             return False
     return True
-
 def validar_captura_stock(tienda, modelo, talla_input, df_ventas, df_tallas):
-    # 1. Filtramos por la Tienda seleccionada y el Modelo
-    df_tienda = df_ventas[(df_ventas['Tienda'] == tienda) & (df_ventas['Modelo'].astype(str) == str(modelo))]
+    import re
+    
+    # 1. Normalizar el Modelo (quita decimales .0 y espacios ocultos)
+    modelo_str = str(modelo).strip().replace('.0', '')
+    df_ventas['Modelo_norm'] = df_ventas['Modelo'].astype(str).str.strip().str.replace('.0', '', regex=False)
+    
+    # 2. Normalizar la Tienda (extrae SOLO el número, ej. de "Tienda 56" saca "56")
+    nums = re.findall(r'\d+', str(tienda))
+    tienda_num = nums[0] if nums else str(tienda).strip().lower()
+    df_ventas['Tienda_norm'] = df_ventas['Tienda'].astype(str).str.strip().str.lower()
+    
+    # 3. Filtrar el inventario de forma robusta
+    if nums:
+        df_tienda = df_ventas[(df_ventas['Tienda_norm'].str.contains(tienda_num, na=False)) & (df_ventas['Modelo_norm'] == modelo_str)]
+    else:
+        df_tienda = df_ventas[(df_ventas['Tienda_norm'] == tienda_num) & (df_ventas['Modelo_norm'] == modelo_str)]
+    
     if df_tienda.empty:
         return True, ""
         
-    # 2. Buscar la talla en la matriz de conversión
+    # 4. Buscar la talla
+    df_tallas['Valor_norm'] = df_tallas['Valor'].astype(str).str.strip().str.lower()
+    
     for _, row_v in df_tienda.iterrows():
         dpto = str(row_v['Departamento']).strip().lower()
-        tallas_row = df_tallas[df_tallas['Valor'].astype(str).str.lower() == dpto]
+        tallas_row = df_tallas[df_tallas['Valor_norm'] == dpto]
         
         if not tallas_row.empty:
             for i in range(1, 16):
@@ -75,15 +91,20 @@ def validar_captura_stock(tienda, modelo, talla_input, df_ventas, df_tallas):
                     
                 son_iguales = False
                 try:
-                    t_input = float(talla_input) / 10 if float(talla_input) > 100 else float(talla_input)
+                    t_input = float(talla_input) / 10.0 if float(talla_input) >= 100 else float(talla_input)
                     son_iguales = t_input == float(talla_fisica)
                 except:
                     son_iguales = str(talla_input) == talla_fisica
                     
                 if son_iguales:
                     existencia = row_v.get(f'ex{i}', 0)
-                    if pd.notna(existencia) and float(existencia) > 0:
-                        return False, f"⛔ CAPTURA BLOQUEADA: Existen {int(existencia)} par(es) físicos del modelo {modelo} en la tienda. No es un quiebre válido."
+                    try:
+                        existencia_float = float(existencia)
+                    except:
+                        existencia_float = 0.0
+                        
+                    if pd.notna(existencia) and existencia_float > 0:
+                        return False, f"⛔ CAPTURA BLOQUEADA: El sistema detecta {int(existencia_float)} par(es) físicos del modelo {modelo} en bodega. Audite su inventario."
                         
     return True, ""
 # 1. CONFIGURACIÓN DE PÁGINA
