@@ -45,6 +45,47 @@ def guardar_incidencia(datos):
         ""   # Periodo_Corte vacío
     ]
     sheet_bitacora.append_row(fila)
+
+def cargar_archivos_locales():
+    # Garantiza acceso al inventario en memoria
+    if 'df_ventas' not in st.session_state or 'df_tallas' not in st.session_state:
+        try:
+            st.session_state.df_ventas = pd.read_excel("Ventas.xlsx")
+            st.session_state.df_tallas = pd.read_excel("Valores de tallas.xlsx")
+        except Exception as e:
+            return False
+    return True
+
+def validar_captura_stock(tienda, modelo, talla_input, df_ventas, df_tallas):
+    # 1. Filtramos por la Tienda seleccionada y el Modelo
+    df_tienda = df_ventas[(df_ventas['Tienda'] == tienda) & (df_ventas['Modelo'].astype(str) == str(modelo))]
+    if df_tienda.empty:
+        return True, ""
+        
+    # 2. Buscar la talla en la matriz de conversión
+    for _, row_v in df_tienda.iterrows():
+        dpto = str(row_v['Departamento']).strip().lower()
+        tallas_row = df_tallas[df_tallas['Valor'].astype(str).str.lower() == dpto]
+        
+        if not tallas_row.empty:
+            for i in range(1, 16):
+                talla_fisica = str(tallas_row.iloc[0].get(f'ex{i}', '')).strip()
+                if not talla_fisica or talla_fisica == 'nan':
+                    continue
+                    
+                son_iguales = False
+                try:
+                    t_input = float(talla_input) / 10 if float(talla_input) > 100 else float(talla_input)
+                    son_iguales = t_input == float(talla_fisica)
+                except:
+                    son_iguales = str(talla_input) == talla_fisica
+                    
+                if son_iguales:
+                    existencia = row_v.get(f'ex{i}', 0)
+                    if pd.notna(existencia) and float(existencia) > 0:
+                        return False, f"⛔ CAPTURA BLOQUEADA: Existen {int(existencia)} par(es) físicos del modelo {modelo} en la tienda. No es un quiebre válido."
+                        
+    return True, ""
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(page_title="Monitor Comercial Flexi Occidente", layout="wide")
 
@@ -495,45 +536,61 @@ with tab_bitacora:
     st.subheader("📝 Registro de Incidencias Operativas")
     df_tiendas = cargar_tiendas()
     
-    # 1. Selección de tienda reactiva
     tienda_seleccionada = st.selectbox("Selecciona la Tienda:", df_tiendas['NOMBRE'].unique())
-    
-    # 2. Búsqueda y visualización INMEDIATA del encargado
     fila_tienda = df_tiendas[df_tiendas['NOMBRE'] == tienda_seleccionada]
-    if not fila_tienda.empty:
-        encargado_actual = fila_tienda['ENCARGADO'].values[0]
-        st.info(f"**Encargado(a) detectado(a):** {encargado_actual}")
-    else:
-        encargado_actual = "No encontrado"
-        st.warning(f"**Encargado(a):** {encargado_actual}")
+    encargado_actual = fila_tienda['ENCARGADO'].values[0] if not fila_tienda.empty else "No encontrado"
+    st.info(f"**Encargado(a) detectado(a):** {encargado_actual}")
         
-    # 3. Datos de la incidencia (con fecha corregida)
     fecha_mexico = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
     fecha = st.date_input("Fecha", fecha_mexico.date())
     factor = st.selectbox("Factor Principal:", [
         "👟 Faltante de Tallas (Proyecto Tallas Extremas)",
-        "🌧️ Clima adverso", 
-        "📉 Bajo tráfico atípico", 
-        "🧑‍🤝‍🧑 Plantilla incompleta", 
-        "🔌 Falla: VPN FortiClient", 
-        "💻 Falla: Sistema/Terminales", 
-        "🚧 Afectación de acceso", 
-        "🎉 Factor externo"
+        "🌧️ Clima adverso", "📉 Bajo tráfico atípico", "🧑‍🤝‍🧑 Plantilla incompleta", 
+        "🔌 Falla: VPN FortiClient", "💻 Falla: Sistema/Terminales", 
+        "🚧 Afectación de acceso", "🎉 Factor externo"
     ])
+    
+    # Campos dinámicos para Tallas
+    modelo_captura, talla_captura, precio_captura = "", 0, 0.0
+    status_validacion = "N/A"
+
+    if "Faltante de Tallas" in factor:
+        modelo_captura = st.text_input("Modelo:")
+        talla_captura = st.number_input("Talla (Ej. 250 o 25.0):", min_value=15.0, max_value=350.0, step=0.5)
+        precio_captura = st.number_input("Precio Real (MXN):", min_value=0.0)
+
     notas = st.text_area("Detalles adicionales:")
     
-    # 4. Botón de guardado
     if st.button("💾 Guardar en Bitácora"):
-        datos = {
-            "Fecha": str(fecha),
-            "Tienda": tienda_seleccionada,
-            "Encargado": encargado_actual,
-            "Factor": factor,
-            "Notas": notas
-        }
-        guardar_incidencia(datos)
-        st.success(f"✅ Incidencia registrada para {tienda_seleccionada}")
+        # Validación de Stock en Inventario
+        if "Faltante de Tallas" in factor:
+            if not modelo_captura:
+                st.error("❌ Para reportar falta de tallas, debes escribir el Modelo.")
+                st.stop()
+                
+            try:
+                df_ventas = pd.read_excel("Ventas.xlsx")
+                df_tallas = pd.read_excel("Valores de tallas.xlsx")
+                
+                # Aquí usamos el cerebro nuevo que pegaste arriba
+                es_valido, mensaje = validar_captura_stock(tienda_seleccionada, modelo_captura, talla_captura, df_ventas, df_tallas)
+                
+                if not es_valido:
+                    st.error(mensaje)
+                    st.stop()
+                status_validacion = "VALIDADO"
+            except Exception as e:
+                st.error(f"Error técnico en validación: {e}")
+                st.stop()
 
+        # Guardado en Google Sheets si pasó los filtros
+        fila = [
+            str(fecha), tienda_seleccionada, encargado_actual, factor, notas,
+            "", "", # F y G vacías
+            str(modelo_captura), str(talla_captura), str(precio_captura), status_validacion
+        ]
+        sheet_bitacora.append_row(fila)
+        st.success(f"✅ Incidencia registrada para {tienda_seleccionada} y guardada en Google Sheets")
 # --- PESTAÑA 5: RUTA DEL CLIENTE ---
 with tab5:
     st.subheader("🧭 Protocolo Operativo en Piso de Venta")
