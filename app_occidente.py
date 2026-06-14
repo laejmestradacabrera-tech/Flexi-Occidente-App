@@ -58,71 +58,94 @@ def cargar_archivos_locales():
 def validar_captura_stock(tienda, modelo, talla_input, df_ventas, df_tallas):
     import re
     import pandas as pd
+    import streamlit as st
     
-    # 1. Limpieza extrema de columnas para evitar fallos por espacios o mayúsculas ocultas
-    df_ventas.columns = df_ventas.columns.str.strip().str.lower()
-    df_tallas.columns = df_tallas.columns.str.strip().str.lower()
-    
-    # 2. Normalizar Tienda y Modelo (Eliminamos todos los espacios)
-    modelo_buscado = str(modelo).replace(' ', '').upper()
-    df_ventas['modelo_tmp'] = df_ventas['modelo'].astype(str).str.replace(' ', '').str.upper()
-    
-    nums = re.findall(r'\d+', str(tienda))
-    tda_num = str(int(nums[0])) if nums else str(tienda).strip().lower()
-    df_ventas['tienda_tmp'] = df_ventas['tienda'].astype(str).str.replace('.0', '', regex=False).str.strip().str.lower()
-    
-    # 3. Filtrar Ventas por la Tienda y el Modelo
-    if nums:
-        df_filtro = df_ventas[(df_ventas['tienda_tmp'].str.contains(tda_num, na=False)) & (df_ventas['modelo_tmp'] == modelo_buscado)]
-    else:
-        df_filtro = df_ventas[(df_ventas['tienda_tmp'] == tda_num) & (df_ventas['modelo_tmp'] == modelo_buscado)]
-    
-    if df_filtro.empty:
-        return True, "" # Si no hay historial del modelo en la tienda, es un quiebre válido
-        
-    # 4. Asegurar que la talla a buscar sea texto SIN decimales (ej. "250")
     try:
-        talla_buscada_str = str(int(float(talla_input)))
-    except:
-        talla_buscada_str = str(talla_input).strip()
-    
-    # 5. Cruzar Ventas con Tallas mediante el Departamento
-    for _, row_venta in df_filtro.iterrows():
-        dpto = str(row_venta.get('departamento', '')).strip().lower()
+        # 1. Estandarizar nombres de columnas a minúsculas
+        df_ventas.columns = df_ventas.columns.astype(str).str.strip().str.lower()
+        df_tallas.columns = df_tallas.columns.astype(str).str.strip().str.lower()
         
-        # Buscamos la fila correspondiente a ese departamento (dama, caballero, etc.)
-        tallas_row = df_tallas[df_tallas['valor'].astype(str).str.strip().str.lower() == dpto]
+        # 2. Extraer el ID de la tienda (ej. "Tienda 12" -> 12)
+        nums = re.findall(r'\d+', str(tienda))
+        tda_buscada = int(nums[0]) if nums else -1
+        df_ventas['tienda_int'] = pd.to_numeric(df_ventas['tienda'], errors='coerce').fillna(-1).astype(int)
         
-        if not tallas_row.empty:
-            # Solo revisamos las existencias de ex1 a ex15
-            for i in range(1, 16):
-                col_ex = f'ex{i}'
+        # 3. Limpiar Modelo a buscar (quita espacios y guiones)
+        modelo_buscado = str(modelo).replace(' ', '').replace('-', '').upper()
+        df_ventas['modelo_cln'] = df_ventas['modelo'].astype(str).str.replace(' ', '', regex=False).str.replace('-', '', regex=False).str.upper()
+        
+        # 4. Filtrar Ventas
+        df_filtro = df_ventas[(df_ventas['tienda_int'] == tda_buscada) & (df_ventas['modelo_cln'] == modelo_buscado)]
+        
+        # 5. Normalizar la talla capturada (Transforma 220.0 en "220")
+        try:
+            talla_buscada_str = str(int(float(talla_input)))
+        except:
+            talla_buscada_str = str(talla_input).strip()
+            
+        # --- INICIO DE AUDITORÍA VISUAL (MODO DEPURACIÓN) ---
+        with st.expander("🔍 MODO DEPURACIÓN: AUDITORÍA DE CRUCE DE TALLAS", expanded=True):
+            st.write(f"**Buscando:** Tienda=[{tda_buscada}], Modelo=[{modelo_buscado}], Talla Capturada=[{talla_buscada_str}]")
+            
+            if df_filtro.empty:
+                st.write("❌ **Resultado:** El modelo no existe en el inventario de esta tienda.")
+                return True, ""
                 
-                # Verificamos qué talla física es esa columna
-                talla_matriz = tallas_row.iloc[0].get(col_ex)
+            st.write(f"✅ Se encontraron {len(df_filtro)} fila(s) del modelo. Cruzando con archivo de Tallas...")
+            
+            # 6. Identificar la columna de departamentos
+            col_dpto = 'valor' if 'valor' in df_tallas.columns else df_tallas.columns[0]
+            df_tallas['dpto_cln'] = df_tallas[col_dpto].astype(str).str.strip().str.lower()
+            
+            # 7. Cruzar la información con exactitud
+            for idx, row_venta in df_filtro.iterrows():
+                dpto_venta = str(row_venta.get('departamento', '')).strip().lower()
+                st.write(f"--- \n**Analizando Departamento:** '{dpto_venta}'")
                 
-                if pd.notna(talla_matriz) and str(talla_matriz).strip() != '':
-                    # Limpiamos la talla de la matriz (asegurando que sea entero puro)
-                    try:
-                        talla_matriz_str = str(int(float(talla_matriz)))
-                    except:
-                        talla_matriz_str = str(talla_matriz).strip()
+                tallas_row = df_tallas[df_tallas['dpto_cln'] == dpto_venta]
+                
+                if tallas_row.empty:
+                    st.warning(f"⚠️ No se encontró el departamento '{dpto_venta}' en Valores de tallas.xlsx")
+                    continue
                     
-                    # Si la talla equivale a la que la encargada intenta reportar...
-                    if talla_matriz_str == talla_buscada_str:
+                for i in range(1, 16):
+                    col_ex = f'ex{i}'
+                    
+                    if col_ex in tallas_row.columns:
+                        talla_matriz = tallas_row.iloc[0][col_ex]
                         
-                        # Revisamos la existencia real (> 0) en Ventas para esa MISMA columna (ex)
-                        existencia = row_venta.get(col_ex, 0)
-                        try:
-                            existencia_num = float(existencia)
-                        except:
-                            existencia_num = 0.0
-                            
-                        # Si detecta que SÍ hay existencia, ¡BLOQUEA!
-                        if existencia_num > 0:
-                            return False, f"⛔ CAPTURA BLOQUEADA: El sistema registra {int(existencia_num)} par(es) de la talla {talla_buscada_str} (Modelo {modelo_buscado}) en bodega. Favor de auditar físicamente."
-                            
-    return True, ""    
+                        if pd.notna(talla_matriz) and str(talla_matriz).strip() != '' and str(talla_matriz).strip().lower() != 'nan':
+                            try:
+                                talla_matriz_str = str(int(float(talla_matriz)))
+                            except:
+                                talla_matriz_str = str(talla_matriz).strip()
+                                
+                            # EL MOMENTO DE LA VERDAD (Comparación de Tallas)
+                            if talla_matriz_str == talla_buscada_str:
+                                st.write(f"🎯 **¡COINCIDENCIA ENCONTRADA!** Talla Matriz [{talla_matriz_str}] == Talla Captura [{talla_buscada_str}] en la columna **{col_ex}**")
+                                
+                                if col_ex in row_venta:
+                                    existencia = row_venta[col_ex]
+                                    st.write(f"📦 **Existencia leída en Ventas para {col_ex}:** [{existencia}]")
+                                    
+                                    try:
+                                        existencia_num = float(existencia)
+                                    except:
+                                        existencia_num = 0.0
+                                        
+                                    if existencia_num > 0:
+                                        st.error(f"⛔ BLOQUEO ACTIVADO: Se detectaron {existencia_num} piezas físicas.")
+                                        return False, f"⛔ CAPTURA BLOQUEADA: El sistema registra {int(existencia_num)} par(es) de la talla {talla_buscada_str} (Modelo {modelo_buscado}) físicamente en la sucursal."
+                                    else:
+                                        st.write(f"✅ La existencia es {existencia_num}. Permitiendo captura (Quiebre válido).")
+                                else:
+                                    st.write(f"❌ **ERROR:** La columna [{col_ex}] NO existe en el archivo Ventas.xlsx")
+        
+        return True, ""
+    except Exception as e:
+        import streamlit as st
+        st.error(f"Error interno en validación: {e}")
+        return True, ""    
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(page_title="Monitor Comercial Flexi Occidente", layout="wide")
 
