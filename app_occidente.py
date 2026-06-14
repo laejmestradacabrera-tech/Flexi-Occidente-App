@@ -628,48 +628,52 @@ with tab_bitacora:
     notas = st.text_area("Detalles adicionales:")
     
     if st.button("💾 Guardar en Bitácora"):
+        puede_guardar = True
+        
         # Validación de Stock
         if "Faltante de Tallas" in factor:
             if not modelo_captura:
                 st.error("❌ Para reportar falta de tallas, debes escribir el Modelo.")
-                st.stop()
+                puede_guardar = False
                 
             # CANDADO FINAL: No dejamos que la validación ocurra si no hay un número puro
-            if not tienda_numero.strip().isdigit():
+            elif not tienda_numero.strip().isdigit():
                 st.error("❌ Por favor, ingresa un N° de Sucursal válido (SOLO NÚMEROS, ej. 56) en la parte superior para poder cruzar el inventario. El sistema no acepta letras.")
-                st.stop()
+                puede_guardar = False
                 
-            try:
-                # Cargamos los archivos para validar en tiempo real
-                df_ventas = pd.read_excel("Ventas.xlsx")
-                df_tallas = pd.read_excel("Valores de tallas.xlsx")
-                
-                # Ejecutamos la validación enviando el NÚMERO exacto (Ej. "56")
-                es_valido, mensaje = validar_captura_stock(tienda_numero, modelo_captura, talla_captura, df_ventas, df_tallas)
-                
-                if not es_valido:
-                    st.error(mensaje)
-                    st.stop()
-                status_validacion = "VALIDADO"
-            except Exception as e:
-                st.error(f"Error técnico en validación: {e}")
-                st.stop()
-
-        # Guardado en Google Sheets (Seguimos guardando el nombre 'tienda_seleccionada' para que tú lo leas bien en Drive)
-        fila = [
-            str(fecha), tienda_seleccionada, encargado_actual, factor, notas,
-            "", "", # F y G vacías
-            str(modelo_captura), str(int(talla_captura)), str(precio_captura), status_validacion
-        ]
-        try:
-            if 'sheet_bitacora' in globals():
-                sheet_bitacora.append_row(fila)
-                st.success(f"✅ Incidencia registrada para {tienda_seleccionada}")
             else:
-                st.warning("⚠️ No se conectó a Google Sheets, revisa tus credenciales.")
-        except Exception as e:
-            st.error(f"❌ Error al guardar en Google Sheets: {e}")
+                try:
+                    # Cargamos los archivos para validar en tiempo real
+                    df_ventas = pd.read_excel("Ventas.xlsx")
+                    df_tallas = pd.read_excel("Valores de tallas.xlsx")
+                    
+                    # Ejecutamos la validación enviando el NÚMERO exacto (Ej. "56")
+                    es_valido, mensaje = validar_captura_stock(tienda_numero, modelo_captura, talla_captura, df_ventas, df_tallas)
+                    
+                    if not es_valido:
+                        st.error(mensaje)
+                        puede_guardar = False
+                    else:
+                        status_validacion = "VALIDADO"
+                except Exception as e:
+                    st.error(f"Error técnico en validación: {e}")
+                    puede_guardar = False
 
+        # Si el semáforo sigue en verde (True), guarda en Google Sheets
+        if puede_guardar:
+            fila = [
+                str(fecha), tienda_seleccionada, encargado_actual, factor, notas,
+                "", "", # F y G vacías
+                str(modelo_captura), str(int(talla_captura)), str(precio_captura), status_validacion
+            ]
+            try:
+                if 'sheet_bitacora' in globals():
+                    sheet_bitacora.append_row(fila)
+                    st.success(f"✅ Incidencia registrada para {tienda_seleccionada}")
+                else:
+                    st.warning("⚠️ No se conectó a Google Sheets, revisa tus credenciales.")
+            except Exception as e:
+                st.error(f"❌ Error al guardar en Google Sheets: {e}")
 # --- PESTAÑA 6: RUTA DEL CLIENTE ---
 with tab5:
     st.subheader("🧭 Protocolo Operativo en Piso de Venta")
