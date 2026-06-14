@@ -688,9 +688,11 @@ with tab6:
     st.markdown("## 🎓 Centro de Capacitación y Desarrollo Operativo")
     st.write("Bienvenido al espacio interactivo para el fortalecimiento del sentido de pertenencia y alineación comercial de la Zona Occidente.")
     
-    col_izq, col_der = st.columns([1, 1])
+    # Columna derecha más ancha para mejor lectura del manual
+    col_izq, col_der = st.columns([1, 1.2]) 
+    
     with col_izq:
-        st.markdown("### 📹 Videos de Capacitación para el Personal")
+        st.markdown("### 📹 Material Audiovisual")
         opciones_video = {
             "Mi Nómina Flexi": "https://youtu.be/688Bi49rI30",
             "Tutorial Vales de Zapatos": "https://youtu.be/6hB95lYcL1g",
@@ -698,22 +700,73 @@ with tab6:
         }
         video_seleccionado = st.selectbox("Selecciona el material audiovisual a reproducir:", list(opciones_video.keys()))
         url_video = opciones_video[video_seleccionado]
+        
         st.write("<br>", unsafe_allow_html=True)
         st.video(url_video)
         st.link_button(f"🚀 Clic aquí para ver {video_seleccionado} directo en YouTube", url_video, type="primary")
         
     with col_der:
         st.markdown("### 📘 Manual de Integración a Tiendas Flexi")
-        with st.expander("🎯 1. PROPÓSITO DEL MONITOR COMERCIAL"):
+        
+        st.info("""
+        **🎯 Objetivo General:** Establecer un proceso de acogida estandarizado que reduzca la rotación de personal en los primeros 90 días, transformando la incorporación en una experiencia de bienvenida profesional y humana.
+        """)
+        
+        st.write("*La permanencia del personal de nueva contratación no depende únicamente de las condiciones laborales, sino de la calidad de su integración inicial. Este manual presenta cinco pilares fundamentales para asegurar que el nuevo colaborador se sienta valorado, guiado y conectado con los objetivos de la organización.*")
+        
+        with st.expander("🎯 1. PROPÓSITO DEL MONITOR COMERCIAL", expanded=True):
             st.markdown("""
-            Este monitor interactivo fue desarrollado bajo la dirección del **LAE. José Martín Estrada Cabrera**...
-            * 👟 **Ticket Promedio:** Meta de 1.29 unidades.
-            * 📊 **Conversión Mínima:** Meta de 10.90%.
+            Este monitor interactivo fue desarrollado bajo la dirección del **LAE. José Martín Estrada Cabrera** como una herramienta estratégica y de auditoría en tiempo real. Su propósito principal es dar visibilidad total a la operación del piso de venta, permitiendo tomar decisiones basadas en datos exactos y eliminar las suposiciones.
+            
+            **👥 La Importancia de la Integración (El Factor Humano):**
+            Para que este monitor refleje números de éxito, es vital comprender que **los resultados no los dan los sistemas, los dan las personas**. 
+            Una integración correcta, humana y profesional del personal de nuevo ingreso garantiza que:
+            * Comprendan el *por qué* de su rol y su impacto directo en la sucursal desde el día uno.
+            * Se sientan respaldados por su equipo, reduciendo drásticamente su curva de aprendizaje y la frustración.
+            * Transformen su esfuerzo diario en la conquista de los objetivos de la empresa.
+            
+            **📌 Nuestras Metas Inamovibles (El ADN de la Zona):**
+            Toda la capacitación y esfuerzo de la sucursal se resume en dominar estos dos indicadores de calzado:
+            * 👟 **Ticket Promedio:** Meta de **1.29** unidades por ticket.
+            * 📊 **Conversión Mínima:** Meta de **10.90%** en piso de venta.
             """)
-        with st.expander("📝 2. OBJETIVO DEL MANUAL Y FILOSOFÍA"):
-            st.markdown("Establecer un proceso de acogida estandarizado que reduzca la rotación de personal en los primeros 90 días...")
-        with st.expander("🤝 3. PILAR I: BIENVENIDA"):
-            st.markdown("Proyectar orden y profesionalismo desde el primer día...")
+            
+        with st.expander("1️⃣ PILAR I: BIENVENIDA (Logística y Orden)"):
+            st.markdown("""
+            **Concepto:** Proyectar orden y profesionalismo. La preparación del entorno de trabajo es el primer mensaje que el colaborador recibe sobre la cultura de la empresa.
+            * 🛠️ **La Acción:** Asegurarse de que el espacio físico esté impecable, las herramientas de trabajo (computadora, accesos, sistemas) estén configuradas y el uniforme de la talla correcta esté listo sobre su lugar antes de que el colaborador cruce la puerta.
+            * 🌟 **El Impacto:** Elimina la ansiedad e incertidumbre del primer día. Comunica de forma implícita: *"Te estábamos esperando y tu llegada es importante para nosotros"*.
+            """)
+            
+        with st.expander("2️⃣ PILAR II: ACOMPAÑAMIENTO (Mentoría)"):
+            st.markdown("""
+            **Concepto:** Eliminar la "soledad del novato" mediante el sistema de compañero guía.
+            * 👥 **La Acción:** Designar a un colaborador con experiencia y actitud positiva para que actúe como mentor durante la primera semana. Este guía resolverá dudas cotidianas y explicará las dinámicas no escritas.
+            * 🚀 **El Impacto:** Acelera la curva de aprendizaje social y técnico. Reduce el miedo a cometer errores básicos y crea un vínculo de confianza inmediato.
+            """)
+            
+        with st.expander("3️⃣ PILAR III: CLARIDAD DEL PROPÓSITO"):
+            st.markdown("""
+            **Concepto:** Conectar las tareas diarias con el impacto real en el éxito de la zona y la misión de la empresa.
+            * 🗣️ **La Acción:** Realizar una sesión de alineación donde se explique no solo "qué" debe hacer, sino "por qué" su rol es vital para alcanzar los objetivos generales. Mostrar cómo su esfuerzo contribuye al bienestar del cliente o del equipo.
+            * ❤️ **El Impacto:** Genera compromiso emocional. Un colaborador que encuentra propósito en su trabajo desarrolla una lealtad que va más allá de la oferta económica.
+            """)
+            
+        with st.expander("4️⃣ PILAR IV: METAS DE CORTO PLAZO"):
+            st.markdown("""
+            **Concepto:** Brindar claridad absoluta sobre las expectativas de desempeño en la etapa crítica.
+            * 🎯 **La Acción:** Establecer objetivos específicos, medibles y alcanzables para la primera semana, los primeros 15 días y el primer mes. Brindar retroalimentación constructiva al finalizar cada etapa.
+            * 📈 **El Impacto:** Reduce la frustración causada por la ambigüedad. Permite que el colaborador celebre victorias tempranas y desarrolle la autoconfianza necesaria para su profesionalización.
+            """)
+            
+        with st.expander("5️⃣ PILAR V: VINCULACIÓN SOCIAL"):
+            st.markdown("""
+            **Concepto:** Humanizar el entorno laboral y fomentar la integración grupal.
+            * 🎉 **La Acción:** Organizar activamente momentos de convivencia (como una dinámica de presentación) donde el equipo actual reciba formalmente al nuevo integrante.
+            * 🤝 **El Impacto:** Rompe las barreras invisibles entre el personal antiguo y el nuevo. El sentido de pertenencia a un grupo social es el factor de retención más potente ante ofertas de la competencia.
+            """)
+        
+        st.success("✨ **Nota Final:** La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.")
 
 # --- PESTAÑA 8: NIVELACIÓN ---
 with tab7:
