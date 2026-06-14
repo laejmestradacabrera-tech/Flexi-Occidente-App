@@ -55,7 +55,7 @@ def cargar_archivos_locales():
         except Exception as e:
             return False
     return True
- def validar_captura_stock(tienda, modelo, talla_input, df_ventas, df_tallas):
+def validar_captura_stock(tienda, modelo, talla_input, df_ventas, df_tallas):
     import re
     import pandas as pd
     
@@ -122,7 +122,7 @@ def cargar_archivos_locales():
                         if existencia_num > 0:
                             return False, f"⛔ CAPTURA BLOQUEADA: El sistema registra {int(existencia_num)} par(es) de la talla {talla_buscada_str} (Modelo {modelo_buscado}) en bodega. Favor de auditar físicamente."
                             
-    return True, ""   
+    return True, ""    
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(page_title="Monitor Comercial Flexi Occidente", layout="wide")
 
