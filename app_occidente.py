@@ -35,18 +35,21 @@ except Exception as e:
 
 # --- FUNCIONES ---
 def obtener_fecha_actualizacion(nombre_archivo):
-    """Lee la fecha y hora exacta en la que se guardó/reemplazó el archivo Excel."""
+    """Lee la fecha y hora exacta en la que se guardó/reemplazó el archivo Excel (Ajustado a hora México)."""
     if not nombre_archivo:
         return "Archivo no disponible"
     try:
         tiempo_modificacion = os.path.getmtime(nombre_archivo)
-        fecha = datetime.datetime.fromtimestamp(tiempo_modificacion)
-        return fecha.strftime("%d/%m/%Y - %H:%M hrs")
+        # Obtenemos la fecha original del servidor (UTC)
+        fecha_servidor = datetime.datetime.fromtimestamp(tiempo_modificacion)
+        # Le restamos 6 horas para sincronizar con el huso horario de México (CST)
+        fecha_mexico = fecha_servidor - datetime.timedelta(hours=6)
+        
+        return fecha_mexico.strftime("%d/%m/%Y - %H:%M hrs")
     except FileNotFoundError:
         return "Archivo pendiente de carga"
     except Exception as e:
         return "Fecha no disponible"
-
 def cargar_tiendas():
     nombre_archivo = "CORREO DE TIENDAS.xlsx"
     try:
