@@ -8,24 +8,7 @@ from fpdf import FPDF
 import openpyxl
 from oauth2client.service_account import ServiceAccountCredentials
 import gspread
-import streamlit as st
-import pandas as pd
-import gspread  # <-- Aquí está tu último import
 
-# ---> PEGA EL CÓDIGO NUEVO A PARTIR DE AQUÍ <---
-import os
-import datetime
-import locale
-
-try:
-    locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
-except:
-    pass
-
-def obtener_fecha_actualizacion(nombre_archivo):
-    """Lee la fecha y hora exacta en la que se guardó/reemplazó el archivo Excel."""
-    try:
-# ... (resto de la función) ...
 # --- CONFIGURACIÓN CENTRALIZADA DE GOOGLE ---
 scope = [
     'https://spreadsheets.google.com/feeds', 
