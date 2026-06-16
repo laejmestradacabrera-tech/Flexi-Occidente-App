@@ -8,6 +8,12 @@ from fpdf import FPDF
 import openpyxl
 from oauth2client.service_account import ServiceAccountCredentials
 import gspread
+import locale
+
+try:
+    locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
+except:
+    pass
 
 # --- CONFIGURACIÓN CENTRALIZADA DE GOOGLE ---
 scope = [
@@ -27,9 +33,20 @@ except Exception as e:
     st.warning("Advertencia: No se pudo conectar a Google Sheets. Verifica tus secretos.")
 
 # --- FUNCIONES ---
+def obtener_fecha_actualizacion(nombre_archivo):
+    """Lee la fecha y hora exacta en la que se guardó/reemplazó el archivo Excel."""
+    try:
+        tiempo_modificacion = os.path.getmtime(nombre_archivo)
+        fecha = datetime.datetime.fromtimestamp(tiempo_modificacion)
+        return fecha.strftime("%d/%m/%Y - %H:%M hrs")
+    except FileNotFoundError:
+        return "Archivo pendiente de carga"
+    except Exception as e:
+        return "Fecha no disponible"
+
 def cargar_tiendas():
     nombre_archivo = "CORREO DE TIENDAS.xlsx"
-    try:
+try:
         return pd.read_excel(nombre_archivo)
     except Exception as e:
         return pd.DataFrame({'NOMBRE': ['Error'], 'ENCARGADO': ['Sin datos']})
