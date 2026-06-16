@@ -8,6 +8,13 @@ from fpdf import FPDF
 import openpyxl
 from oauth2client.service_account import ServiceAccountCredentials
 import gspread
+import locale
+
+# Intentamos configurar el idioma español para las fechas
+try:
+    locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
+except:
+    pass
 
 # --- CONFIGURACIÓN CENTRALIZADA DE GOOGLE ---
 scope = [
@@ -27,6 +34,19 @@ except Exception as e:
     st.warning("Advertencia: No se pudo conectar a Google Sheets. Verifica tus secretos.")
 
 # --- FUNCIONES ---
+def obtener_fecha_actualizacion(nombre_archivo):
+    """Lee la fecha y hora exacta en la que se guardó/reemplazó el archivo Excel."""
+    if not nombre_archivo:
+        return "Archivo no disponible"
+    try:
+        tiempo_modificacion = os.path.getmtime(nombre_archivo)
+        fecha = datetime.datetime.fromtimestamp(tiempo_modificacion)
+        return fecha.strftime("%d/%m/%Y - %H:%M hrs")
+    except FileNotFoundError:
+        return "Archivo pendiente de carga"
+    except Exception as e:
+        return "Fecha no disponible"
+
 def cargar_tiendas():
     nombre_archivo = "CORREO DE TIENDAS.xlsx"
     try:
@@ -45,15 +65,12 @@ def cargar_archivos_locales():
     return True
 
 def validar_captura_stock(tienda_id, modelo, talla_input, df_ventas, df_tallas):
-    import pandas as pd
-    import streamlit as st
-    
     try:
         # 1. Estandarizar nombres de columnas a minúsculas
         df_ventas.columns = df_ventas.columns.astype(str).str.strip().str.lower()
         df_tallas.columns = df_tallas.columns.astype(str).str.strip().str.lower()
         
-        # 2. HOMOLOGACIÓN ESTRICTA (DIAGNÓSTICO DEL LAE): Aseguramos que tienda_id sea un INT
+        # 2. HOMOLOGACIÓN ESTRICTA: Aseguramos que tienda_id sea un INT
         try:
             tda_buscada = int(str(tienda_id).strip())
         except:
@@ -101,7 +118,6 @@ def validar_captura_stock(tienda_id, modelo, talla_input, df_ventas, df_tallas):
                     
                 for i in range(1, 16):
                     col_ex = f'ex{i}'
-                    
                     if col_ex in tallas_row.columns:
                         talla_matriz = tallas_row.iloc[0][col_ex]
                         
@@ -118,7 +134,6 @@ def validar_captura_stock(tienda_id, modelo, talla_input, df_ventas, df_tallas):
                                 if col_ex in row_venta:
                                     existencia = row_venta[col_ex]
                                     st.write(f"📦 **Existencia leída en Ventas para {col_ex}:** [{existencia}]")
-                                    
                                     try:
                                         existencia_num = float(existencia)
                                     except:
@@ -131,10 +146,8 @@ def validar_captura_stock(tienda_id, modelo, talla_input, df_ventas, df_tallas):
                                         st.write(f"✅ La existencia es {existencia_num}. Permitiendo captura (Quiebre válido).")
                                 else:
                                     st.write(f"❌ **ERROR:** La columna [{col_ex}] NO existe en el archivo Ventas.xlsx")
-        
         return True, ""
     except Exception as e:
-        import streamlit as st
         st.error(f"Error interno en validación: {e}")
         return True, ""
 
@@ -197,8 +210,8 @@ def enviar_correo_ejecutivo(tienda_objetivo, conversion, ticket, meta_conv, meta
         
         cuerpo = f"Estimada Lety y equipo de la Tienda {tienda_objetivo}:\n\n"
         cuerpo += "Les compartimos el análisis de resultados comerciales de su sucursal, obtenido directamente tras la última actualización del monitor.\n\n"
-        
         cuerpo += "--------------------------------------------------------------------------------\n"
+        
         if logro_conv and logro_ticket:
             cuerpo += "🏆 ¡MUCHAS FELICIDADES POR EL RESULTADO!\n"
             cuerpo += "Queremos reconocer el extraordinario desempeño del equipo en el piso de venta. Han alcanzado y superado de forma simultánea las dos metas vitales de nuestra zona para calzado:\n"
@@ -253,7 +266,7 @@ def enviar_correo_ejecutivo(tienda_objetivo, conversion, ticket, meta_conv, meta
 # --- GENERADOR DEL REPORTE TOP 20 EN PDF ---
 def generar_reporte_top20_pdf(df_top20, nombre_sucursal):
     hora_mexico = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
-    fecha_actual = hora_mexico.strftime("%d/%m/%Y")    
+    fecha_actual = hora_mexico.strftime("%d/%m/%Y")   
     
     pdf = FPDF(orientation='P', unit='mm', format='Letter')
     pdf.add_page()
@@ -332,7 +345,7 @@ def generar_reporte_top20_pdf(df_top20, nombre_sucursal):
     
     return bytes(pdf.output(dest='S').encode('latin1'))
 
-# --- DEFINICIÓN DE LAS 8 PESTAÑAS ---
+# --- DEFINICIÓN DE LAS 9 PESTAÑAS ---
 tab1, tab2, tab3, tab4, tab_bitacora, tab5, tab6, tab7, tab8 = st.tabs([
     "📊 DESEMPEÑO COMERCIAL", 
     "📈 COMPARATIVO MENSUAL",
@@ -348,6 +361,10 @@ tab1, tab2, tab3, tab4, tab_bitacora, tab5, tab6, tab7, tab8 = st.tabs([
 # ========================================================
 # --- PESTAÑA 1: DESEMPEÑO COMERCIAL ---
 with tab1:
+    st.subheader("📊 DESEMPEÑO COMERCIAL")
+    fecha_act = obtener_fecha_actualizacion(archivo_conv)
+    st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
+    
     if archivo_conv:
         df_c = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
         df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
@@ -376,8 +393,11 @@ with tab1:
             
 # --- PESTAÑA 2: COMPARATIVO MENSUAL ---
 with tab2:
+    st.subheader("📈 Análisis Comparativo de Calzado Mensual")
+    fecha_act = obtener_fecha_actualizacion(archivo_comp)
+    st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
+    
     if archivo_comp:
-        st.subheader("📊 Análisis Comparativo de Calzado Mensual")
         df_op = pd.read_excel(archivo_comp) if archivo_comp.endswith('.xlsx') else pd.read_csv(archivo_comp)
         
         c_ano = next((c for c in df_op.columns if 'año' in c.lower() or 'ano' in c.lower()), df_op.columns[0])
@@ -549,6 +569,10 @@ if archivo_modelos:
         return estilo
 
     with tab3:
+        st.subheader("👟 TOP 20 TIENDA")
+        fecha_act = obtener_fecha_actualizacion(archivo_modelos)
+        st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
+        
         tiendas = sorted(df_m[col_t].unique())
         t_sel = st.selectbox("Selecciona Tienda:", tiendas)
         df_tienda_data = df_m[df_m[col_t] == t_sel].groupby(col_m)[col_p].sum().reset_index()
@@ -572,6 +596,9 @@ if archivo_modelos:
 
     with tab4:
         st.subheader("🌍 Consolidado Zona Occidente")
+        fecha_act = obtener_fecha_actualizacion(archivo_modelos)
+        st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
+        
         df_z = df_m.groupby(col_m)[col_p].sum().reset_index()
         top_z = df_z.sort_values(by=col_p, ascending=False).head(20).reset_index(drop=True)
         top_z.columns = ['MODELO', 'PARES VENDIDOS']
@@ -674,6 +701,7 @@ with tab_bitacora:
                     st.warning("⚠️ No se conectó a Google Sheets, revisa tus credenciales.")
             except Exception as e:
                 st.error(f"❌ Error al guardar en Google Sheets: {e}")
+
 # --- PESTAÑA 6: RUTA DEL CLIENTE ---
 with tab5:
     st.subheader("🧭 Protocolo Operativo en Piso de Venta")
@@ -771,6 +799,9 @@ with tab6:
 # --- PESTAÑA 8: NIVELACIÓN ---
 with tab7:
     st.markdown("<h2 style='color: #B22222;'>📈 Monitor de Nivelación Flexi Occidente</h2>", unsafe_allow_html=True)
+    
+    fecha_act = obtener_fecha_actualizacion("Ventas.xlsx")
+    st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
     
     # Cargamos el inventario con nuestra nueva función centralizada
     cargar_archivos_locales()
