@@ -34,23 +34,38 @@ except Exception as e:
     st.warning("Advertencia: No se pudo conectar a Google Sheets. Verifica tus secretos.")
 
 # --- FUNCIONES ---
+import subprocess
+
 def obtener_fecha_actualizacion(nombre_archivo):
-    """Lee la fecha y hora exacta en la que se guardó/reemplazó el archivo Excel (Ajustado a hora México)."""
+    """Lee la fecha exacta en la que el archivo se actualizó en el repositorio de GitHub (Commit)."""
     if not nombre_archivo:
         return "Archivo no disponible"
+        
+    try:
+        # 1. Consultar el historial de versiones oficial de GitHub (Git)
+        comando = ['git', 'log', '-1', '--format=%ct', nombre_archivo]
+        resultado = subprocess.run(comando, capture_output=True, text=True)
+        
+        if resultado.returncode == 0 and resultado.stdout.strip():
+            # Timestamp en segundos (hora oficial del servidor de GitHub)
+            timestamp_github = int(resultado.stdout.strip())
+            # Convertimos de UTC a fecha legible y restamos 6 horas (Hora de México)
+            fecha_utc = datetime.datetime.utcfromtimestamp(timestamp_github)
+            fecha_mexico = fecha_utc - datetime.timedelta(hours=6)
+            return fecha_mexico.strftime("%d/%m/%Y - %H:%M hrs")
+    except Exception:
+        pass # Si falla GitHub, intentamos el plan de respaldo local
+        
+    # 2. Plan de respaldo
     try:
         tiempo_modificacion = os.path.getmtime(nombre_archivo)
-        # Obtenemos la fecha original del servidor (UTC)
-        fecha_servidor = datetime.datetime.fromtimestamp(tiempo_modificacion)
-        # Le restamos 6 horas para sincronizar con el huso horario de México (CST)
+        fecha_servidor = datetime.datetime.utcfromtimestamp(tiempo_modificacion)
         fecha_mexico = fecha_servidor - datetime.timedelta(hours=6)
-        
         return fecha_mexico.strftime("%d/%m/%Y - %H:%M hrs")
     except FileNotFoundError:
         return "Archivo pendiente de carga"
-    except Exception as e:
-        return "Fecha no disponible"
-def cargar_tiendas():
+    except Exception:
+        return "Fecha no disponible"    
     nombre_archivo = "CORREO DE TIENDAS.xlsx"
     try:
         return pd.read_excel(nombre_archivo)
