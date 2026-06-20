@@ -11,6 +11,7 @@ import gspread
 import locale
 import subprocess
 import streamlit.components.v1 as components 
+import re
 
 # Intentamos configurar el idioma español para las fechas
 try:
@@ -369,14 +370,14 @@ with tab1:
             st.table(ranking.style.apply(color_semaforo, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))            
 
 # ========================================================
-# --- PESTAÑA NUEVA: RATING COMERCIAL (CON MOTOR AISLADO) ---
+# --- PESTAÑA NUEVA: RATING COMERCIAL (CON MOTOR AISLADO Y PRECISO) ---
 with tab_rating:
     st.markdown("<h2 style='text-align: center; color: #EAB308;'>🏆 RATING COMERCIAL OCCIDENTE</h2>", unsafe_allow_html=True)
     st.info("📊 MODO AUDITORÍA (Fase 1 de Conexión): Validemos que los cálculos sean exactos antes de inyectarlos al diseño final.")
     
     # ---------------- MOTOR DE CÁLCULO AISLADO ----------------
     try:
-        with st.spinner("Procesando datos de 19 tiendas (Ticket, Conversión, Alcance y Quiebres)..."):
+        with st.spinner("Procesando datos de 19 tiendas (Ticket, Conversión, Alcance y Quiebres exactos)..."):
             
             # PASO 1: Extraer Ticket y Conversión
             df_conv_r = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
@@ -394,6 +395,11 @@ with tab_rating:
                 datos_rating.append({"TIENDA": tienda_str, "CONVERSION": conv_val, "TICKET": tkt_val})
             
             df_rating = pd.DataFrame(datos_rating)
+            
+            # Extraemos el identificador numérico de la tienda para evitar cruces erróneos
+            df_rating['TIENDA_INT'] = df_rating['TIENDA'].apply(
+                lambda x: int(re.search(r'\d+', str(x)).group()) if re.search(r'\d+', str(x)) else -1
+            )
 
             # PASO 2: Extraer Alcance (Comparativo)
             if archivo_comp:
@@ -409,36 +415,49 @@ with tab_rating:
                 
                 res_comp = df_comp_r.groupby([c_tda, c_ano])[c_prs].sum().unstack(fill_value=0)
                 alcance_dict = {}
-                for tda in res_comp.index:
-                    pares_25 = res_comp.loc[tda].get(2025, 0)
-                    pares_26 = res_comp.loc[tda].get(2026, 0)
-                    alcance_dict[str(tda)] = (pares_26 / pares_25 * 100) if pares_25 > 0 else 0
+                for tda_comp in res_comp.index:
+                    try:
+                        tda_comp_int = int(re.search(r'\d+', str(tda_comp)).group())
+                    except:
+                        tda_comp_int = -1
+                    pares_25 = res_comp.loc[tda_comp].get(2025, 0)
+                    pares_26 = res_comp.loc[tda_comp].get(2026, 0)
+                    alcance_dict[tda_comp_int] = (pares_26 / pares_25 * 100) if pares_25 > 0 else 0
                 
-                df_rating['ALCANCE'] = df_rating['TIENDA'].map(alcance_dict).fillna(0)
+                df_rating['ALCANCE'] = df_rating['TIENDA_INT'].map(alcance_dict).fillna(0)
 
             # PASO 3: Contar Quiebres Totales de Modelos Top 20 por tienda
             df_ventas_r = pd.read_excel("Ventas.xlsx")
-            df_ventas_r['Tienda'] = df_ventas_r['Tienda'].astype(str).str.strip()
-            df_ventas_r = df_ventas_r[~df_ventas_r['Tienda'].str.contains('3004|3015', na=False)]
+            df_ventas_r['tienda_int'] = pd.to_numeric(df_ventas_r['Tienda'], errors='coerce').fillna(-1).astype(int)
             df_ventas_r = df_ventas_r[~df_ventas_r['Proveedor'].isin([415, 426, 427])]
             
             quiebres_dict = {}
-            for tda in df_rating['TIENDA']:
-                df_tienda_v = df_ventas_r[df_ventas_r['Tienda'] == tda]
+            for tda_num in df_rating['TIENDA_INT']:
+                df_tienda_v = df_ventas_r[df_ventas_r['tienda_int'] == tda_num]
+                
+                if df_tienda_v.empty:
+                    quiebres_dict[tda_num] = 0
+                    continue
+                    
                 top_20 = df_tienda_v.groupby('Modelo')['Vtas'].sum().nlargest(20).index
                 df_top = df_tienda_v[df_tienda_v['Modelo'].isin(top_20)]
                 
                 quiebres = 0
-                for _, row in df_top.iterrows():
-                    cols_ex = [f'ex{i}' for i in range(1, 16) if f'ex{i}' in row.index]
-                    cols_p = [f'p{i}' for i in range(1, 16) if f'p{i}' in row.index]
-                    suma_ex = pd.to_numeric(row[cols_ex], errors='coerce').fillna(0).sum()
-                    suma_p = pd.to_numeric(row[cols_p], errors='coerce').fillna(0).sum()
+                for mod in top_20:
+                    df_mod = df_top[df_top['Modelo'] == mod]
+                    cols_ex = [f'ex{i}' for i in range(1, 16) if f'ex{i}' in df_mod.columns]
+                    cols_p = [f'p{i}' for i in range(1, 16) if f'p{i}' in df_mod.columns]
+                    
+                    # Sumamos todas las tallas de ese modelo para la tienda
+                    suma_ex = df_mod[cols_ex].apply(pd.to_numeric, errors='coerce').fillna(0).sum().sum()
+                    suma_p = df_mod[cols_p].apply(pd.to_numeric, errors='coerce').fillna(0).sum().sum()
+                    
                     if suma_ex <= 0 and suma_p <= 0:
                         quiebres += 1
-                quiebres_dict[tda] = quiebres
+                        
+                quiebres_dict[tda_num] = quiebres
             
-            df_rating['QUIEBRES'] = df_rating['TIENDA'].map(quiebres_dict).fillna(0)
+            df_rating['QUIEBRES'] = df_rating['TIENDA_INT'].map(quiebres_dict).fillna(0)
 
             # PASO 4: Motor de Asignación de Puntos (Reglas de Oro del Scorecard)
             def calcular_pts_ticket(t):
@@ -462,11 +481,10 @@ with tab_rating:
                 elif a >= 85: return 10
                 return 0
                 
+            # Tu nueva regla estricta de penalización por Quiebres del HTML (Máximo 10 pts):
             def calcular_pts_quiebre(q):
-                if q == 0: return 25
-                elif q <= 5: return 20
-                elif q <= 10: return 15
-                elif q <= 15: return 10
+                if q <= 5: return 10
+                elif q <= 10: return 5
                 return 0
 
             df_rating['PTS_TKT'] = df_rating['TICKET'].apply(calcular_pts_ticket)
@@ -474,23 +492,27 @@ with tab_rating:
             df_rating['PTS_ALC'] = df_rating['ALCANCE'].apply(calcular_pts_alcance)
             df_rating['PTS_QUIEBRE'] = df_rating['QUIEBRES'].apply(calcular_pts_quiebre)
             
-            # Puntuación Total
-            df_rating['PUNTAJE_TOTAL'] = df_rating['PTS_TKT'] + df_rating['PTS_CONV'] + df_rating['PTS_ALC'] + df_rating['PTS_QUIEBRE']
+            # EL BONO APROBADO: +5 Puntos si el Alcance supera 105%
+            df_rating['BONO'] = df_rating['ALCANCE'].apply(lambda a: 5 if a >= 105 else 0)
             
-            # Ordenamos el Ranking (Priorizando Puntaje, luego Conversión como desempate)
+            # Puntuación Total (Sumatoria)
+            df_rating['PUNTAJE_TOTAL'] = df_rating['PTS_TKT'] + df_rating['PTS_CONV'] + df_rating['PTS_ALC'] + df_rating['PTS_QUIEBRE'] + df_rating['BONO']
+            
+            # Ordenamos el Ranking Oficial (Priorizando Puntaje, luego Conversión como desempate)
             df_rating = df_rating.sort_values(by=['PUNTAJE_TOTAL', 'CONVERSION'], ascending=[False, False]).reset_index(drop=True)
             df_rating.insert(0, 'POSICIÓN', range(1, len(df_rating) + 1))
             
-            # Visualización en Streamlit para validación tuya (Antes del HTML)
-            st.write("### 🥇 RANKING DE DATOS EN VIVO (19 TIENDAS)")
-            tabla_mostrar = df_rating[['POSICIÓN', 'TIENDA', 'PUNTAJE_TOTAL', 'TICKET', 'CONVERSION', 'ALCANCE', 'QUIEBRES']]
+            # Visualización en Streamlit para tu validación exacta (Antes de inyectarlo en el HTML)
+            st.write("### 🥇 RANKING Y VALIDACIÓN DE PUNTOS")
+            tabla_mostrar = df_rating[['POSICIÓN', 'TIENDA', 'PUNTAJE_TOTAL', 'TICKET', 'CONVERSION', 'ALCANCE', 'QUIEBRES', 'BONO']]
             
-            # Damos formato a la tabla para que sea fácil de leer
+            # Damos formato a la tabla para que sea fácil de auditar
             st.dataframe(tabla_mostrar.style.format({
                 'TICKET': '{:.2f}',
                 'CONVERSION': '{:.2f}%',
                 'ALCANCE': '{:.2f}%',
-                'QUIEBRES': '{:.0f} Fallas'
+                'QUIEBRES': '{:.0f} fallas',
+                'BONO': '+{:.0f} pts'
             }), use_container_width=True)
 
     except Exception as e:
