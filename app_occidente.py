@@ -536,6 +536,7 @@ with tab_rating:
 
             bono_tag_1 = '<span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider"><i class="fa-solid fa-star text-yellow-400"></i> Bono Crecimiento Activo</span>' if b1 > 0 else ''
 
+            # AJUSTE PODIO: Ahora `t1` (Tienda) es el título principal grande, y `e1` (Encargada) es el subtítulo
             podio_html = f"""
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16 items-end mt-16 px-4">
                 <!-- 2do Lugar -->
@@ -544,8 +545,8 @@ with tab_rating:
                         <i class="fa-solid fa-medal text-3xl text-slate-300"></i>
                     </div>
                     <div class="mt-8">
-                        <p class="text-3xl font-black text-white tracking-wide">{e2}</p>
-                        <p class="text-sm text-cyan-400 font-semibold uppercase mt-1">{t2}</p>
+                        <p class="text-3xl font-black text-white tracking-wide">{t2}</p>
+                        <p class="text-sm text-cyan-400 font-semibold uppercase mt-1">{e2}</p>
                     </div>
                     <div class="text-5xl font-black grad-primary mt-2">{p2}<span class="text-2xl text-slate-500">.0</span></div>
                 </div>
@@ -557,8 +558,8 @@ with tab_rating:
                     </div>
                     <div class="mt-8">
                         <div class="text-yellow-400 text-sm font-black tracking-widest mb-1"><i class="fa-solid fa-crown"></i> LÍDER ABSOLUTO</div>
-                        <p class="text-4xl font-black text-white tracking-wide">{e1}</p>
-                        <p class="text-sm text-cyan-400 font-semibold uppercase mt-1 mb-2">{t1}</p>
+                        <p class="text-4xl font-black text-white tracking-wide">{t1}</p>
+                        <p class="text-sm text-cyan-400 font-semibold uppercase mt-1 mb-2">{e1}</p>
                         {bono_tag_1}
                     </div>
                     <div class="text-6xl font-black text-yellow-400 drop-shadow-[0_0_10px_rgba(234,179,8,0.8)] mt-2">{p1}<span class="text-2xl text-yellow-600">.0</span></div>
@@ -570,8 +571,8 @@ with tab_rating:
                         <i class="fa-solid fa-medal text-3xl text-amber-600"></i>
                     </div>
                     <div class="mt-8">
-                        <p class="text-3xl font-black text-white tracking-wide">{e3}</p>
-                        <p class="text-sm text-cyan-400 font-semibold uppercase mt-1">{t3}</p>
+                        <p class="text-3xl font-black text-white tracking-wide">{t3}</p>
+                        <p class="text-sm text-cyan-400 font-semibold uppercase mt-1">{e3}</p>
                     </div>
                     <div class="text-4xl font-black grad-primary mt-2">{p3}<span class="text-2xl text-slate-500">.0</span></div>
                 </div>
