@@ -10,6 +10,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 import gspread
 import locale
 import subprocess
+import streamlit.components.v1 as components 
 
 # Intentamos configurar el idioma español para las fechas
 try:
@@ -213,13 +214,16 @@ archivo_conv = buscar_archivo('Conversion')
 archivo_modelos = buscar_archivo('Venta_Modelos')
 archivo_comp = buscar_archivo('Comparativo por Operacion')
 
-# --- 1. EL CARTERO LIGERO (COMPARATIVO MENSUAL) ---
+# --- 1. EL CARTERO LIGERO (NUEVO ENFOQUE: COMPARATIVO MENSUAL) ---
 def enviar_correo_ejecutivo(tienda_objetivo, conversion, ticket, meta_conv, meta_tkt, faltan_pares, faltan_pesos):
+    
+    # 1. Evaluamos el cumplimiento de las metas esenciales de calzado
     logro_conv = conversion >= meta_conv
     logro_ticket = ticket >= meta_tkt
     desviacion_conv = conversion - meta_conv
     desviacion_ticket = ticket - meta_tkt
 
+    # 2. Redacción directa y enfocada en los indicadores de piso de venta y comparativo
     try:
         remitente = st.secrets["CORREO_REMITENTE"]
         password = st.secrets["CORREO_PASSWORD"]
@@ -229,8 +233,8 @@ def enviar_correo_ejecutivo(tienda_objetivo, conversion, ticket, meta_conv, meta
         
         cuerpo = f"Estimada Lety y equipo de la Tienda {tienda_objetivo}:\n\n"
         cuerpo += "Les compartimos el análisis de resultados comerciales de su sucursal, obtenido directamente tras la última actualización del monitor.\n\n"
-        cuerpo += "--------------------------------------------------------------------------------\n"
         
+        cuerpo += "--------------------------------------------------------------------------------\n"
         if logro_conv and logro_ticket:
             cuerpo += "🏆 ¡MUCHAS FELICIDADES POR EL RESULTADO!\n"
             cuerpo += "Queremos reconocer el extraordinario desempeño del equipo en el piso de venta. Han alcanzado y superado de forma simultánea las dos metas vitales de nuestra zona para calzado:\n"
@@ -269,6 +273,7 @@ def enviar_correo_ejecutivo(tienda_objetivo, conversion, ticket, meta_conv, meta
         cuerpo += "Gerencia Comercial Zona Occidente\n"
         cuerpo += "LAE. José Martín Estrada Cabrera"
 
+        # 3. Envío seguro a través del servidor
         msg = MIMEText(cuerpo)
         msg['Subject'] = asunto
         msg['From'] = remitente
@@ -284,16 +289,17 @@ def enviar_correo_ejecutivo(tienda_objetivo, conversion, ticket, meta_conv, meta
 
 # --- GENERADOR DEL REPORTE TOP 20 EN PDF ---
 def generar_reporte_top20_pdf(df_top20, nombre_sucursal):
+    # Ajuste de reloj para la Zona Occidente (UTC - 6 horas)
     hora_mexico = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
-    fecha_actual = hora_mexico.strftime("%d/%m/%Y")  
-    
+    fecha_actual = hora_mexico.strftime("%d/%m/%Y")    
+    # Configuración de hoja tamaño Carta
     pdf = FPDF(orientation='P', unit='mm', format='Letter')
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
     
-    # Encabezado
+    # 1. ENCABEZADO INSTITUCIONAL
     pdf.set_font("Arial", 'B', 16)
-    pdf.set_text_color(227, 6, 19)
+    pdf.set_text_color(227, 6, 19) # Rojo Flexi
     pdf.cell(0, 8, "FLEXI - ZONA OCCIDENTE", ln=True, align="C")
     
     pdf.set_font("Arial", 'B', 12)
@@ -302,7 +308,7 @@ def generar_reporte_top20_pdf(df_top20, nombre_sucursal):
     pdf.line(10, 28, 205, 28)
     pdf.ln(8)
     
-    # Datos de sucursal
+    # 2. DATOS DE LA SUCURSAL
     pdf.set_font("Arial", '', 10)
     pdf.cell(40, 6, "Fecha de Reporte:", 0, 0)
     pdf.cell(60, 6, fecha_actual, 0, 0)
@@ -315,7 +321,7 @@ def generar_reporte_top20_pdf(df_top20, nombre_sucursal):
     pdf.cell(60, 6, "LAE. Jose Martin Estrada Cabrera", 0, 1)
     pdf.ln(8)
     
-    # Tabla
+    # 3. ENCABEZADO DE LA TABLA
     pdf.set_font("Arial", 'B', 9)
     pdf.set_fill_color(227, 6, 19)
     pdf.set_text_color(255, 255, 255)
@@ -324,6 +330,7 @@ def generar_reporte_top20_pdf(df_top20, nombre_sucursal):
     pdf.cell(40, 8, "PARES VENDIDOS", 1, 0, 'C', fill=True)
     pdf.cell(110, 8, "DESEMPENO EN LA ZONA OCCIDENTE", 1, 1, 'C', fill=True)
     
+    # 4. LLENADO DE DATOS
     pdf.set_font("Arial", '', 9)
     pdf.set_text_color(0, 0, 0)
     for i, row in df_top20.iterrows():
@@ -342,7 +349,7 @@ def generar_reporte_top20_pdf(df_top20, nombre_sucursal):
         
     pdf.ln(10)
     
-    # Firmas
+    # 5. FIRMAS
     pdf.set_font("Arial", 'I', 9)
     pdf.set_text_color(80, 80, 80)
     pdf.multi_cell(0, 5, "Nota: Este documento sirve como guia visual para que el equipo en piso valide fisicamente en su bodega que estos modelos ganadores esten exhibidos.")
@@ -364,9 +371,10 @@ def generar_reporte_top20_pdf(df_top20, nombre_sucursal):
     
     return bytes(pdf.output(dest='S').encode('latin1'))
 
-# --- DEFINICIÓN DE LAS 9 PESTAÑAS ---
-tab1, tab2, tab3, tab4, tab_bitacora, tab5, tab6, tab7, tab8 = st.tabs([
+# --- DEFINICIÓN DE LAS 10 PESTAÑAS (INCLUYENDO RATING) ---
+tab1, tab_rating, tab2, tab3, tab4, tab_bitacora, tab5, tab6, tab7, tab8 = st.tabs([
     "📊 DESEMPEÑO COMERCIAL", 
+    "🏆 RATING COMERCIAL",
     "📈 COMPARATIVO MENSUAL",
     "👟 TOP 20 TIENDA", 
     "🌍 TOP 20 ZONA", 
@@ -380,10 +388,6 @@ tab1, tab2, tab3, tab4, tab_bitacora, tab5, tab6, tab7, tab8 = st.tabs([
 # ========================================================
 # --- PESTAÑA 1: DESEMPEÑO COMERCIAL ---
 with tab1:
-    st.subheader("📊 DESEMPEÑO COMERCIAL")
-    fecha_act = obtener_fecha_actualizacion(archivo_conv)
-    st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
-    
     if archivo_conv:
         df_c = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
         df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
@@ -409,14 +413,27 @@ with tab1:
                 else: return ['background-color: #f8d7da; color: #721c24'] * 4
 
             st.table(ranking.style.apply(color_semaforo, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))            
-            
+
+# --- PESTAÑA NUEVA: RATING COMERCIAL ---
+with tab_rating:
+    st.markdown("<h2 style='text-align: center; color: #EAB308;'>🏆 RATING COMERCIAL OCCIDENTE</h2>", unsafe_allow_html=True)
+    st.info("Modo Visualización: El tablero gamificado se conectará a los datos en vivo en la siguiente fase.")
+    
+    try:
+        # Cargamos el archivo HTML exactamente como pediste, sin afectar nada más.
+        if os.path.exists("Raiting Elegido..html"):
+            with open("Raiting Elegido..html", "r", encoding="utf-8") as f:
+                html_code = f.read()
+            components.html(html_code, height=1200, scrolling=True)
+        else:
+            st.warning("⚠️ El archivo 'Raiting Elegido..html' no se encontró en la carpeta de GitHub.")
+    except Exception as e:
+        st.error(f"Error al cargar el Rating: {e}")
+
 # --- PESTAÑA 2: COMPARATIVO MENSUAL ---
 with tab2:
-    st.subheader("📈 Análisis Comparativo de Calzado Mensual")
-    fecha_act = obtener_fecha_actualizacion(archivo_comp)
-    st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
-    
     if archivo_comp:
+        st.subheader("📊 Análisis Comparativo de Calzado Mensual")
         df_op = pd.read_excel(archivo_comp) if archivo_comp.endswith('.xlsx') else pd.read_csv(archivo_comp)
         
         c_ano = next((c for c in df_op.columns if 'año' in c.lower() or 'ano' in c.lower()), df_op.columns[0])
@@ -483,23 +500,26 @@ with tab2:
                 'PARES 2025': '{:,.0f}', 'PARES 2026': '{:,.0f}', 'VAR PARES %': '{:+.2f}%',
                 'PESOS 2025': '${:,.2f}', 'PESOS 2026': '${:,.2f}', 'VAR PESOS %': '{:+.2f}%'
             }))
-            
             # --- 3. BOTÓN DE ENVÍO MANUAL (PROTEGIDO POR CLAVE) ---
             st.write("<br>", unsafe_allow_html=True)
             st.markdown("---")
             
+            # Creamos dos columnas para colocar el cuadro de texto y el botón alineados
             col_clave, col_boton = st.columns([1, 2])
+            
             with col_clave:
                 password_input = st.text_input("Clave de autorización", type="password")
             
             with col_boton:
-                st.write("<br>", unsafe_allow_html=True)
+                st.write("<br>", unsafe_allow_html=True) # Alineación visual con el cuadro de texto
                 if st.button("🚀 Enviar Reporte Ejecutivo del Día (Tienda 56)", type="primary"):
+                    # Validación estricta de la clave asignada para la zona
                     if password_input == "T5604b":
                         tienda_obj = "56"
                         conv_actual = 0.0
                         tkt_actual = 0.0
                         
+                        # 1. Extraemos Conversión y Ticket del archivo de Conversión
                         if archivo_conv:
                             try:
                                 df_c = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
@@ -518,6 +538,7 @@ with tab2:
                             except:
                                 pass
 
+                        # 2. Extraemos el Reto en Pares y Pesos con filtros aplicados de calzado puro
                         faltan_pares_calc = 0
                         faltan_pesos_calc = 0.0
                         
@@ -552,6 +573,7 @@ with tab2:
                             except:
                                 pass
                         
+                        # 3. Disparador seguro del correo ejecutivo
                         with st.spinner("Enviando reporte ejecutivo..."):
                             resultado_alerta = enviar_correo_ejecutivo(
                                 tienda_objetivo=tienda_obj, 
@@ -588,10 +610,6 @@ if archivo_modelos:
         return estilo
 
     with tab3:
-        st.subheader("👟 TOP 20 TIENDA")
-        fecha_act = obtener_fecha_actualizacion(archivo_modelos)
-        st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
-        
         tiendas = sorted(df_m[col_t].unique())
         t_sel = st.selectbox("Selecciona Tienda:", tiendas)
         df_tienda_data = df_m[df_m[col_t] == t_sel].groupby(col_m)[col_p].sum().reset_index()
@@ -599,6 +617,7 @@ if archivo_modelos:
         top_t.columns = ['MODELO', 'PARES VENDIDOS']
         st.table(top_t.style.apply(resaltar_top_5, axis=None))
 
+        # --- BOTÓN DE DESCARGA DE REPORTE EN PDF ---
         pdf_bytes = generar_reporte_top20_pdf(
             df_top20=top_t, 
             nombre_sucursal=str(t_sel)
@@ -615,16 +634,12 @@ if archivo_modelos:
 
     with tab4:
         st.subheader("🌍 Consolidado Zona Occidente")
-        fecha_act = obtener_fecha_actualizacion(archivo_modelos)
-        st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
-        
         df_z = df_m.groupby(col_m)[col_p].sum().reset_index()
         top_z = df_z.sort_values(by=col_p, ascending=False).head(20).reset_index(drop=True)
         top_z.columns = ['MODELO', 'PARES VENDIDOS']
         st.table(top_z.style.apply(resaltar_top_5, axis=None))
 
-# ========================================================
-# --- PESTAÑA 5: BITÁCORA ---
+# --- CONTENIDO DE LA PESTAÑA BITÁCORA ---
 with tab_bitacora:
     st.subheader("📝 Registro de Incidencias Operativas")
     df_tiendas = cargar_tiendas()
@@ -632,8 +647,10 @@ with tab_bitacora:
     col1, col2 = st.columns([2, 1])
     
     with col1:
+        # 1. Selección de tienda reactiva
         tienda_seleccionada = st.selectbox("Selecciona la Tienda:", df_tiendas['NOMBRE'].unique())
     
+    # 2. Búsqueda y visualización INMEDIATA del encargado
     fila_tienda = df_tiendas[df_tiendas['NOMBRE'] == tienda_seleccionada]
     encargado_actual = fila_tienda['ENCARGADO'].values[0] if not fila_tienda.empty else "No encontrado"
     
@@ -650,6 +667,7 @@ with tab_bitacora:
 
     st.info(f"**Encargado(a) detectado(a):** {encargado_actual}")
         
+    # 3. Datos de la incidencia (con fecha corregida)
     fecha_mexico = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
     fecha = st.date_input("Fecha", fecha_mexico.date())
     factor = st.selectbox("Factor Principal:", [
@@ -659,10 +677,13 @@ with tab_bitacora:
         "🚧 Afectación de acceso", "🎉 Factor externo"
     ])
     
-    # Campos dinámicos para Tallas
-    modelo_captura, talla_captura, precio_captura = "", 0, 0.0
+    # Inicialización de variables para las nuevas columnas
+    modelo_captura = ""
+    talla_captura = 0
+    precio_captura = 0.0
     status_validacion = "N/A"
 
+    # Campos dinámicos para Tallas
     if "Faltante de Tallas" in factor:
         modelo_captura = st.text_input("Modelo:")
         
@@ -673,10 +694,11 @@ with tab_bitacora:
 
     notas = st.text_area("Detalles adicionales:")
     
+    # 4. Botón de guardado con lógica de validación
     if st.button("💾 Guardar en Bitácora"):
         puede_guardar = True
         
-        # Validación de Stock
+        # Validación de Stock si es Faltante de Tallas
         if "Faltante de Tallas" in factor:
             if not modelo_captura:
                 st.error("❌ Para reportar falta de tallas, debes escribir el Modelo.")
@@ -707,21 +729,30 @@ with tab_bitacora:
 
         # Si el semáforo sigue en verde (True), guarda en Google Sheets
         if puede_guardar:
+            # Guardado en Google Sheets (asegura el orden de columnas H-K)
             fila = [
-                str(fecha), tienda_seleccionada, encargado_actual, factor, notas,
-                "", "", # F y G vacías
-                str(modelo_captura), str(int(talla_captura)), str(precio_captura), status_validacion
+                str(fecha), 
+                tienda_seleccionada, 
+                encargado_actual, 
+                factor, 
+                notas, 
+                "",  # Columna F vacía
+                "",  # Columna G vacía
+                str(modelo_captura), 
+                str(int(talla_captura)), 
+                str(precio_captura), 
+                status_validacion
             ]
             try:
                 if 'sheet_bitacora' in globals():
                     sheet_bitacora.append_row(fila)
                     st.success(f"✅ Incidencia registrada para {tienda_seleccionada}")
                 else:
-                    st.warning("⚠️ No se conectó a Google Sheets, revisa tus credenciales.")
+                    st.warning("⚠️ No se pudo conectar a Google Sheets, revisa tus credenciales o conexión.")
             except Exception as e:
-                st.error(f"❌ Error al guardar en Google Sheets: {e}")
+                st.error(f"❌ Error al intentar guardar en Google Sheets: {e}")
 
-# --- PESTAÑA 6: RUTA DEL CLIENTE ---
+# --- PESTAÑA 5: RUTA DEL CLIENTE ---
 with tab5:
     st.subheader("🧭 Protocolo Operativo en Piso de Venta")
     nombre_imagen = "RC Zona Occidente.png"
@@ -730,7 +761,7 @@ with tab5:
     else:
         st.warning("⚠️ La imagen 'RC Zona Occidente.png' aún no se encuentra en GitHub.")
 
-# --- PESTAÑA 7: CAPACITACIÓN ---
+# --- PESTAÑA 6: PORTAL DE CAPACITACIÓN Y MANUAL DE INTEGRACIÓN RECONSTRUIDO AL 100% ---
 with tab6:
     st.markdown("## 🎓 Centro de Capacitación y Desarrollo Operativo")
     st.write("Bienvenido al espacio interactivo para el fortalecimiento del sentido de pertenencia y alineación comercial de la Zona Occidente.")
@@ -745,6 +776,7 @@ with tab6:
             "Tutorial Vales de Zapatos": "https://youtu.be/6hB95lYcL1g",
             "Tutorial mi Flexi": "https://youtu.be/WVi8geGSeOg"
         }
+        
         video_seleccionado = st.selectbox("Selecciona el material audiovisual a reproducir:", list(opciones_video.keys()))
         url_video = opciones_video[video_seleccionado]
         
@@ -781,7 +813,7 @@ with tab6:
         with st.expander("1️⃣ PILAR I: BIENVENIDA (Logística y Orden)"):
             st.markdown("""
             **Concepto:** Proyectar orden y profesionalismo. La preparación del entorno de trabajo es el primer mensaje que el colaborador recibe sobre la cultura de la empresa.
-            * 🛠️ **La Acción:** Asegurarse de que el espacio físico esté impecable, las herramientas de trabajo (computadora, accesos, sistemas) estén configuradas y el uniforme de la talla correcta esté listo sobre su lugar antes de que el colaborador cruce la puerta.
+            * 🛠️ **La Acción:** Asegurarse de que el espacio físico esté impecable, las herramientas de trabajo (computadora, accesos, sistemas) estén configuradas y el uniforme de la talla correcta esté listo sobre su lugar antes de que el colaborador cruce la puerta (en la medida de lo posible).
             * 🌟 **El Impacto:** Elimina la ansiedad e incertidumbre del primer día. Comunica de forma implícita: *"Te estábamos esperando y tu llegada es importante para nosotros"*.
             """)
             
@@ -815,12 +847,12 @@ with tab6:
         
         st.success("✨ **Nota Final:** La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.")
 
-# --- PESTAÑA 8: NIVELACIÓN ---
+# --- PESTAÑA 7: MONITOR DE NIVELACIÓN FLEXI OCCIDENTE ---
 with tab7:
-    st.markdown("<h2 style='color: #B22222;'>📈 Monitor de Nivelación Flexi Occidente</h2>", unsafe_allow_html=True)
-    
-    fecha_act = obtener_fecha_actualizacion("Ventas.xlsx")
-    st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
+    # Encabezado institucional (Rojo Flexi Oscuro)
+    st.markdown("""
+        <h2 style='color: #B22222;'>📈 Monitor de Nivelación Flexi Occidente</h2>
+    """, unsafe_allow_html=True)
     
     # Cargamos el inventario con nuestra nueva función centralizada
     cargar_archivos_locales()
@@ -830,6 +862,7 @@ with tab7:
         tienda_sel = st.selectbox("Selecciona la Tienda para analizar:", tiendas)
         
         if st.button("Ejecutar Análisis"):
+            # Filtro directo
             df_tienda = st.session_state.df_ventas[
                 (st.session_state.df_ventas['Tienda'] == tienda_sel) & 
                 (~st.session_state.df_ventas['Proveedor'].isin([415, 426, 427]))
@@ -861,26 +894,38 @@ with tab7:
             
             if resultados:
                 df_final = pd.DataFrame(resultados).drop_duplicates()
+                # Despliegue en bloques con títulos institucionales
                 for dpto in df_final['Departamento'].unique():
                     st.markdown(f"<h3 style='color: #B22222;'>Bloque: {dpto}</h3>", unsafe_allow_html=True)
                     st.dataframe(df_final[df_final['Departamento'] == dpto][['Modelo', 'Talla']])
             else:
-                st.success("¡Excelente! No hay faltantes en el Top 20.")
-    else:
-        st.warning("Archivos de ventas o tallas no encontrados localmente.")
+                st.success("¡Excelente! No hay faltantes en el Top 20.")            
 
-# --- PESTAÑA 9: ESTRATÉGICO ---
+# --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
     st.header("🎯 MONITOR ESTRATÉGICO")
     if st.button("Verificar Conexión y Cargar Datos"):
         try:
+            import gspread
+            from oauth2client.service_account import ServiceAccountCredentials
+            
+            # Credenciales
+            scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+            creds = ServiceAccountCredentials.from_json_keyfile_dict(dict(st.secrets["gcp_service_account"]), scope)
+            client = gspread.authorize(creds)
+            
+            # Acceso directo por ID
             archivo = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM')
+            
+            # Intentar obtener la primera hoja (sheet1)
             sheet = archivo.get_worksheet(0)
             datos = sheet.get_all_values()
+            
             st.success("¡Conexión exitosa!")
             st.dataframe(pd.DataFrame(datos[1:], columns=datos[0]))
+            
         except gspread.exceptions.APIError as e:
-            st.error(f"Error de permisos (403).")
+            st.error(f"Error de permisos (403): Asegúrate de compartir el archivo con el correo del robot (terminación .gserviceaccount.com) y darle permiso de EDITOR.")
         except Exception as e:
             st.error(f"Error inesperado: {e}")
 
