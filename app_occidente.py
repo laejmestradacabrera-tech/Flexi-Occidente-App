@@ -37,26 +37,17 @@ except Exception as e:
 
 # --- FUNCIONES ---
 def obtener_fecha_actualizacion(nombre_archivo):
-    """Lee la fecha exacta en la que el archivo se actualizó en el repositorio de GitHub (Commit)."""
-    if not nombre_archivo:
-        return "Archivo no disponible"
-        
+    if not nombre_archivo: return "Archivo no disponible"
     try:
-        # 1. Consultar el historial de versiones oficial de GitHub (Git)
         comando = ['git', 'log', '-1', '--format=%ct', nombre_archivo]
         resultado = subprocess.run(comando, capture_output=True, text=True)
-        
         if resultado.returncode == 0 and resultado.stdout.strip():
-            # Timestamp en segundos (hora oficial del servidor de GitHub)
             timestamp_github = int(resultado.stdout.strip())
-            # Convertimos de UTC a fecha legible y restamos 6 horas (Hora de México)
             fecha_utc = datetime.datetime.utcfromtimestamp(timestamp_github)
             fecha_mexico = fecha_utc - datetime.timedelta(hours=6)
             return fecha_mexico.strftime("%d/%m/%Y - %H:%M hrs")
     except Exception:
-        pass # Si falla GitHub, intentamos el plan de respaldo local
-        
-    # 2. Plan de respaldo
+        pass 
     try:
         tiempo_modificacion = os.path.getmtime(nombre_archivo)
         fecha_servidor = datetime.datetime.utcfromtimestamp(tiempo_modificacion)
@@ -75,7 +66,6 @@ def cargar_tiendas():
         return pd.DataFrame({'NOMBRE': ['Error'], 'ENCARGADO': ['Sin datos']})
 
 def cargar_archivos_locales():
-    # Garantiza acceso al inventario en memoria
     if 'df_ventas' not in st.session_state or 'df_tallas' not in st.session_state:
         try:
             st.session_state.df_ventas = pd.read_excel("Ventas.xlsx")
@@ -86,32 +76,22 @@ def cargar_archivos_locales():
 
 def validar_captura_stock(tienda_id, modelo, talla_input, df_ventas, df_tallas):
     try:
-        # 1. Estandarizar nombres de columnas a minúsculas
         df_ventas.columns = df_ventas.columns.astype(str).str.strip().str.lower()
         df_tallas.columns = df_tallas.columns.astype(str).str.strip().str.lower()
         
-        # 2. HOMOLOGACIÓN ESTRICTA: Aseguramos que tienda_id sea un INT
-        try:
-            tda_buscada = int(str(tienda_id).strip())
-        except:
-            tda_buscada = -1
+        try: tda_buscada = int(str(tienda_id).strip())
+        except: tda_buscada = -1
             
         df_ventas['tienda_int'] = pd.to_numeric(df_ventas['tienda'], errors='coerce').fillna(-1).astype(int)
         
-        # 3. Limpiar Modelo a buscar
         modelo_buscado = str(modelo).replace(' ', '').replace('-', '').upper()
         df_ventas['modelo_cln'] = df_ventas['modelo'].astype(str).str.replace(' ', '', regex=False).str.replace('-', '', regex=False).str.upper()
         
-        # 4. Filtrar Ventas con la Tienda Numérica Exacta
         df_filtro = df_ventas[(df_ventas['tienda_int'] == tda_buscada) & (df_ventas['modelo_cln'] == modelo_buscado)]
         
-        # 5. Normalizar la talla capturada
-        try:
-            talla_buscada_str = str(int(float(talla_input)))
-        except:
-            talla_buscada_str = str(talla_input).strip()
+        try: talla_buscada_str = str(int(float(talla_input)))
+        except: talla_buscada_str = str(talla_input).strip()
             
-        # --- INICIO DE AUDITORÍA VISUAL ---
         with st.expander("🔍 MODO DEPURACIÓN: AUDITORÍA DE CRUCE DE TALLAS", expanded=True):
             st.write(f"**Buscando:** Tienda N°=[{tda_buscada}], Modelo=[{modelo_buscado}], Talla Capturada=[{talla_buscada_str}]")
             
@@ -121,15 +101,12 @@ def validar_captura_stock(tienda_id, modelo, talla_input, df_ventas, df_tallas):
                 
             st.write(f"✅ Se encontraron {len(df_filtro)} fila(s) del modelo. Cruzando con archivo de Tallas...")
             
-            # 6. Identificar la columna de departamentos
             col_dpto = 'valor' if 'valor' in df_tallas.columns else df_tallas.columns[0]
             df_tallas['dpto_cln'] = df_tallas[col_dpto].astype(str).str.strip().str.lower()
             
-            # 7. Cruzar la información con exactitud
             for idx, row_venta in df_filtro.iterrows():
                 dpto_venta = str(row_venta.get('departamento', '')).strip().lower()
                 st.write(f"--- \n**Analizando Departamento:** '{dpto_venta}'")
-                
                 tallas_row = df_tallas[df_tallas['dpto_cln'] == dpto_venta]
                 
                 if tallas_row.empty:
@@ -140,24 +117,17 @@ def validar_captura_stock(tienda_id, modelo, talla_input, df_ventas, df_tallas):
                     col_ex = f'ex{i}'
                     if col_ex in tallas_row.columns:
                         talla_matriz = tallas_row.iloc[0][col_ex]
-                        
                         if pd.notna(talla_matriz) and str(talla_matriz).strip() != '' and str(talla_matriz).strip().lower() != 'nan':
-                            try:
-                                talla_matriz_str = str(int(float(talla_matriz)))
-                            except:
-                                talla_matriz_str = str(talla_matriz).strip()
+                            try: talla_matriz_str = str(int(float(talla_matriz)))
+                            except: talla_matriz_str = str(talla_matriz).strip()
                                 
-                            # EL MOMENTO DE LA VERDAD
                             if talla_matriz_str == talla_buscada_str:
                                 st.write(f"🎯 **¡COINCIDENCIA ENCONTRADA!** Talla Matriz [{talla_matriz_str}] == Talla Captura [{talla_buscada_str}] en la columna **{col_ex}**")
-                                
                                 if col_ex in row_venta:
                                     existencia = row_venta[col_ex]
                                     st.write(f"📦 **Existencia leída en Ventas para {col_ex}:** [{existencia}]")
-                                    try:
-                                        existencia_num = float(existencia)
-                                    except:
-                                        existencia_num = 0.0
+                                    try: existencia_num = float(existencia)
+                                    except: existencia_num = 0.0
                                         
                                     if existencia_num > 0:
                                         st.error(f"⛔ BLOQUEO ACTIVADO: Se detectaron {existencia_num} piezas físicas.")
@@ -194,7 +164,6 @@ st.markdown("""
     }
     td { text-align: center !important; font-size: 15px !important; }
     
-    /* Estilos para las tarjetas de KPI */
     .kpi-box {
         background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 8px;
         padding: 15px; text-align: center; box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
@@ -214,16 +183,13 @@ archivo_conv = buscar_archivo('Conversion')
 archivo_modelos = buscar_archivo('Venta_Modelos')
 archivo_comp = buscar_archivo('Comparativo por Operacion')
 
-# --- 1. EL CARTERO LIGERO (NUEVO ENFOQUE: COMPARATIVO MENSUAL) ---
+# --- 1. EL CARTERO LIGERO (COMPARATIVO MENSUAL) ---
 def enviar_correo_ejecutivo(tienda_objetivo, conversion, ticket, meta_conv, meta_tkt, faltan_pares, faltan_pesos):
-    
-    # 1. Evaluamos el cumplimiento de las metas esenciales de calzado
     logro_conv = conversion >= meta_conv
     logro_ticket = ticket >= meta_tkt
     desviacion_conv = conversion - meta_conv
     desviacion_ticket = ticket - meta_tkt
 
-    # 2. Redacción directa y enfocada en los indicadores de piso de venta y comparativo
     try:
         remitente = st.secrets["CORREO_REMITENTE"]
         password = st.secrets["CORREO_PASSWORD"]
@@ -233,8 +199,8 @@ def enviar_correo_ejecutivo(tienda_objetivo, conversion, ticket, meta_conv, meta
         
         cuerpo = f"Estimada Lety y equipo de la Tienda {tienda_objetivo}:\n\n"
         cuerpo += "Les compartimos el análisis de resultados comerciales de su sucursal, obtenido directamente tras la última actualización del monitor.\n\n"
-        
         cuerpo += "--------------------------------------------------------------------------------\n"
+        
         if logro_conv and logro_ticket:
             cuerpo += "🏆 ¡MUCHAS FELICIDADES POR EL RESULTADO!\n"
             cuerpo += "Queremos reconocer el extraordinario desempeño del equipo en el piso de venta. Han alcanzado y superado de forma simultánea las dos metas vitales de nuestra zona para calzado:\n"
@@ -273,7 +239,6 @@ def enviar_correo_ejecutivo(tienda_objetivo, conversion, ticket, meta_conv, meta
         cuerpo += "Gerencia Comercial Zona Occidente\n"
         cuerpo += "LAE. José Martín Estrada Cabrera"
 
-        # 3. Envío seguro a través del servidor
         msg = MIMEText(cuerpo)
         msg['Subject'] = asunto
         msg['From'] = remitente
@@ -289,17 +254,14 @@ def enviar_correo_ejecutivo(tienda_objetivo, conversion, ticket, meta_conv, meta
 
 # --- GENERADOR DEL REPORTE TOP 20 EN PDF ---
 def generar_reporte_top20_pdf(df_top20, nombre_sucursal):
-    # Ajuste de reloj para la Zona Occidente (UTC - 6 horas)
     hora_mexico = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
     fecha_actual = hora_mexico.strftime("%d/%m/%Y")    
-    # Configuración de hoja tamaño Carta
     pdf = FPDF(orientation='P', unit='mm', format='Letter')
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
     
-    # 1. ENCABEZADO INSTITUCIONAL
     pdf.set_font("Arial", 'B', 16)
-    pdf.set_text_color(227, 6, 19) # Rojo Flexi
+    pdf.set_text_color(227, 6, 19)
     pdf.cell(0, 8, "FLEXI - ZONA OCCIDENTE", ln=True, align="C")
     
     pdf.set_font("Arial", 'B', 12)
@@ -308,7 +270,6 @@ def generar_reporte_top20_pdf(df_top20, nombre_sucursal):
     pdf.line(10, 28, 205, 28)
     pdf.ln(8)
     
-    # 2. DATOS DE LA SUCURSAL
     pdf.set_font("Arial", '', 10)
     pdf.cell(40, 6, "Fecha de Reporte:", 0, 0)
     pdf.cell(60, 6, fecha_actual, 0, 0)
@@ -321,7 +282,6 @@ def generar_reporte_top20_pdf(df_top20, nombre_sucursal):
     pdf.cell(60, 6, "LAE. Jose Martin Estrada Cabrera", 0, 1)
     pdf.ln(8)
     
-    # 3. ENCABEZADO DE LA TABLA
     pdf.set_font("Arial", 'B', 9)
     pdf.set_fill_color(227, 6, 19)
     pdf.set_text_color(255, 255, 255)
@@ -330,45 +290,36 @@ def generar_reporte_top20_pdf(df_top20, nombre_sucursal):
     pdf.cell(40, 8, "PARES VENDIDOS", 1, 0, 'C', fill=True)
     pdf.cell(110, 8, "DESEMPENO EN LA ZONA OCCIDENTE", 1, 1, 'C', fill=True)
     
-    # 4. LLENADO DE DATOS
     pdf.set_font("Arial", '', 9)
     pdf.set_text_color(0, 0, 0)
     for i, row in df_top20.iterrows():
         posicion = i + 1
         modelo = str(row.get('MODELO', 'S/D'))
         pares = str(row.get('PARES VENDIDOS', '0'))
-        
         if posicion <= 5: desempeno = "Top 5 mas vendido en la region"
         elif posicion <= 10: desempeno = "Alta demanda en la zona"
         else: desempeno = "Desplazamiento regular"
-            
         pdf.cell(15, 7, f"{posicion:02d}", 1, 0, 'C')
         pdf.cell(30, 7, modelo, 1, 0, 'C')
         pdf.cell(40, 7, pares, 1, 0, 'C')
         pdf.cell(110, 7, desempeno, 1, 1, 'L')
         
     pdf.ln(10)
-    
-    # 5. FIRMAS
     pdf.set_font("Arial", 'I', 9)
     pdf.set_text_color(80, 80, 80)
     pdf.multi_cell(0, 5, "Nota: Este documento sirve como guia visual para que el equipo en piso valide fisicamente en su bodega que estos modelos ganadores esten exhibidos.")
     pdf.ln(25)
-    
     pdf.set_font("Arial", '', 10)
     pdf.set_text_color(0, 0, 0)
     pdf.cell(90, 5, "_______________________", 0, 0, 'C')
     pdf.cell(15, 5, "", 0, 0)
     pdf.cell(90, 5, "_______________________", 0, 1, 'C')
-    
     pdf.cell(90, 5, "Firma de la Encargada", 0, 0, 'C')
     pdf.cell(15, 5, "", 0, 0)
     pdf.cell(90, 5, "LAE. Jose Martin Estrada", 0, 1, 'C')
-    
     pdf.cell(90, 5, "Responsable de Sucursal", 0, 0, 'C')
     pdf.cell(15, 5, "", 0, 0)
     pdf.cell(90, 5, "Gerente Comercial", 0, 1, 'C')
-    
     return bytes(pdf.output(dest='S').encode('latin1'))
 
 # --- DEFINICIÓN DE LAS 10 PESTAÑAS (INCLUYENDO RATING) ---
@@ -388,6 +339,9 @@ tab1, tab_rating, tab2, tab3, tab4, tab_bitacora, tab5, tab6, tab7, tab8 = st.ta
 # ========================================================
 # --- PESTAÑA 1: DESEMPEÑO COMERCIAL ---
 with tab1:
+    st.subheader("📊 DESEMPEÑO COMERCIAL")
+    fecha_act = obtener_fecha_actualizacion(archivo_conv)
+    st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
     if archivo_conv:
         df_c = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
         df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
@@ -414,13 +368,137 @@ with tab1:
 
             st.table(ranking.style.apply(color_semaforo, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))            
 
-# --- PESTAÑA NUEVA: RATING COMERCIAL ---
+# ========================================================
+# --- PESTAÑA NUEVA: RATING COMERCIAL (CON MOTOR AISLADO) ---
 with tab_rating:
     st.markdown("<h2 style='text-align: center; color: #EAB308;'>🏆 RATING COMERCIAL OCCIDENTE</h2>", unsafe_allow_html=True)
-    st.info("Modo Visualización: El tablero gamificado se conectará a los datos en vivo en la siguiente fase.")
+    st.info("📊 MODO AUDITORÍA (Fase 1 de Conexión): Validemos que los cálculos sean exactos antes de inyectarlos al diseño final.")
     
+    # ---------------- MOTOR DE CÁLCULO AISLADO ----------------
     try:
-        # Cargamos el archivo HTML exactamente como pediste, sin afectar nada más.
+        with st.spinner("Procesando datos de 19 tiendas (Ticket, Conversión, Alcance y Quiebres)..."):
+            
+            # PASO 1: Extraer Ticket y Conversión
+            df_conv_r = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
+            df_conv_r = df_conv_r[~df_conv_r.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
+            c_tda_c = next((c for c in df_conv_r.columns if 'Tienda' in c or 'TIENDA' in c), df_conv_r.columns[0])
+            c_conv_real = next((c for c in df_conv_r.columns if 'Conv' in c and 'Actual' in c), None)
+            c_tkt_real = next((c for c in df_conv_r.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
+            
+            datos_rating = []
+            for _, r in df_conv_r.iterrows():
+                tienda_str = str(r[c_tda_c]).strip()
+                conv_val = float(r[c_conv_real])
+                conv_val = conv_val * 100 if conv_val < 1 else conv_val
+                tkt_val = float(r[c_tkt_real])
+                datos_rating.append({"TIENDA": tienda_str, "CONVERSION": conv_val, "TICKET": tkt_val})
+            
+            df_rating = pd.DataFrame(datos_rating)
+
+            # PASO 2: Extraer Alcance (Comparativo)
+            if archivo_comp:
+                df_comp_r = pd.read_excel(archivo_comp) if archivo_comp.endswith('.xlsx') else pd.read_csv(archivo_comp)
+                c_ano = next((c for c in df_comp_r.columns if 'año' in c.lower() or 'ano' in c.lower()), df_comp_r.columns[0])
+                c_tda = next((c for c in df_comp_r.columns if 'tienda' in c.lower() or 'sucursal' in c.lower()), df_comp_r.columns[2])
+                c_prs = next((c for c in df_comp_r.columns if 'pares' in c.lower() or 'cant' in c.lower()), None)
+                c_prov = next((c for c in df_comp_r.columns if 'prov' in c.lower()), None)
+                
+                df_comp_r[c_tda] = df_comp_r[c_tda].astype(str).str.strip()
+                df_comp_r = df_comp_r[~df_comp_r[c_tda].str.contains('3004|3015', na=False)]
+                if c_prov: df_comp_r = df_comp_r[~df_comp_r[c_prov].astype(str).str.strip().isin(['415', '426', '427'])]
+                
+                res_comp = df_comp_r.groupby([c_tda, c_ano])[c_prs].sum().unstack(fill_value=0)
+                alcance_dict = {}
+                for tda in res_comp.index:
+                    pares_25 = res_comp.loc[tda].get(2025, 0)
+                    pares_26 = res_comp.loc[tda].get(2026, 0)
+                    alcance_dict[str(tda)] = (pares_26 / pares_25 * 100) if pares_25 > 0 else 0
+                
+                df_rating['ALCANCE'] = df_rating['TIENDA'].map(alcance_dict).fillna(0)
+
+            # PASO 3: Contar Quiebres Totales de Modelos Top 20 por tienda
+            df_ventas_r = pd.read_excel("Ventas.xlsx")
+            df_ventas_r['Tienda'] = df_ventas_r['Tienda'].astype(str).str.strip()
+            df_ventas_r = df_ventas_r[~df_ventas_r['Tienda'].str.contains('3004|3015', na=False)]
+            df_ventas_r = df_ventas_r[~df_ventas_r['Proveedor'].isin([415, 426, 427])]
+            
+            quiebres_dict = {}
+            for tda in df_rating['TIENDA']:
+                df_tienda_v = df_ventas_r[df_ventas_r['Tienda'] == tda]
+                top_20 = df_tienda_v.groupby('Modelo')['Vtas'].sum().nlargest(20).index
+                df_top = df_tienda_v[df_tienda_v['Modelo'].isin(top_20)]
+                
+                quiebres = 0
+                for _, row in df_top.iterrows():
+                    cols_ex = [f'ex{i}' for i in range(1, 16) if f'ex{i}' in row.index]
+                    cols_p = [f'p{i}' for i in range(1, 16) if f'p{i}' in row.index]
+                    suma_ex = pd.to_numeric(row[cols_ex], errors='coerce').fillna(0).sum()
+                    suma_p = pd.to_numeric(row[cols_p], errors='coerce').fillna(0).sum()
+                    if suma_ex <= 0 and suma_p <= 0:
+                        quiebres += 1
+                quiebres_dict[tda] = quiebres
+            
+            df_rating['QUIEBRES'] = df_rating['TIENDA'].map(quiebres_dict).fillna(0)
+
+            # PASO 4: Motor de Asignación de Puntos (Reglas de Oro del Scorecard)
+            def calcular_pts_ticket(t):
+                if t >= 1.29: return 25
+                elif t >= 1.23: return 20
+                elif t >= 1.15: return 15
+                elif t >= 1.05: return 10
+                return 0
+                
+            def calcular_pts_conv(c):
+                if c >= 10.9: return 25
+                elif c >= 10.0: return 20
+                elif c >= 9.0: return 15
+                elif c >= 8.0: return 10
+                return 0
+                
+            def calcular_pts_alcance(a):
+                if a >= 100: return 25
+                elif a >= 95: return 20
+                elif a >= 90: return 15
+                elif a >= 85: return 10
+                return 0
+                
+            def calcular_pts_quiebre(q):
+                if q == 0: return 25
+                elif q <= 5: return 20
+                elif q <= 10: return 15
+                elif q <= 15: return 10
+                return 0
+
+            df_rating['PTS_TKT'] = df_rating['TICKET'].apply(calcular_pts_ticket)
+            df_rating['PTS_CONV'] = df_rating['CONVERSION'].apply(calcular_pts_conv)
+            df_rating['PTS_ALC'] = df_rating['ALCANCE'].apply(calcular_pts_alcance)
+            df_rating['PTS_QUIEBRE'] = df_rating['QUIEBRES'].apply(calcular_pts_quiebre)
+            
+            # Puntuación Total
+            df_rating['PUNTAJE_TOTAL'] = df_rating['PTS_TKT'] + df_rating['PTS_CONV'] + df_rating['PTS_ALC'] + df_rating['PTS_QUIEBRE']
+            
+            # Ordenamos el Ranking (Priorizando Puntaje, luego Conversión como desempate)
+            df_rating = df_rating.sort_values(by=['PUNTAJE_TOTAL', 'CONVERSION'], ascending=[False, False]).reset_index(drop=True)
+            df_rating.insert(0, 'POSICIÓN', range(1, len(df_rating) + 1))
+            
+            # Visualización en Streamlit para validación tuya (Antes del HTML)
+            st.write("### 🥇 RANKING DE DATOS EN VIVO (19 TIENDAS)")
+            tabla_mostrar = df_rating[['POSICIÓN', 'TIENDA', 'PUNTAJE_TOTAL', 'TICKET', 'CONVERSION', 'ALCANCE', 'QUIEBRES']]
+            
+            # Damos formato a la tabla para que sea fácil de leer
+            st.dataframe(tabla_mostrar.style.format({
+                'TICKET': '{:.2f}',
+                'CONVERSION': '{:.2f}%',
+                'ALCANCE': '{:.2f}%',
+                'QUIEBRES': '{:.0f} Fallas'
+            }), use_container_width=True)
+
+    except Exception as e:
+        st.error(f"Error en el motor de cálculo del Rating: {e}")
+
+    # ---------------- VISUALIZACIÓN DEL HTML (Como Plantilla) ----------------
+    st.write("<br><hr>", unsafe_allow_html=True)
+    try:
         if os.path.exists("Raiting Elegido..html"):
             with open("Raiting Elegido..html", "r", encoding="utf-8") as f:
                 html_code = f.read()
@@ -430,10 +508,14 @@ with tab_rating:
     except Exception as e:
         st.error(f"Error al cargar el Rating: {e}")
 
+# ========================================================
 # --- PESTAÑA 2: COMPARATIVO MENSUAL ---
 with tab2:
+    st.subheader("📈 Análisis Comparativo de Calzado Mensual")
+    fecha_act = obtener_fecha_actualizacion(archivo_comp)
+    st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
+    
     if archivo_comp:
-        st.subheader("📊 Análisis Comparativo de Calzado Mensual")
         df_op = pd.read_excel(archivo_comp) if archivo_comp.endswith('.xlsx') else pd.read_csv(archivo_comp)
         
         c_ano = next((c for c in df_op.columns if 'año' in c.lower() or 'ano' in c.lower()), df_op.columns[0])
@@ -504,22 +586,18 @@ with tab2:
             st.write("<br>", unsafe_allow_html=True)
             st.markdown("---")
             
-            # Creamos dos columnas para colocar el cuadro de texto y el botón alineados
             col_clave, col_boton = st.columns([1, 2])
-            
             with col_clave:
                 password_input = st.text_input("Clave de autorización", type="password")
             
             with col_boton:
-                st.write("<br>", unsafe_allow_html=True) # Alineación visual con el cuadro de texto
+                st.write("<br>", unsafe_allow_html=True)
                 if st.button("🚀 Enviar Reporte Ejecutivo del Día (Tienda 56)", type="primary"):
-                    # Validación estricta de la clave asignada para la zona
                     if password_input == "T5604b":
                         tienda_obj = "56"
                         conv_actual = 0.0
                         tkt_actual = 0.0
                         
-                        # 1. Extraemos Conversión y Ticket del archivo de Conversión
                         if archivo_conv:
                             try:
                                 df_c = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
@@ -538,7 +616,6 @@ with tab2:
                             except:
                                 pass
 
-                        # 2. Extraemos el Reto en Pares y Pesos con filtros aplicados de calzado puro
                         faltan_pares_calc = 0
                         faltan_pesos_calc = 0.0
                         
@@ -573,7 +650,6 @@ with tab2:
                             except:
                                 pass
                         
-                        # 3. Disparador seguro del correo ejecutivo
                         with st.spinner("Enviando reporte ejecutivo..."):
                             resultado_alerta = enviar_correo_ejecutivo(
                                 tienda_objetivo=tienda_obj, 
@@ -610,6 +686,10 @@ if archivo_modelos:
         return estilo
 
     with tab3:
+        st.subheader("👟 TOP 20 TIENDA")
+        fecha_act = obtener_fecha_actualizacion(archivo_modelos)
+        st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
+        
         tiendas = sorted(df_m[col_t].unique())
         t_sel = st.selectbox("Selecciona Tienda:", tiendas)
         df_tienda_data = df_m[df_m[col_t] == t_sel].groupby(col_m)[col_p].sum().reset_index()
@@ -617,7 +697,6 @@ if archivo_modelos:
         top_t.columns = ['MODELO', 'PARES VENDIDOS']
         st.table(top_t.style.apply(resaltar_top_5, axis=None))
 
-        # --- BOTÓN DE DESCARGA DE REPORTE EN PDF ---
         pdf_bytes = generar_reporte_top20_pdf(
             df_top20=top_t, 
             nombre_sucursal=str(t_sel)
@@ -634,6 +713,9 @@ if archivo_modelos:
 
     with tab4:
         st.subheader("🌍 Consolidado Zona Occidente")
+        fecha_act = obtener_fecha_actualizacion(archivo_modelos)
+        st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
+        
         df_z = df_m.groupby(col_m)[col_p].sum().reset_index()
         top_z = df_z.sort_values(by=col_p, ascending=False).head(20).reset_index(drop=True)
         top_z.columns = ['MODELO', 'PARES VENDIDOS']
@@ -647,14 +729,11 @@ with tab_bitacora:
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        # 1. Selección de tienda reactiva
         tienda_seleccionada = st.selectbox("Selecciona la Tienda:", df_tiendas['NOMBRE'].unique())
     
-    # 2. Búsqueda y visualización INMEDIATA del encargado
     fila_tienda = df_tiendas[df_tiendas['NOMBRE'] == tienda_seleccionada]
     encargado_actual = fila_tienda['ENCARGADO'].values[0] if not fila_tienda.empty else "No encontrado"
     
-    # Intento de extraer el número de tienda para el sistema desde el Excel
     tda_num_defecto = ""
     for col in df_tiendas.columns:
         if col.strip().upper() in ['TIENDA', 'SUCURSAL', 'NUMERO', 'ID']:
@@ -662,12 +741,10 @@ with tab_bitacora:
             break
             
     with col2:
-        # DIAGNÓSTICO LAE APLICADO: Forzamos la captura numérica estricta
         tienda_numero = st.text_input("N° Sucursal en SAP/Inventario (Ej. 56):", value=tda_num_defecto)
 
     st.info(f"**Encargado(a) detectado(a):** {encargado_actual}")
         
-    # 3. Datos de la incidencia (con fecha corregida)
     fecha_mexico = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
     fecha = st.date_input("Fecha", fecha_mexico.date())
     factor = st.selectbox("Factor Principal:", [
@@ -677,47 +754,33 @@ with tab_bitacora:
         "🚧 Afectación de acceso", "🎉 Factor externo"
     ])
     
-    # Inicialización de variables para las nuevas columnas
     modelo_captura = ""
     talla_captura = 0
     precio_captura = 0.0
     status_validacion = "N/A"
 
-    # Campos dinámicos para Tallas
     if "Faltante de Tallas" in factor:
         modelo_captura = st.text_input("Modelo:")
-        
-        # OBLIGAMOS a que la talla sea tratada como un número entero nativo desde la interfaz
         talla_captura = st.number_input("Talla (Ej. 250):", min_value=150, max_value=350, step=5, value=250)
-        
         precio_captura = st.number_input("Precio:", min_value=0.0)
 
     notas = st.text_area("Detalles adicionales:")
     
-    # 4. Botón de guardado con lógica de validación
     if st.button("💾 Guardar en Bitácora"):
         puede_guardar = True
         
-        # Validación de Stock si es Faltante de Tallas
         if "Faltante de Tallas" in factor:
             if not modelo_captura:
                 st.error("❌ Para reportar falta de tallas, debes escribir el Modelo.")
                 puede_guardar = False
-                
-            # CANDADO FINAL: No dejamos que la validación ocurra si no hay un número puro
             elif not tienda_numero.strip().isdigit():
                 st.error("❌ Por favor, ingresa un N° de Sucursal válido (SOLO NÚMEROS, ej. 56) en la parte superior para poder cruzar el inventario. El sistema no acepta letras.")
                 puede_guardar = False
-                
             else:
                 try:
-                    # Cargamos los archivos para validar en tiempo real
                     df_ventas = pd.read_excel("Ventas.xlsx")
                     df_tallas = pd.read_excel("Valores de tallas.xlsx")
-                    
-                    # Ejecutamos la validación enviando el NÚMERO exacto (Ej. "56")
                     es_valido, mensaje = validar_captura_stock(tienda_numero, modelo_captura, talla_captura, df_ventas, df_tallas)
-                    
                     if not es_valido:
                         st.error(mensaje)
                         puede_guardar = False
@@ -727,21 +790,10 @@ with tab_bitacora:
                     st.error(f"Error técnico en validación: {e}")
                     puede_guardar = False
 
-        # Si el semáforo sigue en verde (True), guarda en Google Sheets
         if puede_guardar:
-            # Guardado en Google Sheets (asegura el orden de columnas H-K)
             fila = [
-                str(fecha), 
-                tienda_seleccionada, 
-                encargado_actual, 
-                factor, 
-                notas, 
-                "",  # Columna F vacía
-                "",  # Columna G vacía
-                str(modelo_captura), 
-                str(int(talla_captura)), 
-                str(precio_captura), 
-                status_validacion
+                str(fecha), tienda_seleccionada, encargado_actual, factor, notas, 
+                "", "", str(modelo_captura), str(int(talla_captura)), str(precio_captura), status_validacion
             ]
             try:
                 if 'sheet_bitacora' in globals():
@@ -761,12 +813,11 @@ with tab5:
     else:
         st.warning("⚠️ La imagen 'RC Zona Occidente.png' aún no se encuentra en GitHub.")
 
-# --- PESTAÑA 6: PORTAL DE CAPACITACIÓN Y MANUAL DE INTEGRACIÓN RECONSTRUIDO AL 100% ---
+# --- PESTAÑA 6: PORTAL DE CAPACITACIÓN ---
 with tab6:
     st.markdown("## 🎓 Centro de Capacitación y Desarrollo Operativo")
     st.write("Bienvenido al espacio interactivo para el fortalecimiento del sentido de pertenencia y alineación comercial de la Zona Occidente.")
     
-    # Columna derecha más ancha para mejor lectura del manual
     col_izq, col_der = st.columns([1, 1.2]) 
     
     with col_izq:
@@ -776,21 +827,15 @@ with tab6:
             "Tutorial Vales de Zapatos": "https://youtu.be/6hB95lYcL1g",
             "Tutorial mi Flexi": "https://youtu.be/WVi8geGSeOg"
         }
-        
         video_seleccionado = st.selectbox("Selecciona el material audiovisual a reproducir:", list(opciones_video.keys()))
         url_video = opciones_video[video_seleccionado]
-        
         st.write("<br>", unsafe_allow_html=True)
         st.video(url_video)
         st.link_button(f"🚀 Clic aquí para ver {video_seleccionado} directo en YouTube", url_video, type="primary")
         
     with col_der:
         st.markdown("### 📘 Manual de Integración a Tiendas Flexi")
-        
-        st.info("""
-        **🎯 Objetivo General:** Establecer un proceso de acogida estandarizado que reduzca la rotación de personal en los primeros 90 días, transformando la incorporación en una experiencia de bienvenida profesional y humana.
-        """)
-        
+        st.info("**🎯 Objetivo General:** Establecer un proceso de acogida estandarizado que reduzca la rotación de personal en los primeros 90 días, transformando la incorporación en una experiencia de bienvenida profesional y humana.")
         st.write("*La permanencia del personal de nueva contratación no depende únicamente de las condiciones laborales, sino de la calidad de su integración inicial. Este manual presenta cinco pilares fundamentales para asegurar que el nuevo colaborador se sienta valorado, guiado y conectado con los objetivos de la organización.*")
         
         with st.expander("🎯 1. PROPÓSITO DEL MONITOR COMERCIAL", expanded=True):
@@ -849,12 +894,10 @@ with tab6:
 
 # --- PESTAÑA 7: MONITOR DE NIVELACIÓN FLEXI OCCIDENTE ---
 with tab7:
-    # Encabezado institucional (Rojo Flexi Oscuro)
-    st.markdown("""
-        <h2 style='color: #B22222;'>📈 Monitor de Nivelación Flexi Occidente</h2>
-    """, unsafe_allow_html=True)
+    st.markdown("<h2 style='color: #B22222;'>📈 Monitor de Nivelación Flexi Occidente</h2>", unsafe_allow_html=True)
+    fecha_act = obtener_fecha_actualizacion("Ventas.xlsx")
+    st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
     
-    # Cargamos el inventario con nuestra nueva función centralizada
     cargar_archivos_locales()
     
     if 'df_ventas' in st.session_state:
@@ -862,7 +905,6 @@ with tab7:
         tienda_sel = st.selectbox("Selecciona la Tienda para analizar:", tiendas)
         
         if st.button("Ejecutar Análisis"):
-            # Filtro directo
             df_tienda = st.session_state.df_ventas[
                 (st.session_state.df_ventas['Tienda'] == tienda_sel) & 
                 (~st.session_state.df_ventas['Proveedor'].isin([415, 426, 427]))
@@ -894,12 +936,13 @@ with tab7:
             
             if resultados:
                 df_final = pd.DataFrame(resultados).drop_duplicates()
-                # Despliegue en bloques con títulos institucionales
                 for dpto in df_final['Departamento'].unique():
                     st.markdown(f"<h3 style='color: #B22222;'>Bloque: {dpto}</h3>", unsafe_allow_html=True)
                     st.dataframe(df_final[df_final['Departamento'] == dpto][['Modelo', 'Talla']])
             else:
                 st.success("¡Excelente! No hay faltantes en el Top 20.")            
+    else:
+        st.warning("Archivos de ventas o tallas no encontrados localmente.")
 
 # --- PESTAÑA 8: MONITOR ESTRATÉGICO ---
 with tab8:
@@ -909,15 +952,11 @@ with tab8:
             import gspread
             from oauth2client.service_account import ServiceAccountCredentials
             
-            # Credenciales
             scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
             creds = ServiceAccountCredentials.from_json_keyfile_dict(dict(st.secrets["gcp_service_account"]), scope)
             client = gspread.authorize(creds)
             
-            # Acceso directo por ID
             archivo = client.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM')
-            
-            # Intentar obtener la primera hoja (sheet1)
             sheet = archivo.get_worksheet(0)
             datos = sheet.get_all_values()
             
