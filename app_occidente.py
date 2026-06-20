@@ -465,6 +465,22 @@ with tab_rating:
                                 talla_fisica = tallas_row.iloc[0].get(f'ex{i}')
                                 # Validar que es una talla activa para ese departamento
                                 if pd.notna(talla_fisica) and str(talla_fisica).strip() != '':
+                                    
+                                    # --- REGLA DE NEGOCIO: EXCLUIR TALLA 305 EN CABALLERO ---
+                                    talla_str = str(talla_fisica).strip()
+                                    es_305 = False
+                                    try:
+                                        t_num = float(talla_fisica)
+                                        if t_num == 305 or t_num == 30.5:
+                                            es_305 = True
+                                    except:
+                                        if '305' in talla_str:
+                                            es_305 = True
+                                            
+                                    if dpto == 'caballero' and es_305:
+                                        continue # Ignoramos esta talla, no suma quiebre
+                                    # --------------------------------------------------------
+                                    
                                     modelos_quebrados.add(row['Modelo'])
                                     break # Pasamos al siguiente modelo porque este ya se consideró 'quebrado'
                                     
@@ -524,15 +540,152 @@ with tab_rating:
                 'BONO': '+{:.0f} pts'
             }), use_container_width=True)
 
+            # --- NUEVO: CONSTRUCCIÓN DINÁMICA DEL HTML (EL INYECTOR) ---
+            df_tiendas_html = cargar_tiendas()
+            df_tiendas_html['tienda_int'] = df_tiendas_html['NOMBRE'].apply(
+                lambda x: int(re.search(r'\d+', str(x)).group()) if re.search(r'\d+', str(x)) else -1
+            )
+            
+            def get_tienda_info(pos):
+                if len(df_rating) >= pos:
+                    row = df_rating.iloc[pos-1]
+                    enc_row = df_tiendas_html[df_tiendas_html['tienda_int'] == row['TIENDA_INT']]
+                    enc_name = str(enc_row['ENCARGADO'].values[0]).split()[0] if not enc_row.empty else "Líder"
+                    return enc_name, row['TIENDA'], int(row['PUNTAJE_TOTAL']), int(row['BONO'])
+                return "N/A", "N/A", 0, 0
+
+            e1, t1, p1, b1 = get_tienda_info(1)
+            e2, t2, p2, b2 = get_tienda_info(2)
+            e3, t3, p3, b3 = get_tienda_info(3)
+
+            bono_tag_1 = '<span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider"><i class="fa-solid fa-star text-yellow-400"></i> Bono Crecimiento Activo</span>' if b1 > 0 else ''
+
+            podio_html = f"""
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16 items-end mt-16 px-4">
+                <!-- 2do Lugar -->
+                <div class="bg-slate-800/80 rounded-2xl p-6 text-center h-[280px] flex flex-col justify-between hover-scale neon-border-silver relative">
+                    <div class="absolute -top-10 left-1/2 -translate-x-1/2 w-20 h-20 bg-slate-700 rounded-full border-4 border-slate-300 flex items-center justify-center shadow-[0_0_20px_rgba(148,163,184,0.5)]">
+                        <i class="fa-solid fa-medal text-3xl text-slate-300"></i>
+                    </div>
+                    <div class="mt-8">
+                        <p class="text-3xl font-black text-white tracking-wide">{e2}</p>
+                        <p class="text-sm text-cyan-400 font-semibold uppercase mt-1">{t2}</p>
+                    </div>
+                    <div class="text-5xl font-black grad-primary mt-2">{p2}<span class="text-2xl text-slate-500">.0</span></div>
+                </div>
+
+                <!-- 1er Lugar -->
+                <div class="bg-slate-800 rounded-2xl p-6 text-center h-[350px] flex flex-col justify-between hover-scale neon-border-gold relative transform md:-translate-y-8 z-10 bg-gradient-to-b from-yellow-500/10 to-transparent">
+                    <div class="absolute -top-12 left-1/2 -translate-x-1/2 w-24 h-24 bg-slate-800 rounded-full border-4 border-yellow-400 flex items-center justify-center shadow-[0_0_30px_rgba(234,179,8,0.6)]">
+                        <i class="fa-solid fa-trophy text-4xl text-yellow-400"></i>
+                    </div>
+                    <div class="mt-8">
+                        <div class="text-yellow-400 text-sm font-black tracking-widest mb-1"><i class="fa-solid fa-crown"></i> LÍDER ABSOLUTO</div>
+                        <p class="text-4xl font-black text-white tracking-wide">{e1}</p>
+                        <p class="text-sm text-cyan-400 font-semibold uppercase mt-1 mb-2">{t1}</p>
+                        {bono_tag_1}
+                    </div>
+                    <div class="text-6xl font-black text-yellow-400 drop-shadow-[0_0_10px_rgba(234,179,8,0.8)] mt-2">{p1}<span class="text-2xl text-yellow-600">.0</span></div>
+                </div>
+
+                <!-- 3er Lugar -->
+                <div class="bg-slate-800/80 rounded-2xl p-6 text-center h-[240px] flex flex-col justify-between hover-scale neon-border-bronze relative">
+                    <div class="absolute -top-10 left-1/2 -translate-x-1/2 w-20 h-20 bg-slate-700 rounded-full border-4 border-amber-600 flex items-center justify-center shadow-[0_0_20px_rgba(217,119,6,0.5)]">
+                        <i class="fa-solid fa-medal text-3xl text-amber-600"></i>
+                    </div>
+                    <div class="mt-8">
+                        <p class="text-3xl font-black text-white tracking-wide">{e3}</p>
+                        <p class="text-sm text-cyan-400 font-semibold uppercase mt-1">{t3}</p>
+                    </div>
+                    <div class="text-4xl font-black grad-primary mt-2">{p3}<span class="text-2xl text-slate-500">.0</span></div>
+                </div>
+            </div>
+            """
+            
+            filas_html = ""
+            for index, row in df_rating.iterrows():
+                pos = row['POSICIÓN']
+                tienda = row['TIENDA']
+                enc_row = df_tiendas_html[df_tiendas_html['tienda_int'] == row['TIENDA_INT']]
+                encargado = str(enc_row['ENCARGADO'].values[0]).split()[0] if not enc_row.empty else "Líder"
+                
+                conv = f"{row['CONVERSION']:.2f}%"
+                tkt = f"{row['TICKET']:.2f}"
+                alcance = f"{row['ALCANCE']:.0f}%"
+                quiebres = int(row['QUIEBRES'])
+                pts = int(row['PUNTAJE_TOTAL'])
+                bono = int(row['BONO'])
+
+                bg_tr = ""
+                color_pos = "text-slate-300"
+                color_bar = "bar-grad"
+                riesgo_tag = ""
+
+                if pos == 1:
+                    bg_tr = "bg-gradient-to-r from-yellow-500/10 to-transparent"
+                    color_pos = "text-yellow-500"
+                elif pos == 2:
+                    color_pos = "text-slate-300"
+                elif pos == 3:
+                    color_pos = "text-amber-600"
+                elif pts < 75: # Alerta para tiendas por debajo del puntaje de seguridad
+                    bg_tr = "bg-red-500/5"
+                    color_pos = "text-slate-500"
+                    color_bar = "bg-gradient-to-r from-red-600 to-orange-500"
+                    riesgo_tag = '<span class="text-[10px] text-red-400 bg-red-400/10 px-2 py-1 rounded">Zona de Riesgo</span>'
+
+                bono_td = f'<br><span class="text-[10px] bg-yellow-500/20 px-1 rounded uppercase">+{bono} Bono</span>' if bono > 0 else ''
+                bono_bar = f'<div class="absolute top-0 right-0 h-full w-[5%] bg-yellow-400 rounded-r-full shadow-[0_0_10px_rgba(234,179,8,1)]"></div>' if bono > 0 else ''
+
+                filas_html += f"""
+                <tr class="border-b border-slate-700/50 {bg_tr} hover:bg-slate-700/50 transition-colors">
+                    <td class="p-4 text-center font-black text-2xl {color_pos}">#{pos}</td>
+                    <td class="p-4">
+                        <p class="font-bold text-lg text-white whitespace-nowrap">{tienda}</p>
+                        <p class="text-sm text-slate-400">{encargado}</p>
+                    </td>
+                    <td class="p-4 text-center text-emerald-400 font-bold">{conv}</td>
+                    <td class="p-4 text-center text-emerald-400 font-bold">{tkt}</td>
+                    <td class="p-4 text-center text-yellow-400 font-black">{alcance} {bono_td}</td>
+                    <td class="p-4 text-center text-emerald-400 font-bold">{quiebres}</td>
+                    <td class="p-4 w-64">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="font-black text-white text-xl">{pts}.0</span>
+                            {riesgo_tag}
+                        </div>
+                        <div class="w-full bg-slate-900 rounded-full h-3 border border-slate-700 relative">
+                            <div class="{color_bar} h-full rounded-full" style="width: {min(100, (pts/105)*100)}%"></div>
+                            {bono_bar}
+                        </div>
+                    </td>
+                </tr>
+                """
+
     except Exception as e:
         st.error(f"Error en el motor de cálculo del Rating: {e}")
 
-    # ---------------- VISUALIZACIÓN DEL HTML (Como Plantilla) ----------------
+    # ---------------- VISUALIZACIÓN DEL HTML (INYECCIÓN DINÁMICA) ----------------
     st.write("<br><hr>", unsafe_allow_html=True)
     try:
         if os.path.exists("Raiting Elegido..html"):
             with open("Raiting Elegido..html", "r", encoding="utf-8") as f:
                 html_code = f.read()
+            
+            # El inyector: Remplazamos las etiquetas del Podio y la Tabla estática con el código generado
+            html_code = re.sub(
+                r'<!-- PODIO TOP 3 -->.*?<!-- LEADERBOARD \(TABLA\) -->',
+                f'<!-- PODIO TOP 3 -->\n{podio_html}\n<!-- LEADERBOARD (TABLA) -->',
+                html_code,
+                flags=re.DOTALL
+            )
+
+            html_code = re.sub(
+                r'<tbody class="text-slate-200">.*?</tbody>',
+                f'<tbody class="text-slate-200">\n{filas_html}\n</tbody>',
+                html_code,
+                flags=re.DOTALL
+            )
+            
             components.html(html_code, height=1200, scrolling=True)
         else:
             st.warning("⚠️ El archivo 'Raiting Elegido..html' no se encontró en la carpeta de GitHub.")
