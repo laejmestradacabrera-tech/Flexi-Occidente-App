@@ -513,8 +513,13 @@ with tab_rating:
             
             # --- CONSTRUCCIÓN DINÁMICA DEL HTML ---
             df_tiendas_html = cargar_tiendas()
-            df_tiendas_html['tienda_int'] = df_tiendas_html['NOMBRE'].apply(
-                lambda x: int(re.search(r'\d+', str(x)).group()) if re.search(r'\d+', str(x)) else -1
+            
+            # Buscar robustamente las columnas requeridas
+            col_nom = next((c for c in df_tiendas_html.columns if 'NOMBRE' in c.upper() or 'TIENDA' in c.upper() or 'SUC' in c.upper()), df_tiendas_html.columns[0])
+            col_enc = next((c for c in df_tiendas_html.columns if 'ENCARGAD' in c.upper()), None)
+
+            df_tiendas_html['tienda_int'] = df_tiendas_html[col_nom].apply(
+                lambda x: int(re.search(r'\d+', str(x)).group()) if pd.notna(x) and re.search(r'\d+', str(x)) else -1
             )
             
             def get_tienda_info(pos):
@@ -522,11 +527,15 @@ with tab_rating:
                     row = df_rating.iloc[pos-1]
                     enc_row = df_tiendas_html[df_tiendas_html['tienda_int'] == row['TIENDA_INT']]
                     
-                    # AJUSTE 1: Tomamos Nombre y Primer Apellido usando las primeras 2 palabras
-                    enc_parts = str(enc_row['ENCARGADO'].values[0]).split() if not enc_row.empty else ["Líder"]
-                    enc_name = " ".join(enc_parts[:2]) 
+                    enc_name = "Encargada"
+                    if col_enc and not enc_row.empty:
+                        val = str(enc_row[col_enc].values[0])
+                        if val and val.lower() != 'nan' and val.strip():
+                            enc_parts = val.split()
+                            # Tomamos las primeras dos palabras para obtener Nombre y Apellido
+                            enc_name = " ".join(enc_parts[:2]) 
                     
-                    tienda_nombre = str(enc_row['NOMBRE'].values[0]) if not enc_row.empty else row['TIENDA']
+                    tienda_nombre = str(enc_row[col_nom].values[0]) if not enc_row.empty else row['TIENDA']
                     return enc_name, tienda_nombre, int(row['PUNTAJE_TOTAL']), int(row['BONO'])
                 return "N/A", "N/A", 0, 0
 
@@ -536,7 +545,7 @@ with tab_rating:
 
             bono_tag_1 = '<span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider"><i class="fa-solid fa-star text-yellow-400"></i> Bono Crecimiento Activo</span>' if b1 > 0 else ''
 
-            # AJUSTE PODIO: Ahora `t1` (Tienda) es el título principal grande, y `e1` (Encargada) es el subtítulo
+            # AJUSTE PODIO: Ahora `t1` (Tienda) es el título principal, y `e1` (Encargada) incluye un icono
             podio_html = f"""
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16 items-end mt-16 px-4">
                 <!-- 2do Lugar -->
@@ -546,7 +555,7 @@ with tab_rating:
                     </div>
                     <div class="mt-8">
                         <p class="text-3xl font-black text-white tracking-wide">{t2}</p>
-                        <p class="text-sm text-cyan-400 font-semibold uppercase mt-1">{e2}</p>
+                        <p class="text-sm text-slate-300 font-semibold uppercase mt-1"><i class="fa-solid fa-user-tie text-cyan-400 mr-1"></i> {e2}</p>
                     </div>
                     <div class="text-5xl font-black grad-primary mt-2">{p2}<span class="text-2xl text-slate-500">.0</span></div>
                 </div>
@@ -559,7 +568,7 @@ with tab_rating:
                     <div class="mt-8">
                         <div class="text-yellow-400 text-sm font-black tracking-widest mb-1"><i class="fa-solid fa-crown"></i> LÍDER ABSOLUTO</div>
                         <p class="text-4xl font-black text-white tracking-wide">{t1}</p>
-                        <p class="text-sm text-cyan-400 font-semibold uppercase mt-1 mb-2">{e1}</p>
+                        <p class="text-sm text-slate-300 font-semibold uppercase mt-1 mb-2"><i class="fa-solid fa-user-tie text-cyan-400 mr-1"></i> {e1}</p>
                         {bono_tag_1}
                     </div>
                     <div class="text-6xl font-black text-yellow-400 drop-shadow-[0_0_10px_rgba(234,179,8,0.8)] mt-2">{p1}<span class="text-2xl text-yellow-600">.0</span></div>
@@ -572,7 +581,7 @@ with tab_rating:
                     </div>
                     <div class="mt-8">
                         <p class="text-3xl font-black text-white tracking-wide">{t3}</p>
-                        <p class="text-sm text-cyan-400 font-semibold uppercase mt-1">{e3}</p>
+                        <p class="text-sm text-slate-300 font-semibold uppercase mt-1"><i class="fa-solid fa-user-tie text-cyan-400 mr-1"></i> {e3}</p>
                     </div>
                     <div class="text-4xl font-black grad-primary mt-2">{p3}<span class="text-2xl text-slate-500">.0</span></div>
                 </div>
@@ -585,11 +594,14 @@ with tab_rating:
                 tienda = row['TIENDA']
                 enc_row = df_tiendas_html[df_tiendas_html['tienda_int'] == row['TIENDA_INT']]
                 
-                # AJUSTE 1 (Parte B): Nombre y Apellido también en la tabla
-                enc_parts = str(enc_row['ENCARGADO'].values[0]).split() if not enc_row.empty else ["Líder"]
-                encargado = " ".join(enc_parts[:2])
+                encargado = "Encargada"
+                if col_enc and not enc_row.empty:
+                    val = str(enc_row[col_enc].values[0])
+                    if val and val.lower() != 'nan' and val.strip():
+                        enc_parts = val.split()
+                        encargado = " ".join(enc_parts[:2])
                 
-                tienda_oficial = str(enc_row['NOMBRE'].values[0]) if not enc_row.empty else tienda
+                tienda_oficial = str(enc_row[col_nom].values[0]) if not enc_row.empty else tienda
                 
                 conv = f"{row['CONVERSION']:.2f}%"
                 tkt = f"{row['TICKET']:.2f}"
@@ -602,6 +614,20 @@ with tab_rating:
                 color_pos = "text-slate-300"
                 color_bar = "bar-grad"
                 riesgo_tag = ""
+
+                # CALIFICATIVOS DINÁMICOS EXCLUSIVOS
+                if pos <= 3:
+                    qualifier = "🏆 LÍDER"
+                    qual_color = "text-yellow-400 font-bold"
+                elif pts >= 85:
+                    qualifier = "⭐ DESTACADO"
+                    qual_color = "text-emerald-400 font-semibold"
+                elif pts >= 75:
+                    qualifier = "📈 COMPETITIVO"
+                    qual_color = "text-blue-400 font-semibold"
+                else:
+                    qualifier = "⚠️ EN DESARROLLO"
+                    qual_color = "text-red-400 font-semibold"
 
                 if pos == 1:
                     bg_tr = "bg-gradient-to-r from-yellow-500/10 to-transparent"
@@ -619,12 +645,15 @@ with tab_rating:
                 bono_td = f'<br><span class="text-[10px] bg-yellow-500/20 px-1 rounded uppercase">+{bono} Bono</span>' if bono > 0 else ''
                 bono_bar = f'<div class="absolute top-0 right-0 h-full w-[5%] bg-yellow-400 rounded-r-full shadow-[0_0_10px_rgba(234,179,8,1)]"></div>' if bono > 0 else ''
 
+                # AJUSTE 2: Encargada y su Calificativo dentro de la tabla
                 filas_html += f"""
                 <tr class="border-b border-slate-700/50 {bg_tr} hover:bg-slate-700/50 transition-colors">
                     <td class="p-4 text-center font-black text-2xl {color_pos}">#{pos}</td>
                     <td class="p-4">
                         <p class="font-bold text-lg text-white whitespace-nowrap">{tienda_oficial}</p>
-                        <p class="text-sm text-slate-400">{encargado}</p>
+                        <p class="text-xs text-slate-400 mt-1 uppercase tracking-wider">
+                            <i class="fa-solid fa-user-tie text-cyan-500 mr-1"></i> {encargado} &nbsp;|&nbsp; <span class="{qual_color}">{qualifier}</span>
+                        </p>
                     </td>
                     <td class="p-4 text-center text-emerald-400 font-bold">{conv}</td>
                     <td class="p-4 text-center text-emerald-400 font-bold">{tkt}</td>
@@ -643,7 +672,7 @@ with tab_rating:
                 </tr>
                 """
 
-            # AJUSTE 2: Creación del código para la Ventana Emergente (Modal) del Botón
+            # CREACIÓN DEL MODAL (VENTANA EMERGENTE) PARA LAS METAS
             modal_html = """
             <!-- MODAL META DIARIA (INYECTADO) -->
             <div id="metaModal" class="fixed inset-0 bg-black/80 hidden items-center justify-center z-50 backdrop-blur-sm opacity-0 transition-opacity duration-300">
