@@ -373,11 +373,11 @@ with tab1:
 # --- PESTAÑA NUEVA: RATING COMERCIAL (CON MOTOR AISLADO Y PRECISO) ---
 with tab_rating:
     st.markdown("<h2 style='text-align: center; color: #EAB308;'>🏆 RATING COMERCIAL OCCIDENTE</h2>", unsafe_allow_html=True)
-    st.info("📊 MODO AUDITORÍA (Fase 1 de Conexión): Validemos que los cálculos sean exactos antes de inyectarlos al diseño final.")
+    st.info("📊 MODO AUDITORÍA (Fase 1 de Conexión): Validando el cruce de Puntos Exactos de las 19 tiendas operativas.")
     
     # ---------------- MOTOR DE CÁLCULO AISLADO ----------------
     try:
-        with st.spinner("Procesando datos de 19 tiendas (Ticket, Conversión, Alcance y Quiebres exactos)..."):
+        with st.spinner("Procesando datos exactos de Ticket, Conversión, Alcance y Quiebres..."):
             
             # PASO 1: Extraer Ticket y Conversión
             df_conv_r = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
@@ -396,7 +396,7 @@ with tab_rating:
             
             df_rating = pd.DataFrame(datos_rating)
             
-            # Extraemos el identificador numérico de la tienda para evitar cruces erróneos
+            # Extraemos el identificador numérico de la tienda
             df_rating['TIENDA_INT'] = df_rating['TIENDA'].apply(
                 lambda x: int(re.search(r'\d+', str(x)).group()) if re.search(r'\d+', str(x)) else -1
             )
@@ -426,9 +426,15 @@ with tab_rating:
                 
                 df_rating['ALCANCE'] = df_rating['TIENDA_INT'].map(alcance_dict).fillna(0)
 
-            # PASO 3: Contar Quiebres Totales de Modelos Top 20 por tienda
+            # PASO 3: Contar Quiebres de MODELO en el Top 20
+            # IMPORTANTE: Un modelo cuenta como "quebrado" si TIENE AL MENOS UNA TALLA VÁLIDA AGOTADA
             df_ventas_r = pd.read_excel("Ventas.xlsx")
-            df_ventas_r['tienda_int'] = pd.to_numeric(df_ventas_r['Tienda'], errors='coerce').fillna(-1).astype(int)
+            df_tallas_r = pd.read_excel("Valores de tallas.xlsx")
+            
+            # Limpiamos el identificador para cruzar con precisión
+            df_ventas_r['tienda_int'] = df_ventas_r['Tienda'].apply(
+                lambda x: int(re.search(r'\d+', str(x)).group()) if pd.notna(x) and re.search(r'\d+', str(x)) else -1
+            )
             df_ventas_r = df_ventas_r[~df_ventas_r['Proveedor'].isin([415, 426, 427])]
             
             quiebres_dict = {}
@@ -442,46 +448,49 @@ with tab_rating:
                 top_20 = df_tienda_v.groupby('Modelo')['Vtas'].sum().nlargest(20).index
                 df_top = df_tienda_v[df_tienda_v['Modelo'].isin(top_20)]
                 
-                quiebres = 0
-                for mod in top_20:
-                    df_mod = df_top[df_top['Modelo'] == mod]
-                    cols_ex = [f'ex{i}' for i in range(1, 16) if f'ex{i}' in df_mod.columns]
-                    cols_p = [f'p{i}' for i in range(1, 16) if f'p{i}' in df_mod.columns]
+                # Usamos un 'set' para contar modelos únicos con quiebre (no tallas repetidas)
+                modelos_quebrados = set()
+                
+                for _, row in df_top.iterrows():
+                    dpto = str(row.get('Departamento', '')).strip().lower()
+                    tallas_row = df_tallas_r[df_tallas_r['Valor'].astype(str).str.strip().str.lower() == dpto]
                     
-                    # Sumamos todas las tallas de ese modelo para la tienda
-                    suma_ex = df_mod[cols_ex].apply(pd.to_numeric, errors='coerce').fillna(0).sum().sum()
-                    suma_p = df_mod[cols_p].apply(pd.to_numeric, errors='coerce').fillna(0).sum().sum()
-                    
-                    if suma_ex <= 0 and suma_p <= 0:
-                        quiebres += 1
-                        
-                quiebres_dict[tda_num] = quiebres
+                    if not tallas_row.empty:
+                        for i in range(1, 16):
+                            ex_val = row.get(f'ex{i}', 0)
+                            p_val = row.get(f'p{i}', 0)
+                            
+                            # Si detecta que no hay existencia y no hay pedido
+                            if (pd.isna(ex_val) or ex_val == 0) and (pd.isna(p_val) or p_val == 0):
+                                talla_fisica = tallas_row.iloc[0].get(f'ex{i}')
+                                # Validar que es una talla activa para ese departamento
+                                if pd.notna(talla_fisica) and str(talla_fisica).strip() != '':
+                                    modelos_quebrados.add(row['Modelo'])
+                                    break # Pasamos al siguiente modelo porque este ya se consideró 'quebrado'
+                                    
+                quiebres_dict[tda_num] = len(modelos_quebrados)
             
             df_rating['QUIEBRES'] = df_rating['TIENDA_INT'].map(quiebres_dict).fillna(0)
 
-            # PASO 4: Motor de Asignación de Puntos (Reglas de Oro del Scorecard)
+            # PASO 4: Motor de Asignación de Puntos (Reglas de Oro del Scorecard HTML)
             def calcular_pts_ticket(t):
-                if t >= 1.29: return 25
-                elif t >= 1.23: return 20
-                elif t >= 1.15: return 15
-                elif t >= 1.05: return 10
-                return 0
+                if t >= 1.29: return 35
+                elif t >= 1.25: return 25
+                elif t >= 1.20: return 10
+                return 5
                 
             def calcular_pts_conv(c):
-                if c >= 10.9: return 25
-                elif c >= 10.0: return 20
-                elif c >= 9.0: return 15
-                elif c >= 8.0: return 10
-                return 0
+                if c >= 10.9: return 35
+                elif c >= 10.5: return 25
+                elif c >= 10.0: return 10
+                return 5
                 
             def calcular_pts_alcance(a):
-                if a >= 100: return 25
-                elif a >= 95: return 20
-                elif a >= 90: return 15
-                elif a >= 85: return 10
-                return 0
+                if a >= 100: return 20
+                elif a >= 95: return 10
+                return 5
                 
-            # Tu nueva regla estricta de penalización por Quiebres del HTML (Máximo 10 pts):
+            # Tu nueva regla de penalización por Quiebres del HTML:
             def calcular_pts_quiebre(q):
                 if q <= 5: return 10
                 elif q <= 10: return 5
@@ -492,18 +501,18 @@ with tab_rating:
             df_rating['PTS_ALC'] = df_rating['ALCANCE'].apply(calcular_pts_alcance)
             df_rating['PTS_QUIEBRE'] = df_rating['QUIEBRES'].apply(calcular_pts_quiebre)
             
-            # EL BONO APROBADO: +5 Puntos si el Alcance supera 105%
+            # EL BONO: +5 Puntos si el Alcance supera 105%
             df_rating['BONO'] = df_rating['ALCANCE'].apply(lambda a: 5 if a >= 105 else 0)
             
             # Puntuación Total (Sumatoria)
             df_rating['PUNTAJE_TOTAL'] = df_rating['PTS_TKT'] + df_rating['PTS_CONV'] + df_rating['PTS_ALC'] + df_rating['PTS_QUIEBRE'] + df_rating['BONO']
             
-            # Ordenamos el Ranking Oficial (Priorizando Puntaje, luego Conversión como desempate)
+            # Ordenamos el Ranking Oficial
             df_rating = df_rating.sort_values(by=['PUNTAJE_TOTAL', 'CONVERSION'], ascending=[False, False]).reset_index(drop=True)
             df_rating.insert(0, 'POSICIÓN', range(1, len(df_rating) + 1))
             
             # Visualización en Streamlit para tu validación exacta (Antes de inyectarlo en el HTML)
-            st.write("### 🥇 RANKING Y VALIDACIÓN DE PUNTOS")
+            st.write("### 🥇 TABLA MAESTRA DEL RATING")
             tabla_mostrar = df_rating[['POSICIÓN', 'TIENDA', 'PUNTAJE_TOTAL', 'TICKET', 'CONVERSION', 'ALCANCE', 'QUIEBRES', 'BONO']]
             
             # Damos formato a la tabla para que sea fácil de auditar
