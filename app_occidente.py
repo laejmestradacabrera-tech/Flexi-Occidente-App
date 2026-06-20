@@ -370,9 +370,8 @@ with tab1:
             st.table(ranking.style.apply(color_semaforo, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))            
 
 # ========================================================
-# --- PESTAÑA NUEVA: RATING COMERCIAL (CON MOTOR AISLADO Y PRECISO) ---
+# --- PESTAÑA NUEVA: RATING COMERCIAL (INYECCIÓN DINÁMICA) ---
 with tab_rating:
-    st.markdown("<h2 style='text-align: center; color: #EAB308;'>🏆 RATING COMERCIAL OCCIDENTE</h2>", unsafe_allow_html=True)
     
     # ---------------- MOTOR DE CÁLCULO AISLADO ----------------
     try:
@@ -426,11 +425,9 @@ with tab_rating:
                 df_rating['ALCANCE'] = df_rating['TIENDA_INT'].map(alcance_dict).fillna(0)
 
             # PASO 3: Contar Quiebres de MODELO en el Top 20
-            # IMPORTANTE: Un modelo cuenta como "quebrado" si TIENE AL MENOS UNA TALLA VÁLIDA AGOTADA
             df_ventas_r = pd.read_excel("Ventas.xlsx")
             df_tallas_r = pd.read_excel("Valores de tallas.xlsx")
             
-            # Limpiamos el identificador para cruzar con precisión
             df_ventas_r['tienda_int'] = df_ventas_r['Tienda'].apply(
                 lambda x: int(re.search(r'\d+', str(x)).group()) if pd.notna(x) and re.search(r'\d+', str(x)) else -1
             )
@@ -447,7 +444,6 @@ with tab_rating:
                 top_20 = df_tienda_v.groupby('Modelo')['Vtas'].sum().nlargest(20).index
                 df_top = df_tienda_v[df_tienda_v['Modelo'].isin(top_20)]
                 
-                # Usamos un 'set' para contar modelos únicos con quiebre (no tallas repetidas)
                 modelos_quebrados = set()
                 
                 for _, row in df_top.iterrows():
@@ -459,35 +455,29 @@ with tab_rating:
                             ex_val = row.get(f'ex{i}', 0)
                             p_val = row.get(f'p{i}', 0)
                             
-                            # Si detecta que no hay existencia y no hay pedido
                             if (pd.isna(ex_val) or ex_val == 0) and (pd.isna(p_val) or p_val == 0):
                                 talla_fisica = tallas_row.iloc[0].get(f'ex{i}')
-                                # Validar que es una talla activa para ese departamento
                                 if pd.notna(talla_fisica) and str(talla_fisica).strip() != '':
                                     
-                                    # --- REGLA DE NEGOCIO: EXCLUIR TALLA 305 EN CABALLERO ---
                                     talla_str = str(talla_fisica).strip()
                                     es_305 = False
                                     try:
                                         t_num = float(talla_fisica)
-                                        if t_num == 305 or t_num == 30.5:
-                                            es_305 = True
+                                        if t_num == 305 or t_num == 30.5: es_305 = True
                                     except:
-                                        if '305' in talla_str:
-                                            es_305 = True
+                                        if '305' in talla_str: es_305 = True
                                             
                                     if dpto == 'caballero' and es_305:
-                                        continue # Ignoramos esta talla, no suma quiebre
-                                    # --------------------------------------------------------
+                                        continue 
                                     
                                     modelos_quebrados.add(row['Modelo'])
-                                    break # Pasamos al siguiente modelo porque este ya se consideró 'quebrado'
+                                    break 
                                     
                 quiebres_dict[tda_num] = len(modelos_quebrados)
             
             df_rating['QUIEBRES'] = df_rating['TIENDA_INT'].map(quiebres_dict).fillna(0)
 
-            # PASO 4: Motor de Asignación de Puntos (Reglas de Oro del Scorecard HTML)
+            # PASO 4: Motor de Asignación de Puntos 
             def calcular_pts_ticket(t):
                 if t >= 1.29: return 35
                 elif t >= 1.25: return 25
@@ -505,7 +495,6 @@ with tab_rating:
                 elif a >= 95: return 10
                 return 5
                 
-            # Tu nueva regla de penalización por Quiebres del HTML:
             def calcular_pts_quiebre(q):
                 if q <= 5: return 10
                 elif q <= 10: return 5
@@ -516,17 +505,13 @@ with tab_rating:
             df_rating['PTS_ALC'] = df_rating['ALCANCE'].apply(calcular_pts_alcance)
             df_rating['PTS_QUIEBRE'] = df_rating['QUIEBRES'].apply(calcular_pts_quiebre)
             
-            # EL BONO: +5 Puntos si el Alcance supera 105%
             df_rating['BONO'] = df_rating['ALCANCE'].apply(lambda a: 5 if a >= 105 else 0)
-            
-            # Puntuación Total (Sumatoria)
             df_rating['PUNTAJE_TOTAL'] = df_rating['PTS_TKT'] + df_rating['PTS_CONV'] + df_rating['PTS_ALC'] + df_rating['PTS_QUIEBRE'] + df_rating['BONO']
             
-            # Ordenamos el Ranking Oficial
             df_rating = df_rating.sort_values(by=['PUNTAJE_TOTAL', 'CONVERSION'], ascending=[False, False]).reset_index(drop=True)
             df_rating.insert(0, 'POSICIÓN', range(1, len(df_rating) + 1))
             
-            # --- CONSTRUCCIÓN DINÁMICA DEL HTML (EL INYECTOR) ---
+            # --- CONSTRUCCIÓN DINÁMICA DEL HTML ---
             df_tiendas_html = cargar_tiendas()
             df_tiendas_html['tienda_int'] = df_tiendas_html['NOMBRE'].apply(
                 lambda x: int(re.search(r'\d+', str(x)).group()) if re.search(r'\d+', str(x)) else -1
@@ -536,7 +521,11 @@ with tab_rating:
                 if len(df_rating) >= pos:
                     row = df_rating.iloc[pos-1]
                     enc_row = df_tiendas_html[df_tiendas_html['tienda_int'] == row['TIENDA_INT']]
-                    enc_name = str(enc_row['ENCARGADO'].values[0]).split()[0] if not enc_row.empty else "Líder"
+                    
+                    # AJUSTE 1: Tomamos Nombre y Primer Apellido usando las primeras 2 palabras
+                    enc_parts = str(enc_row['ENCARGADO'].values[0]).split() if not enc_row.empty else ["Líder"]
+                    enc_name = " ".join(enc_parts[:2]) 
+                    
                     tienda_nombre = str(enc_row['NOMBRE'].values[0]) if not enc_row.empty else row['TIENDA']
                     return enc_name, tienda_nombre, int(row['PUNTAJE_TOTAL']), int(row['BONO'])
                 return "N/A", "N/A", 0, 0
@@ -594,7 +583,11 @@ with tab_rating:
                 pos = row['POSICIÓN']
                 tienda = row['TIENDA']
                 enc_row = df_tiendas_html[df_tiendas_html['tienda_int'] == row['TIENDA_INT']]
-                encargado = str(enc_row['ENCARGADO'].values[0]).split()[0] if not enc_row.empty else "Líder"
+                
+                # AJUSTE 1 (Parte B): Nombre y Apellido también en la tabla
+                enc_parts = str(enc_row['ENCARGADO'].values[0]).split() if not enc_row.empty else ["Líder"]
+                encargado = " ".join(enc_parts[:2])
+                
                 tienda_oficial = str(enc_row['NOMBRE'].values[0]) if not enc_row.empty else tienda
                 
                 conv = f"{row['CONVERSION']:.2f}%"
@@ -649,6 +642,53 @@ with tab_rating:
                 </tr>
                 """
 
+            # AJUSTE 2: Creación del código para la Ventana Emergente (Modal) del Botón
+            modal_html = """
+            <!-- MODAL META DIARIA (INYECTADO) -->
+            <div id="metaModal" class="fixed inset-0 bg-black/80 hidden items-center justify-center z-50 backdrop-blur-sm opacity-0 transition-opacity duration-300">
+                <div class="bg-slate-900 border-2 border-cyan-500/50 p-8 rounded-2xl shadow-[0_0_30px_rgba(6,182,212,0.3)] max-w-sm w-full transform scale-95 transition-transform duration-300 relative">
+                    <button onclick="closeModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+                    <div class="text-center">
+                        <div class="w-16 h-16 bg-cyan-500/20 rounded-full flex items-center justify-center mx-auto mb-4 text-cyan-400 text-2xl">
+                            <i class="fa-solid fa-bullseye"></i>
+                        </div>
+                        <h3 class="text-2xl font-black text-white mb-2 uppercase">Metas de Zona Occidente</h3>
+                        <p class="text-slate-300 mb-6">Para dominar el Rating, tu sucursal debe cumplir y sostener:</p>
+                        <div class="bg-slate-800 rounded-xl p-4 mb-4 border border-slate-700">
+                            <p class="text-sm text-slate-400 font-bold uppercase mb-1">Ticket Promedio</p>
+                            <p class="text-4xl font-black text-cyan-400">1.29 <span class="text-sm text-slate-500">Uds</span></p>
+                        </div>
+                        <div class="bg-slate-800 rounded-xl p-4 border border-slate-700">
+                            <p class="text-sm text-slate-400 font-bold uppercase mb-1">Conversión Mínima</p>
+                            <p class="text-4xl font-black text-fuchsia-400">10.90%</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <script>
+                function openModal() {
+                    const modal = document.getElementById('metaModal');
+                    modal.classList.remove('hidden');
+                    modal.classList.add('flex');
+                    setTimeout(() => {
+                        modal.classList.remove('opacity-0');
+                        modal.children[0].classList.remove('scale-95');
+                    }, 10);
+                }
+                function closeModal() {
+                    const modal = document.getElementById('metaModal');
+                    modal.classList.add('opacity-0');
+                    modal.children[0].classList.add('scale-95');
+                    setTimeout(() => {
+                        modal.classList.add('hidden');
+                        modal.classList.remove('flex');
+                    }, 300);
+                }
+            </script>
+            </body>
+            """
+
     except Exception as e:
         st.error(f"Error en el motor de cálculo del Rating: {e}")
 
@@ -661,7 +701,7 @@ with tab_rating:
             # Actualizar Q4 a Q2
             html_code = html_code.replace("TEMPORADA Q4 - 2026", "TEMPORADA Q2 - 2026")
             
-            # El inyector: Remplazamos las etiquetas del Podio y la Tabla estática con el código generado
+            # Remplazamos etiquetas del Podio y Tabla
             html_code = re.sub(
                 r'<!-- PODIO TOP 3 -->.*?<!-- LEADERBOARD \(TABLA\) -->',
                 f'<!-- PODIO TOP 3 -->\n{podio_html}\n<!-- LEADERBOARD (TABLA) -->',
@@ -676,6 +716,17 @@ with tab_rating:
                 flags=re.DOTALL
             )
             
+            # Inyectamos función al botón para abrir el Modal
+            html_code = re.sub(
+                r'<button class="pulse-btn(.*?)>',
+                r'<button onclick="openModal()" class="pulse-btn\1>',
+                html_code
+            )
+            
+            # Inyectamos el Modal visual justo antes de cerrar el body
+            html_code = html_code.replace("</body>", modal_html)
+            
+            # Dibujamos en pantalla
             components.html(html_code, height=1200, scrolling=True)
         else:
             st.warning("⚠️ El archivo 'Raiting Elegido..html' no se encontró en la carpeta de GitHub.")
