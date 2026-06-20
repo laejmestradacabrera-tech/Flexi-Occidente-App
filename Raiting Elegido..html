@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rating Comercial - Modo Competencia</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <style>
+        body { background-color: #0B1120; font-family: 'Outfit', sans-serif; color: #F8FAFC; }
+        
+        /* Efectos Neón */
+        .neon-text-cyan { text-shadow: 0 0 10px rgba(6, 182, 212, 0.7); }
+        .neon-border-gold { box-shadow: 0 0 20px rgba(234, 179, 8, 0.4), inset 0 0 15px rgba(234, 179, 8, 0.2); border: 2px solid #EAB308; }
+        .neon-border-silver { box-shadow: 0 0 20px rgba(148, 163, 184, 0.3), inset 0 0 15px rgba(148, 163, 184, 0.1); border: 2px solid #94A3B8; }
+        .neon-border-bronze { box-shadow: 0 0 20px rgba(217, 119, 6, 0.3), inset 0 0 15px rgba(217, 119, 6, 0.1); border: 2px solid #D97706; }
+        
+        /* Gradientes impactantes */
+        .grad-primary { background: linear-gradient(135deg, #FF0055, #00F0FF); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .grad-bonus { background: linear-gradient(135deg, #10B981, #FBBF24); }
+        .bar-grad { background: linear-gradient(90deg, #8B5CF6, #06B6D4); }
+        
+        /* Animaciones que invitan a la acción */
+        .hover-scale { transition: transform 0.3s ease, box-shadow 0.3s ease; cursor: pointer; }
+        .hover-scale:hover { transform: translateY(-5px) scale(1.02); }
+        
+        .pulse-btn {
+            animation: pulse 2s infinite;
+            background: linear-gradient(90deg, #F43F5E, #E11D48);
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(244, 63, 94, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
+
+    <div class="max-w-7xl mx-auto bg-slate-900/90 backdrop-blur-md rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-slate-800 overflow-hidden relative">
+        
+        <!-- Luz de fondo decorativa -->
+        <div class="absolute top-[-150px] left-[50%] translate-x-[-50%] w-[600px] h-[300px] bg-cyan-500/20 blur-[100px] rounded-full pointer-events-none"></div>
+
+        <div class="p-8 relative z-10">
+            <!-- HEADER -->
+            <div class="text-center mb-12">
+                <div class="inline-block px-4 py-1 rounded-full bg-slate-800 border border-cyan-500/30 text-cyan-400 font-semibold tracking-widest text-sm mb-4">
+                    <i class="fa-solid fa-bolt mr-2"></i> TEMPORADA Q4 - 2026
+                </div>
+                <h1 class="text-5xl md:text-6xl font-black mb-2 uppercase tracking-tight">Rating <span class="grad-primary">Comercial</span></h1>
+                <p class="text-xl text-slate-400">Liga de Campeones Zona Occidente</p>
+            </div>
+
+            <!-- PODIO TOP 3 -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16 items-end mt-16 px-4">
+                
+                <!-- 2do Lugar -->
+                <div class="bg-slate-800/80 rounded-2xl p-6 text-center h-[280px] flex flex-col justify-between hover-scale neon-border-silver relative">
+                    <div class="absolute -top-10 left-1/2 -translate-x-1/2 w-20 h-20 bg-slate-700 rounded-full border-4 border-slate-300 flex items-center justify-center shadow-[0_0_20px_rgba(148,163,184,0.5)]">
+                        <i class="fa-solid fa-medal text-3xl text-slate-300"></i>
+                    </div>
+                    <div class="mt-8">
+                        <p class="text-3xl font-black text-white tracking-wide">Carlos</p>
+                        <p class="text-sm text-cyan-400 font-semibold uppercase mt-1">12 - Centro</p>
+                    </div>
+                    <div class="text-5xl font-black grad-primary mt-2">100<span class="text-2xl text-slate-500">.0</span></div>
+                </div>
+
+                <!-- 1er Lugar -->
+                <div class="bg-slate-800 rounded-2xl p-6 text-center h-[350px] flex flex-col justify-between hover-scale neon-border-gold relative transform md:-translate-y-8 z-10 bg-gradient-to-b from-yellow-500/10 to-transparent">
+                    <div class="absolute -top-12 left-1/2 -translate-x-1/2 w-24 h-24 bg-slate-800 rounded-full border-4 border-yellow-400 flex items-center justify-center shadow-[0_0_30px_rgba(234,179,8,0.6)]">
+                        <i class="fa-solid fa-trophy text-4xl text-yellow-400"></i>
+                    </div>
+                    <div class="mt-8">
+                        <div class="text-yellow-400 text-sm font-black tracking-widest mb-1"><i class="fa-solid fa-crown"></i> LÍDER ABSOLUTO</div>
+                        <p class="text-4xl font-black text-white tracking-wide">Lety</p>
+                        <p class="text-sm text-cyan-400 font-semibold uppercase mt-1 mb-2">56 - Galerías</p>
+                        <span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">
+                            <i class="fa-solid fa-star text-yellow-400"></i> Bono Crecimiento Activo
+                        </span>
+                    </div>
+                    <div class="text-6xl font-black text-yellow-400 drop-shadow-[0_0_10px_rgba(234,179,8,0.8)] mt-2">105<span class="text-2xl text-yellow-600">.0</span></div>
+                </div>
+
+                <!-- 3er Lugar -->
+                <div class="bg-slate-800/80 rounded-2xl p-6 text-center h-[240px] flex flex-col justify-between hover-scale neon-border-bronze relative">
+                    <div class="absolute -top-10 left-1/2 -translate-x-1/2 w-20 h-20 bg-slate-700 rounded-full border-4 border-amber-600 flex items-center justify-center shadow-[0_0_20px_rgba(217,119,6,0.5)]">
+                        <i class="fa-solid fa-medal text-3xl text-amber-600"></i>
+                    </div>
+                    <div class="mt-8">
+                        <p class="text-3xl font-black text-white tracking-wide">Ana</p>
+                        <p class="text-sm text-cyan-400 font-semibold uppercase mt-1">89 - P. Mayor</p>
+                    </div>
+                    <div class="text-4xl font-black grad-primary mt-2">90<span class="text-2xl text-slate-500">.0</span></div>
+                </div>
+            </div>
+
+            <!-- LEADERBOARD (TABLA) -->
+            <div class="flex flex-col md:flex-row justify-between items-end mb-6 gap-4">
+                <h2 class="text-3xl font-black text-white"><i class="fa-solid fa-ranking-star text-fuchsia-500 mr-2"></i> CLASIFICACIÓN GLOBAL</h2>
+                <button class="pulse-btn px-6 py-3 rounded-full text-white font-bold text-sm uppercase tracking-wider hover:brightness-110 transition-all shadow-lg shadow-rose-500/30">
+                    <i class="fa-solid fa-rocket mr-2"></i> ¡Ver mi meta de hoy!
+                </button>
+            </div>
+
+            <div class="bg-slate-800/50 rounded-2xl border border-slate-700 overflow-x-auto shadow-2xl">
+                <table class="w-full text-left border-collapse min-w-[800px]">
+                    <thead>
+                        <tr class="bg-slate-900/80 text-slate-400 text-xs uppercase tracking-widest border-b border-slate-700">
+                            <th class="p-4 font-bold text-center">Rango</th>
+                            <th class="p-4 font-bold">Sucursal / Líder</th>
+                            <th class="p-4 font-bold text-center leading-tight">Conversión<br><span class="text-cyan-400 text-[10px]">(35 pts)</span></th>
+                            <th class="p-4 font-bold text-center leading-tight">Ticket<br><span class="text-cyan-400 text-[10px]">(35 pts)</span></th>
+                            <th class="p-4 font-bold text-center leading-tight">Alcance Anual<br><span class="text-cyan-400 text-[10px]">(20 + 5 pts)</span></th>
+                            <th class="p-4 font-bold text-center leading-tight">Quiebres<br><span class="text-cyan-400 text-[10px]">(10 pts)</span></th>
+                            <th class="p-4 font-bold">Puntuación IDC</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-slate-200">
+                        <!-- Fila 1 (Con Bono) -->
+                        <tr class="border-b border-slate-700/50 bg-gradient-to-r from-yellow-500/10 to-transparent hover:bg-slate-700/50 transition-colors">
+                            <td class="p-4 text-center font-black text-2xl text-yellow-500">#1</td>
+                            <td class="p-4">
+                                <p class="font-bold text-lg text-white whitespace-nowrap">56 - Galerías</p>
+                                <p class="text-sm text-slate-400">Lety</p>
+                            </td>
+                            <td class="p-4 text-center text-emerald-400 font-bold">11.50%</td>
+                            <td class="p-4 text-center text-emerald-400 font-bold">1.35</td>
+                            <td class="p-4 text-center text-yellow-400 font-black">
+                                106% <br><span class="text-[10px] bg-yellow-500/20 px-1 rounded uppercase">+5 Bono</span>
+                            </td>
+                            <td class="p-4 text-center text-emerald-400 font-bold">3</td>
+                            <td class="p-4 w-64">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="font-black text-yellow-400 text-2xl">105.0</span>
+                                </div>
+                                <div class="w-full bg-slate-900 rounded-full h-3 border border-slate-700 relative">
+                                    <div class="bar-grad h-full rounded-full shadow-[0_0_10px_rgba(6,182,212,0.5)]" style="width: 100%"></div>
+                                    <!-- Extensión de bono -->
+                                    <div class="absolute top-0 right-0 h-full w-[5%] bg-yellow-400 rounded-r-full shadow-[0_0_10px_rgba(234,179,8,1)]"></div>
+                                </div>
+                            </td>
+                        </tr>
+                        <!-- Fila 2 (Perfecta pero sin bono) -->
+                        <tr class="border-b border-slate-700/50 hover:bg-slate-700/50 transition-colors">
+                            <td class="p-4 text-center font-black text-2xl text-slate-300">#2</td>
+                            <td class="p-4">
+                                <p class="font-bold text-lg text-white whitespace-nowrap">12 - Centro</p>
+                                <p class="text-sm text-slate-400">Carlos</p>
+                            </td>
+                            <td class="p-4 text-center text-emerald-400 font-bold">11.00%</td>
+                            <td class="p-4 text-center text-emerald-400 font-bold">1.31</td>
+                            <td class="p-4 text-center text-emerald-400 font-bold">100%</td>
+                            <td class="p-4 text-center text-emerald-400 font-bold">2</td>
+                            <td class="p-4 w-64">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="font-black text-slate-200 text-xl">100.0</span>
+                                </div>
+                                <div class="w-full bg-slate-900 rounded-full h-3 border border-slate-700">
+                                    <div class="bar-grad h-full rounded-full" style="width: 100%"></div>
+                                </div>
+                            </td>
+                        </tr>
+                        <!-- Fila 3 -->
+                        <tr class="border-b border-slate-700/50 hover:bg-slate-700/50 transition-colors">
+                            <td class="p-4 text-center font-black text-2xl text-amber-600">#3</td>
+                            <td class="p-4">
+                                <p class="font-bold text-lg text-white whitespace-nowrap">89 - Plaza Mayor</p>
+                                <p class="text-sm text-slate-400">Ana</p>
+                            </td>
+                            <td class="p-4 text-center text-emerald-400 font-bold">10.90%</td>
+                            <td class="p-4 text-center text-emerald-400 font-bold">1.29</td>
+                            <td class="p-4 text-center text-amber-400 font-bold">98%</td>
+                            <td class="p-4 text-center text-emerald-400 font-bold">4</td>
+                            <td class="p-4 w-64">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="font-black text-slate-200 text-xl">90.0</span>
+                                </div>
+                                <div class="w-full bg-slate-900 rounded-full h-3 border border-slate-700">
+                                    <div class="bar-grad h-full rounded-full" style="width: 90%"></div>
+                                </div>
+                            </td>
+                        </tr>
+                        <!-- Fila 4 (Mostrando los nuevos pisos de 5 puntos) -->
+                        <tr class="border-b border-slate-700/50 bg-red-500/5 hover:bg-slate-700/50 transition-colors">
+                            <td class="p-4 text-center font-black text-2xl text-slate-500">#4</td>
+                            <td class="p-4">
+                                <p class="font-bold text-lg text-white whitespace-nowrap">34 - Andares</p>
+                                <p class="text-sm text-slate-400">Roberto</p>
+                            </td>
+                            <td class="p-4 text-center text-red-400 font-bold">9.80% <span class="text-[10px] block">(5 pts)</span></td>
+                            <td class="p-4 text-center text-amber-400 font-bold">1.25 <span class="text-[10px] block">(25 pts)</span></td>
+                            <td class="p-4 text-center text-red-400 font-bold">92% <span class="text-[10px] block">(5 pts)</span></td>
+                            <td class="p-4 text-center text-amber-400 font-bold">7 <span class="text-[10px] block">(5 pts)</span></td>
+                            <td class="p-4 w-64">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="font-black text-slate-200 text-xl">40.0</span>
+                                    <span class="text-[10px] text-red-400 bg-red-400/10 px-2 py-1 rounded">Zona de Riesgo</span>
+                                </div>
+                                <div class="w-full bg-slate-900 rounded-full h-3 border border-slate-700">
+                                    <div class="bg-gradient-to-r from-red-600 to-orange-500 h-full rounded-full" style="width: 40%"></div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- REGLAS DE ORO (ACTUALIZADAS) -->
+            <div class="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                
+                <!-- KPI 1 -->
+                <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-col gap-2 hover-scale relative overflow-hidden">
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="w-10 h-10 rounded-full bg-fuchsia-500/20 flex items-center justify-center text-fuchsia-400"><i class="fa-solid fa-bullseye"></i></div>
+                        <div><p class="text-slate-400 text-[10px] uppercase font-bold">35 Pts</p><p class="font-bold text-white text-sm">Conversión</p></div>
+                    </div>
+                    <ul class="text-[11px] text-slate-300 space-y-1">
+                        <li class="flex justify-between"><span>≥ 10.9%</span><span class="text-fuchsia-400 font-bold">35 pts</span></li>
+                        <li class="flex justify-between"><span>10.5 - 10.89%</span><span class="text-white font-bold">25 pts</span></li>
+                        <li class="flex justify-between"><span>10.0 - 10.49%</span><span class="text-white font-bold">10 pts</span></li>
+                        <li class="flex justify-between border-t border-slate-700 pt-1"><span>< 10%</span><span class="text-slate-500 font-bold">5 pts</span></li>
+                    </ul>
+                </div>
+
+                <!-- KPI 2 -->
+                <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-col gap-2 hover-scale relative overflow-hidden">
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="w-10 h-10 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400"><i class="fa-solid fa-shoe-prints"></i></div>
+                        <div><p class="text-slate-400 text-[10px] uppercase font-bold">35 Pts</p><p class="font-bold text-white text-sm">Ticket Prom.</p></div>
+                    </div>
+                    <ul class="text-[11px] text-slate-300 space-y-1">
+                        <li class="flex justify-between"><span>≥ 1.29</span><span class="text-cyan-400 font-bold">35 pts</span></li>
+                        <li class="flex justify-between"><span>1.25 - 1.28</span><span class="text-white font-bold">25 pts</span></li>
+                        <li class="flex justify-between"><span>1.20 - 1.24</span><span class="text-white font-bold">10 pts</span></li>
+                        <li class="flex justify-between border-t border-slate-700 pt-1"><span>< 1.20</span><span class="text-slate-500 font-bold">5 pts</span></li>
+                    </ul>
+                </div>
+
+                <!-- KPI 3 -->
+                <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-col gap-2 hover-scale relative overflow-hidden">
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400"><i class="fa-solid fa-chart-line"></i></div>
+                        <div><p class="text-slate-400 text-[10px] uppercase font-bold">20 Pts</p><p class="font-bold text-white text-sm">Alcance Anual</p></div>
+                    </div>
+                    <ul class="text-[11px] text-slate-300 space-y-1">
+                        <li class="flex justify-between"><span>≥ 100%</span><span class="text-emerald-400 font-bold">20 pts</span></li>
+                        <li class="flex justify-between"><span>95 - 99%</span><span class="text-white font-bold">10 pts</span></li>
+                        <li class="flex justify-between border-t border-slate-700 pt-1 mt-auto"><span>< 95%</span><span class="text-slate-500 font-bold">5 pts</span></li>
+                    </ul>
+                </div>
+
+                <!-- KPI 4 -->
+                <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-col gap-2 hover-scale relative overflow-hidden">
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400"><i class="fa-solid fa-boxes-stacked"></i></div>
+                        <div><p class="text-slate-400 text-[10px] uppercase font-bold">10 Pts</p><p class="font-bold text-white text-sm">Quiebres Tallas</p></div>
+                    </div>
+                    <ul class="text-[11px] text-slate-300 space-y-1">
+                        <li class="flex justify-between"><span>0 a 5 fallas</span><span class="text-amber-400 font-bold">10 pts</span></li>
+                        <li class="flex justify-between"><span>6 a 10 fallas</span><span class="text-white font-bold">5 pts</span></li>
+                        <li class="flex justify-between border-t border-slate-700 pt-1 mt-auto"><span>> 10 fallas</span><span class="text-red-500 font-bold">0 pts</span></li>
+                    </ul>
+                </div>
+
+                <!-- BONO EXTRA -->
+                <div class="bg-slate-800 border-2 border-yellow-500/50 rounded-xl p-4 flex flex-col gap-2 hover-scale relative overflow-hidden shadow-[0_0_15px_rgba(234,179,8,0.2)]">
+                    <div class="absolute -right-4 -top-4 text-5xl text-yellow-500/10"><i class="fa-solid fa-star"></i></div>
+                    <div class="flex items-center gap-3 mb-2 relative z-10">
+                        <div class="w-10 h-10 rounded-full grad-bonus flex items-center justify-center text-slate-900"><i class="fa-solid fa-rocket"></i></div>
+                        <div><p class="text-yellow-400 text-[10px] uppercase font-bold">Bono Crecimiento</p><p class="font-black text-white text-sm">+5 Puntos</p></div>
+                    </div>
+                    <p class="text-[11px] text-slate-300 relative z-10 mt-1">
+                        Premio exclusivo a la excelencia comercial. Se otorga automáticamente si la sucursal alcanza un <strong>crecimiento igual o mayor al 5%</strong> (≥ 105% vs Año Pasado).
+                    </p>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+</body>
+</html>
