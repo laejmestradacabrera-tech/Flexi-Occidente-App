@@ -373,11 +373,10 @@ with tab1:
 # --- PESTAÑA NUEVA: RATING COMERCIAL (CON MOTOR AISLADO Y PRECISO) ---
 with tab_rating:
     st.markdown("<h2 style='text-align: center; color: #EAB308;'>🏆 RATING COMERCIAL OCCIDENTE</h2>", unsafe_allow_html=True)
-    st.info("📊 MODO AUDITORÍA (Fase 1 de Conexión): Validando el cruce de Puntos Exactos de las 19 tiendas operativas.")
     
     # ---------------- MOTOR DE CÁLCULO AISLADO ----------------
     try:
-        with st.spinner("Procesando datos exactos de Ticket, Conversión, Alcance y Quiebres..."):
+        with st.spinner("Actualizando Liga de Campeones en tiempo real..."):
             
             # PASO 1: Extraer Ticket y Conversión
             df_conv_r = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
@@ -527,20 +526,7 @@ with tab_rating:
             df_rating = df_rating.sort_values(by=['PUNTAJE_TOTAL', 'CONVERSION'], ascending=[False, False]).reset_index(drop=True)
             df_rating.insert(0, 'POSICIÓN', range(1, len(df_rating) + 1))
             
-            # Visualización en Streamlit para tu validación exacta (Antes de inyectarlo en el HTML)
-            st.write("### 🥇 TABLA MAESTRA DEL RATING")
-            tabla_mostrar = df_rating[['POSICIÓN', 'TIENDA', 'PUNTAJE_TOTAL', 'TICKET', 'CONVERSION', 'ALCANCE', 'QUIEBRES', 'BONO']]
-            
-            # Damos formato a la tabla para que sea fácil de auditar
-            st.dataframe(tabla_mostrar.style.format({
-                'TICKET': '{:.2f}',
-                'CONVERSION': '{:.2f}%',
-                'ALCANCE': '{:.2f}%',
-                'QUIEBRES': '{:.0f} fallas',
-                'BONO': '+{:.0f} pts'
-            }), use_container_width=True)
-
-            # --- NUEVO: CONSTRUCCIÓN DINÁMICA DEL HTML (EL INYECTOR) ---
+            # --- CONSTRUCCIÓN DINÁMICA DEL HTML (EL INYECTOR) ---
             df_tiendas_html = cargar_tiendas()
             df_tiendas_html['tienda_int'] = df_tiendas_html['NOMBRE'].apply(
                 lambda x: int(re.search(r'\d+', str(x)).group()) if re.search(r'\d+', str(x)) else -1
@@ -551,7 +537,8 @@ with tab_rating:
                     row = df_rating.iloc[pos-1]
                     enc_row = df_tiendas_html[df_tiendas_html['tienda_int'] == row['TIENDA_INT']]
                     enc_name = str(enc_row['ENCARGADO'].values[0]).split()[0] if not enc_row.empty else "Líder"
-                    return enc_name, row['TIENDA'], int(row['PUNTAJE_TOTAL']), int(row['BONO'])
+                    tienda_nombre = str(enc_row['NOMBRE'].values[0]) if not enc_row.empty else row['TIENDA']
+                    return enc_name, tienda_nombre, int(row['PUNTAJE_TOTAL']), int(row['BONO'])
                 return "N/A", "N/A", 0, 0
 
             e1, t1, p1, b1 = get_tienda_info(1)
@@ -608,6 +595,7 @@ with tab_rating:
                 tienda = row['TIENDA']
                 enc_row = df_tiendas_html[df_tiendas_html['tienda_int'] == row['TIENDA_INT']]
                 encargado = str(enc_row['ENCARGADO'].values[0]).split()[0] if not enc_row.empty else "Líder"
+                tienda_oficial = str(enc_row['NOMBRE'].values[0]) if not enc_row.empty else tienda
                 
                 conv = f"{row['CONVERSION']:.2f}%"
                 tkt = f"{row['TICKET']:.2f}"
@@ -628,7 +616,7 @@ with tab_rating:
                     color_pos = "text-slate-300"
                 elif pos == 3:
                     color_pos = "text-amber-600"
-                elif pts < 75: # Alerta para tiendas por debajo del puntaje de seguridad
+                elif pts < 75: 
                     bg_tr = "bg-red-500/5"
                     color_pos = "text-slate-500"
                     color_bar = "bg-gradient-to-r from-red-600 to-orange-500"
@@ -641,7 +629,7 @@ with tab_rating:
                 <tr class="border-b border-slate-700/50 {bg_tr} hover:bg-slate-700/50 transition-colors">
                     <td class="p-4 text-center font-black text-2xl {color_pos}">#{pos}</td>
                     <td class="p-4">
-                        <p class="font-bold text-lg text-white whitespace-nowrap">{tienda}</p>
+                        <p class="font-bold text-lg text-white whitespace-nowrap">{tienda_oficial}</p>
                         <p class="text-sm text-slate-400">{encargado}</p>
                     </td>
                     <td class="p-4 text-center text-emerald-400 font-bold">{conv}</td>
@@ -665,11 +653,13 @@ with tab_rating:
         st.error(f"Error en el motor de cálculo del Rating: {e}")
 
     # ---------------- VISUALIZACIÓN DEL HTML (INYECCIÓN DINÁMICA) ----------------
-    st.write("<br><hr>", unsafe_allow_html=True)
     try:
         if os.path.exists("Raiting Elegido..html"):
             with open("Raiting Elegido..html", "r", encoding="utf-8") as f:
                 html_code = f.read()
+            
+            # Actualizar Q4 a Q2
+            html_code = html_code.replace("TEMPORADA Q4 - 2026", "TEMPORADA Q2 - 2026")
             
             # El inyector: Remplazamos las etiquetas del Podio y la Tabla estática con el código generado
             html_code = re.sub(
