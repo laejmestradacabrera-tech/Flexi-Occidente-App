@@ -514,7 +514,6 @@ with tab_rating:
             # --- CONSTRUCCIÓN DINÁMICA DEL HTML ---
             df_tiendas_html = cargar_tiendas()
             
-            # Buscar robustamente las columnas requeridas
             col_nom = next((c for c in df_tiendas_html.columns if 'NOMBRE' in c.upper() or 'TIENDA' in c.upper() or 'SUC' in c.upper()), df_tiendas_html.columns[0])
             col_enc = next((c for c in df_tiendas_html.columns if 'ENCARGAD' in c.upper()), None)
 
@@ -525,27 +524,33 @@ with tab_rating:
             def get_tienda_info(pos):
                 if len(df_rating) >= pos:
                     row = df_rating.iloc[pos-1]
-                    enc_row = df_tiendas_html[df_tiendas_html['tienda_int'] == row['TIENDA_INT']]
+                    tda_int = int(row['TIENDA_INT'])
+                    enc_row = df_tiendas_html[df_tiendas_html['tienda_int'] == tda_int]
                     
+                    # Extraer encargado
                     enc_name = "Encargada"
                     if col_enc and not enc_row.empty:
                         val = str(enc_row[col_enc].values[0])
                         if val and val.lower() != 'nan' and val.strip():
                             enc_parts = val.split()
-                            # Tomamos las primeras dos palabras para obtener Nombre y Apellido
                             enc_name = " ".join(enc_parts[:2]) 
                     
-                    tienda_nombre = str(enc_row[col_nom].values[0]) if not enc_row.empty else row['TIENDA']
-                    return enc_name, tienda_nombre, int(row['PUNTAJE_TOTAL']), int(row['BONO'])
-                return "N/A", "N/A", 0, 0
+                    # Extraer el puro nombre limpio de la tienda
+                    tienda_bruta = str(enc_row[col_nom].values[0]) if not enc_row.empty else str(row['TIENDA'])
+                    tienda_nombre = re.sub(r'^[\d\s\-]+', '', tienda_bruta).strip()
+                    if not tienda_nombre: 
+                        tienda_nombre = "Sucursal"
 
-            e1, t1, p1, b1 = get_tienda_info(1)
-            e2, t2, p2, b2 = get_tienda_info(2)
-            e3, t3, p3, b3 = get_tienda_info(3)
+                    return enc_name, str(tda_int), tienda_nombre, int(row['PUNTAJE_TOTAL']), int(row['BONO'])
+                return "N/A", "0", "N/A", 0, 0
+
+            e1, num1, nom1, p1, b1 = get_tienda_info(1)
+            e2, num2, nom2, p2, b2 = get_tienda_info(2)
+            e3, num3, nom3, p3, b3 = get_tienda_info(3)
 
             bono_tag_1 = '<span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider"><i class="fa-solid fa-star text-yellow-400"></i> Bono Crecimiento Activo</span>' if b1 > 0 else ''
 
-            # AJUSTE PODIO: Ahora `t1` (Tienda) es el título principal, y `e1` (Encargada) incluye un icono
+            # AJUSTE PODIO: Número grande intacto, nombre de sucursal en medio, encargada abajo.
             podio_html = f"""
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16 items-end mt-16 px-4">
                 <!-- 2do Lugar -->
@@ -554,7 +559,8 @@ with tab_rating:
                         <i class="fa-solid fa-medal text-3xl text-slate-300"></i>
                     </div>
                     <div class="mt-8">
-                        <p class="text-3xl font-black text-white tracking-wide">{t2}</p>
+                        <p class="text-4xl font-black text-white tracking-wide">{num2}</p>
+                        <p class="text-sm text-cyan-400 font-bold uppercase tracking-wider mt-1">{nom2}</p>
                         <p class="text-sm text-slate-300 font-semibold uppercase mt-1"><i class="fa-solid fa-user-tie text-cyan-400 mr-1"></i> {e2}</p>
                     </div>
                     <div class="text-5xl font-black grad-primary mt-2">{p2}<span class="text-2xl text-slate-500">.0</span></div>
@@ -567,7 +573,8 @@ with tab_rating:
                     </div>
                     <div class="mt-8">
                         <div class="text-yellow-400 text-sm font-black tracking-widest mb-1"><i class="fa-solid fa-crown"></i> LÍDER ABSOLUTO</div>
-                        <p class="text-4xl font-black text-white tracking-wide">{t1}</p>
+                        <p class="text-5xl font-black text-white tracking-wide">{num1}</p>
+                        <p class="text-lg text-cyan-400 font-bold uppercase tracking-wider mt-1">{nom1}</p>
                         <p class="text-sm text-slate-300 font-semibold uppercase mt-1 mb-2"><i class="fa-solid fa-user-tie text-cyan-400 mr-1"></i> {e1}</p>
                         {bono_tag_1}
                     </div>
@@ -580,7 +587,8 @@ with tab_rating:
                         <i class="fa-solid fa-medal text-3xl text-amber-600"></i>
                     </div>
                     <div class="mt-8">
-                        <p class="text-3xl font-black text-white tracking-wide">{t3}</p>
+                        <p class="text-4xl font-black text-white tracking-wide">{num3}</p>
+                        <p class="text-sm text-cyan-400 font-bold uppercase tracking-wider mt-1">{nom3}</p>
                         <p class="text-sm text-slate-300 font-semibold uppercase mt-1"><i class="fa-solid fa-user-tie text-cyan-400 mr-1"></i> {e3}</p>
                     </div>
                     <div class="text-4xl font-black grad-primary mt-2">{p3}<span class="text-2xl text-slate-500">.0</span></div>
@@ -591,8 +599,8 @@ with tab_rating:
             filas_html = ""
             for index, row in df_rating.iterrows():
                 pos = row['POSICIÓN']
-                tienda = row['TIENDA']
-                enc_row = df_tiendas_html[df_tiendas_html['tienda_int'] == row['TIENDA_INT']]
+                tda_int = int(row['TIENDA_INT'])
+                enc_row = df_tiendas_html[df_tiendas_html['tienda_int'] == tda_int]
                 
                 encargado = "Encargada"
                 if col_enc and not enc_row.empty:
@@ -601,7 +609,12 @@ with tab_rating:
                         enc_parts = val.split()
                         encargado = " ".join(enc_parts[:2])
                 
-                tienda_oficial = str(enc_row[col_nom].values[0]) if not enc_row.empty else tienda
+                tienda_bruta = str(enc_row[col_nom].values[0]) if not enc_row.empty else str(row['TIENDA'])
+                tienda_solo_nombre = re.sub(r'^[\d\s\-]+', '', tienda_bruta).strip()
+                if not tienda_solo_nombre: tienda_solo_nombre = "Sucursal"
+                
+                # AJUSTE TABLA: Combinamos Número y Nombre "56 - Galerías"
+                tienda_oficial = f"{tda_int} - {tienda_solo_nombre}"
                 
                 conv = f"{row['CONVERSION']:.2f}%"
                 tkt = f"{row['TICKET']:.2f}"
@@ -615,7 +628,7 @@ with tab_rating:
                 color_bar = "bar-grad"
                 riesgo_tag = ""
 
-                # CALIFICATIVOS DINÁMICOS EXCLUSIVOS
+                # AJUSTE CALIFICATIVOS: Dinámicos debajo del nombre
                 if pos <= 3:
                     qualifier = "🏆 LÍDER"
                     qual_color = "text-yellow-400 font-bold"
@@ -645,7 +658,6 @@ with tab_rating:
                 bono_td = f'<br><span class="text-[10px] bg-yellow-500/20 px-1 rounded uppercase">+{bono} Bono</span>' if bono > 0 else ''
                 bono_bar = f'<div class="absolute top-0 right-0 h-full w-[5%] bg-yellow-400 rounded-r-full shadow-[0_0_10px_rgba(234,179,8,1)]"></div>' if bono > 0 else ''
 
-                # AJUSTE 2: Encargada y su Calificativo dentro de la tabla
                 filas_html += f"""
                 <tr class="border-b border-slate-700/50 {bg_tr} hover:bg-slate-700/50 transition-colors">
                     <td class="p-4 text-center font-black text-2xl {color_pos}">#{pos}</td>
@@ -672,7 +684,6 @@ with tab_rating:
                 </tr>
                 """
 
-            # CREACIÓN DEL MODAL (VENTANA EMERGENTE) PARA LAS METAS
             modal_html = """
             <!-- MODAL META DIARIA (INYECTADO) -->
             <div id="metaModal" class="fixed inset-0 bg-black/80 hidden items-center justify-center z-50 backdrop-blur-sm opacity-0 transition-opacity duration-300">
