@@ -64,7 +64,7 @@ def cargar_tiendas():
     try:
         return pd.read_excel(nombre_archivo)
     except Exception as e:
-        return pd.DataFrame({'NOMBRE': ['Error'], 'ENCARGADO': ['Sin datos']})
+        return pd.DataFrame({'TIENDA': ['Error'], 'NOMBRE': ['Sin datos'], 'ENCARGADO': ['Sin datos']})
 
 def cargar_archivos_locales():
     if 'df_ventas' not in st.session_state or 'df_tallas' not in st.session_state:
@@ -514,11 +514,15 @@ with tab_rating:
             # --- CONSTRUCCIÓN DINÁMICA DEL HTML ---
             df_tiendas_html = cargar_tiendas()
             
-            col_nom = next((c for c in df_tiendas_html.columns if 'NOMBRE' in c.upper() or 'TIENDA' in c.upper() or 'SUC' in c.upper()), df_tiendas_html.columns[0])
-            col_enc = next((c for c in df_tiendas_html.columns if 'ENCARGAD' in c.upper()), None)
+            # Identificamos con precisión las columnas A, B y C del Excel CORREO DE TIENDAS.xlsx
+            df_tiendas_html.columns = df_tiendas_html.columns.astype(str).str.strip().str.upper()
+            col_id = 'TIENDA' if 'TIENDA' in df_tiendas_html.columns else df_tiendas_html.columns[0]
+            col_nom = 'NOMBRE' if 'NOMBRE' in df_tiendas_html.columns else (df_tiendas_html.columns[1] if len(df_tiendas_html.columns) > 1 else df_tiendas_html.columns[0])
+            col_enc = 'ENCARGADO' if 'ENCARGADO' in df_tiendas_html.columns else None
 
-            df_tiendas_html['tienda_int'] = df_tiendas_html[col_nom].apply(
-                lambda x: int(re.search(r'\d+', str(x)).group()) if pd.notna(x) and re.search(r'\d+', str(x)) else -1
+            # Limpiamos ID de Tienda
+            df_tiendas_html['tienda_int'] = df_tiendas_html[col_id].astype(str).apply(
+                lambda x: int(re.search(r'\d+', x).group()) if pd.notna(x) and re.search(r'\d+', str(x)) else -1
             )
             
             def get_tienda_info(pos):
@@ -535,11 +539,12 @@ with tab_rating:
                             enc_parts = val.split()
                             enc_name = " ".join(enc_parts[:2]) 
                     
-                    # Extraer el puro nombre limpio de la tienda
-                    tienda_bruta = str(enc_row[col_nom].values[0]) if not enc_row.empty else str(row['TIENDA'])
-                    tienda_nombre = re.sub(r'^[\d\s\-]+', '', tienda_bruta).strip()
-                    if not tienda_nombre: 
-                        tienda_nombre = "Sucursal"
+                    # Extraer el nombre de la tienda oficial (Columna B)
+                    tienda_nombre = "Sucursal"
+                    if not enc_row.empty:
+                        val_nom = str(enc_row[col_nom].values[0])
+                        if val_nom and val_nom.lower() != 'nan' and val_nom.strip():
+                            tienda_nombre = val_nom.strip()
 
                     return enc_name, str(tda_int), tienda_nombre, int(row['PUNTAJE_TOTAL']), int(row['BONO'])
                 return "N/A", "0", "N/A", 0, 0
@@ -609,12 +614,14 @@ with tab_rating:
                         enc_parts = val.split()
                         encargado = " ".join(enc_parts[:2])
                 
-                tienda_bruta = str(enc_row[col_nom].values[0]) if not enc_row.empty else str(row['TIENDA'])
-                tienda_solo_nombre = re.sub(r'^[\d\s\-]+', '', tienda_bruta).strip()
-                if not tienda_solo_nombre: tienda_solo_nombre = "Sucursal"
+                tienda_nombre = "Sucursal"
+                if not enc_row.empty:
+                    val_nom = str(enc_row[col_nom].values[0])
+                    if val_nom and val_nom.lower() != 'nan' and val_nom.strip():
+                        tienda_nombre = val_nom.strip()
                 
-                # AJUSTE TABLA: Combinamos Número y Nombre "56 - Galerías"
-                tienda_oficial = f"{tda_int} - {tienda_solo_nombre}"
+                # AJUSTE TABLA: Combinamos Número y Nombre oficial ("56 - PLAZAS OUTLET")
+                tienda_oficial = f"{tda_int} - {tienda_nombre}"
                 
                 conv = f"{row['CONVERSION']:.2f}%"
                 tkt = f"{row['TICKET']:.2f}"
