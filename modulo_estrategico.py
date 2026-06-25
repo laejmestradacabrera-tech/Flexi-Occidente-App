@@ -1,42 +1,41 @@
 import streamlit as st
-import pandas as pd
-import os
 
-# Configuración única
-st.set_page_config(page_title="Flexi Occidente - Sistema Integral", layout="wide")
+# --- CONFIGURACIÓN ---
+CLAVE_GERENCIA = "T5604b"
 
-# Menú lateral para separar Operativo de Estratégico
-st.sidebar.title("Navegación")
-opcion = st.sidebar.radio("Selecciona el módulo:", ["Operativo", "Estratégico"])
+st.set_page_config(page_title="Flexi Occidente", layout="wide")
 
-if opcion == "Operativo":
-    st.title("📌 Bitácora Operativa")
-    st.write("---")
-    st.write("Bienvenido al registro operativo diario.")
-    # AQUÍ IRÁ EL CÓDIGO DE TU BITÁCORA QUE YA TIENES FUNCIONANDO
+st.title("🏭 Dashboard Operativo - Flexi Occidente")
 
-elif opcion == "Estratégico":
-    st.title("🧠 Módulo de Decisiones Estratégicas")
-    st.write("---")
-    clave = st.text_input("🔑 Ingresa Clave Directiva:", type="password")
+# --- CONTROL DE ACCESO ---
+st.sidebar.header("🔐 Autenticación")
+input_clave = st.sidebar.text_input("Ingresar clave de gerencia:", type="password")
+
+# --- BLOQUE 1: OPERACIONES (Visible para todos) ---
+st.subheader("📋 Panel Operativo (Encargado de Tienda)")
+with st.container():
+    # Aquí puedes insertar tus métricas o tablas operativas actuales
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Ventas Totales", "$120,000", "5%")
+    col2.metric("Inventario en Tienda", "450 pares", "-2")
+    col3.metric("Ticket Promedio", "$850")
+    st.info("Visualización estándar de operaciones diarias.")
+
+# --- BLOQUE 2: ESTRATÉGICO (Solo Gerencia) ---
+if input_clave == CLAVE_GERENCIA:
+    st.markdown("---")
+    st.subheader("🎯 Módulo de Decisiones Estratégicas")
+    st.success("Acceso de Gerencia validado.")
     
-    if clave == "T5604b":
-        st.success("✅ Acceso Directivo Confirmado.")
+    with st.container():
+        # Aquí insertas tus gráficos o análisis de alto nivel
+        st.write("### Análisis de Rentabilidad y Proyecciones")
+        # Ejemplo de espacio para tus gráficas gerenciales
+        st.area_chart([10, 20, 30, 40, 50])
         
-        # Pestañas solo visibles si la clave es correcta
-        tab1, tab2 = st.tabs(["🎯 Monitor Estratégico", "📊 Cruce de Ventas"])
-        
-        with tab1:
-            st.subheader("Monitor de Google Sheets")
-            st.write("Conexión con base de datos maestra activa.")
-            # Lógica de Google Sheets aquí
-            
-        with tab2:
-            st.subheader("Análisis de Ventas")
-            if os.path.exists("Ventas.xlsx"):
-                st.dataframe(pd.read_excel("Ventas.xlsx").head())
-            else:
-                st.error("Archivo 'Ventas.xlsx' no encontrado.")
-    
-    elif clave != "":
-        st.error("❌ Clave incorrecta. Acceso restringido.")
+        col_a, col_b = st.columns(2)
+        col_a.write("Distribución de Inventario por Planta")
+        col_b.write("Proyección de Ventas a 30 días")
+else:
+    if input_clave:
+        st.sidebar.error("Clave incorrecta. Solo lectura operativa.")
