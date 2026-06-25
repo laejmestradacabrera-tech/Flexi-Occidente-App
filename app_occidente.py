@@ -339,7 +339,7 @@ tab_desempeno, tab_comparativo, tab_top20_tda, tab_top20_zona, tab_rating, tab_n
 
 # ========================================================
 # --- PESTAÑA 1: DESEMPEÑO COMERCIAL ---
-with tab1:
+with tab_desempeno:
     st.subheader("📊 DESEMPEÑO COMERCIAL")
     fecha_act = obtener_fecha_actualizacion(archivo_conv)
     st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
@@ -783,7 +783,7 @@ with tab_rating:
 
 # ========================================================
 # --- PESTAÑA 2: COMPARATIVO MENSUAL ---
-with tab2:
+with tab_comparativo:
     st.subheader("📈 Análisis Comparativo de Calzado Mensual")
     fecha_act = obtener_fecha_actualizacion(archivo_comp)
     st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
@@ -958,7 +958,7 @@ if archivo_modelos:
         estilo.iloc[0:5, :] = 'background-color: #d1e7dd; color: #0f5132; font-weight: bold'
         return estilo
 
-    with tab3:
+    with tab_top20_tda:
         st.subheader("👟 TOP 20 TIENDA")
         fecha_act = obtener_fecha_actualizacion(archivo_modelos)
         st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
@@ -984,7 +984,7 @@ if archivo_modelos:
             type="primary"
         )
 
-    with tab4:
+    with tab_top20_zona:
         st.subheader("🌍 Consolidado Zona Occidente")
         fecha_act = obtener_fecha_actualizacion(archivo_modelos)
         st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
@@ -1078,7 +1078,7 @@ with tab_bitacora:
                 st.error(f"❌ Error al intentar guardar en Google Sheets: {e}")
 
 # --- PESTAÑA 5: RUTA DEL CLIENTE ---
-with tab5:
+with tab_ruta:
     st.subheader("🧭 Protocolo Operativo en Piso de Venta")
     nombre_imagen = "RC Zona Occidente.png"
     if os.path.exists(nombre_imagen):
@@ -1087,7 +1087,7 @@ with tab5:
         st.warning("⚠️ La imagen 'RC Zona Occidente.png' aún no se encuentra en GitHub.")
 
 # --- PESTAÑA 6: PORTAL DE CAPACITACIÓN ---
-with tab6:
+with tab_capacitacion:
     st.markdown("## 🎓 Centro de Capacitación y Desarrollo Operativo")
     st.write("Bienvenido al espacio interactivo para el fortalecimiento del sentido de pertenencia y alineación comercial de la Zona Occidente.")
     
@@ -1164,6 +1164,59 @@ with tab6:
             """)
         
         st.success("✨ **Nota Final:** La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.")
+
+# ========================================================
+# --- PESTAÑA 6: MONITOR DE NIVELACIÓN FLEXI OCCIDENTE ---
+with tab_nivelacion:
+    st.markdown("<h2 style='color: #B22222;'>📈 Monitor de Nivelación Flexi Occidente</h2>", unsafe_allow_html=True)
+    fecha_act = obtener_fecha_actualizacion("Ventas.xlsx")
+    st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
+    
+    cargar_archivos_locales()
+    
+    if 'df_ventas' in st.session_state:
+        tiendas = sorted(st.session_state.df_ventas['Tienda'].unique().tolist())
+        tienda_sel = st.selectbox("Selecciona la Tienda para analizar:", tiendas)
+        
+        if st.button("Ejecutar Análisis"):
+            df_tienda = st.session_state.df_ventas[
+                (st.session_state.df_ventas['Tienda'] == tienda_sel) & 
+                (~st.session_state.df_ventas['Proveedor'].isin([415, 426, 427]))
+            ].copy()
+            
+            top_20 = df_tienda.groupby('Modelo')['Vtas'].sum().nlargest(20).index
+            df_top = df_tienda[df_tienda['Modelo'].isin(top_20)].copy()
+            
+            resultados = []
+            for _, row in df_top.iterrows():
+                dpto = str(row['Departamento']).strip().lower()
+                tallas_row = st.session_state.df_tallas[
+                    st.session_state.df_tallas['Valor'].astype(str).str.lower() == dpto
+                ]
+                
+                if not tallas_row.empty:
+                    for i in range(1, 16):
+                        ex_val = row.get(f'ex{i}', 0)
+                        p_val = row.get(f'p{i}', 0)
+                        
+                        if (pd.isna(ex_val) or ex_val == 0) and (pd.isna(p_val) or p_val == 0):
+                            talla_fisica = tallas_row.iloc[0][f'ex{i}']
+                            if pd.notna(talla_fisica):
+                                resultados.append({
+                                    "Departamento": row['Departamento'].capitalize(),
+                                    "Modelo": row['Modelo'],
+                                    "Talla": talla_fisica
+                                })
+            
+            if resultados:
+                df_final = pd.DataFrame(resultados).drop_duplicates()
+                for dpto in df_final['Departamento'].unique():
+                    st.markdown(f"<h3 style='color: #B22222;'>Bloque: {dpto}</h3>", unsafe_allow_html=True)
+                    st.dataframe(df_final[df_final['Departamento'] == dpto][['Modelo', 'Talla']])
+            else:
+                st.success("¡Excelente! No hay faltantes en el Top 20.")            
+    else:
+        st.warning("Archivos de ventas o tallas no encontrados localmente.")
 
 # ========================================================
 # --- PESTAÑA 10: DECISIONES ESTRATÉGICAS ---
