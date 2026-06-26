@@ -13,11 +13,62 @@ import subprocess
 import streamlit.components.v1 as components 
 import re
 
+# 1. CONFIGURACIÓN INICIAL DE PÁGINA (Debe ser lo primero)
+st.set_page_config(page_title="Monitor Comercial Flexi Occidente", layout="wide", initial_sidebar_state="collapsed")
+
 # Intentamos configurar el idioma español para las fechas
 try:
     locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
 except:
     pass
+
+# --- ESTILO GLOBAL INTERACTIVO Y TEMA OSCURO PARA EL INICIO ---
+st.markdown("""
+    <style>
+    .main-title {
+        color: #E30613; font-size: 38px; font-weight: 900;
+        margin-bottom: 0px; padding-bottom: 0px; letter-spacing: -1px;
+    }
+    .sub-title {
+        color: #94a3b8; font-size: 18px; margin-bottom: 40px;
+    }
+    .footer {
+        position: fixed; left: 0; bottom: 0; width: 100%;
+        background-color: #0f172a; color: #64748b; text-align: center;
+        padding: 12px; font-size: 13px; border-top: 1px solid #1e293b;
+        z-index: 999; font-weight: 500;
+    }
+    th {
+        background-color: #E30613 !important; color: white !important;
+        font-weight: bold !important; text-transform: uppercase !important;
+        text-align: center !important; padding: 12px !important;
+    }
+    td { text-align: center !important; font-size: 15px !important; }
+    
+    .kpi-box {
+        background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 8px;
+        padding: 15px; text-align: center; box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
+    }
+    .kpi-title { font-size: 14px; color: #555; font-weight: bold; text-transform: uppercase; }
+    .kpi-value { font-size: 24px; color: #E30613; font-weight: bold; margin: 5px 0; }
+    .kpi-delta { font-size: 15px; font-weight: bold; }
+
+    /* Tarjetas de Inicio */
+    .card-inicio {
+        background-color: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 30px;
+        height: 100%;
+    }
+    .card-title {
+        color: #f8fafc; font-size: 24px; font-weight: 700; margin-bottom: 10px;
+    }
+    .card-desc {
+        color: #94a3b8; font-size: 15px; margin-bottom: 25px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 # --- CONFIGURACIÓN CENTRALIZADA DE GOOGLE ---
 scope = [
@@ -36,7 +87,12 @@ try:
 except Exception as e:
     st.warning("Advertencia: No se pudo conectar a Google Sheets. Verifica tus secretos.")
 
-# --- FUNCIONES ---
+# --- FUNCIONES GLOBALES ---
+@st.cache_data(ttl=300) # Hacemos la función más ligera usando caché por 5 mins
+def buscar_archivo(palabra_clave):
+    archivos = [f for f in os.listdir('.') if palabra_clave.lower() in f.lower() and f.endswith(('.xlsx', '.csv'))]
+    return sorted(archivos)[-1] if archivos else None
+
 def obtener_fecha_actualizacion(nombre_archivo):
     if not nombre_archivo: return "Archivo no disponible"
     try:
@@ -59,6 +115,7 @@ def obtener_fecha_actualizacion(nombre_archivo):
     except Exception:
         return "Fecha no disponible"
 
+@st.cache_data
 def cargar_tiendas():
     nombre_archivo = "CORREO DE TIENDAS.xlsx"
     try:
@@ -142,49 +199,6 @@ def validar_captura_stock(tienda_id, modelo, talla_input, df_ventas, df_tallas):
         st.error(f"Error interno en validación: {e}")
         return True, ""
 
-# 1. CONFIGURACIÓN DE PÁGINA
-st.set_page_config(page_title="Monitor Comercial Flexi Occidente", layout="wide")
-
-# --- ESTILO GLOBAL INTERACTIVO ---
-st.markdown("""
-    <style>
-    .main-title {
-        text-align: center; color: #E30613; font-size: 32px; font-weight: bold;
-        border-bottom: 3px solid #E30613; padding-bottom: 10px; margin-bottom: 20px;
-    }
-    .footer {
-        position: fixed; left: 0; bottom: 0; width: 100%;
-        background-color: white; color: #666; text-align: center;
-        padding: 8px; font-size: 13px; border-top: 1px solid #ddd;
-        z-index: 999; font-weight: bold;
-    }
-    th {
-        background-color: #E30613 !important; color: white !important;
-        font-weight: bold !important; text-transform: uppercase !important;
-        text-align: center !important; padding: 12px !important;
-    }
-    td { text-align: center !important; font-size: 15px !important; }
-    
-    .kpi-box {
-        background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 8px;
-        padding: 15px; text-align: center; box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
-    }
-    .kpi-title { font-size: 14px; color: #555; font-weight: bold; text-transform: uppercase; }
-    .kpi-value { font-size: 24px; color: #E30613; font-weight: bold; margin: 5px 0; }
-    .kpi-delta { font-size: 15px; font-weight: bold; }
-    </style>
-    <h1 class="main-title">🔴 MONITOR COMERCIAL FLEXI OCCIDENTE</h1>
-    """, unsafe_allow_html=True)
-
-def buscar_archivo(palabra_clave):
-    archivos = [f for f in os.listdir('.') if palabra_clave.lower() in f.lower() and f.endswith(('.xlsx', '.csv'))]
-    return sorted(archivos)[-1] if archivos else None
-
-archivo_conv = buscar_archivo('Conversion')
-archivo_modelos = buscar_archivo('Venta_Modelos')
-archivo_comp = buscar_archivo('Comparativo por Operacion')
-
-# --- 1. EL CARTERO LIGERO (COMPARATIVO MENSUAL) ---
 def enviar_correo_ejecutivo(tienda_objetivo, conversion, ticket, meta_conv, meta_tkt, faltan_pares, faltan_pesos):
     logro_conv = conversion >= meta_conv
     logro_ticket = ticket >= meta_tkt
@@ -253,7 +267,6 @@ def enviar_correo_ejecutivo(tienda_objetivo, conversion, ticket, meta_conv, meta
     except Exception as e:
         return f"❌ Error al enviar el correo a la Tienda {tienda_objetivo}: {e}"
 
-# --- GENERADOR DEL REPORTE TOP 20 EN PDF ---
 def generar_reporte_top20_pdf(df_top20, nombre_sucursal):
     hora_mexico = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
     fecha_actual = hora_mexico.strftime("%d/%m/%Y")    
@@ -323,914 +336,705 @@ def generar_reporte_top20_pdf(df_top20, nombre_sucursal):
     pdf.cell(90, 5, "Gerente Comercial", 0, 1, 'C')
     return bytes(pdf.output(dest='S').encode('latin1'))
 
-# --- DEFINICIÓN DE LAS 10 PESTAÑAS (ORDEN EXACTO + ESTRATEGIA) ---
-tab_desempeno, tab_comparativo, tab_top20_tda, tab_top20_zona, tab_rating, tab_nivelacion, tab_bitacora, tab_ruta, tab_capacitacion, tab_estrategia = st.tabs([
-    "📊 DESEMPEÑO COMERCIAL", 
-    "📈 COMPARATIVO MENSUAL",
-    "👟 TOP 20 TIENDA", 
-    "🌍 TOP 20 ZONA", 
-    "🏆 RATING COMERCIAL",
-    "🔄 NIVELACIÓN DE STOCK",
-    "📝 BITÁCORA", 
-    "🧭 RUTA DEL CLIENTE", 
-    "🎓 CAPACITACIÓN",
-    "🎯 DECISIONES ESTRATÉGICAS"
-])
+# Carga de archivos variables
+archivo_conv = buscar_archivo('Conversion')
+archivo_modelos = buscar_archivo('Venta_Modelos')
+archivo_comp = buscar_archivo('Comparativo por Operacion')
 
-# ========================================================
-# --- PESTAÑA 1: DESEMPEÑO COMERCIAL ---
-with tab_desempeno:
-    st.subheader("📊 DESEMPEÑO COMERCIAL")
-    fecha_act = obtener_fecha_actualizacion(archivo_conv)
-    st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
-    if archivo_conv:
-        df_c = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
-        df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
-        
-        col_tienda = next((c for c in df_c.columns if 'Tienda' in c or 'TIENDA' in c), df_c.columns[0])
-        col_conv_real = next((c for c in df_c.columns if 'Conv' in c and 'Actual' in c), None)
-        col_tkt_real = next((c for c in df_c.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
-        
-        if col_conv_real and col_tkt_real:
-            meta_conv, meta_tkt = 10.9, 1.29
-            df_c['CONVERSIÓN'] = df_c[col_conv_real].apply(lambda x: x*100 if x < 1 else x)
-            df_c['TICKET PROMEDIO'] = df_c[col_tkt_real]
-            
-            ranking = df_c[[col_tienda, 'CONVERSIÓN', 'TICKET PROMEDIO']].sort_values(by='CONVERSIÓN', ascending=False).reset_index(drop=True)
-            ranking.insert(0, 'POS', range(1, len(ranking) + 1))
-            ranking.columns = ['#', 'TIENDA', 'CONVERSIÓN', 'TICKET PROMEDIO']
+# --- MÁQUINA DE ESTADOS PARA EL MENÚ Y SEGURIDAD ---
+if 'vista_actual' not in st.session_state:
+    st.session_state.vista_actual = 'Inicio'
 
-            def color_semaforo(row):
-                c_conv = row['CONVERSIÓN'] >= meta_conv
-                c_tkt = row['TICKET PROMEDIO'] >= meta_tkt
-                if c_conv and c_tkt: return ['background-color: #d4edda; color: #155724'] * 4
-                elif c_conv or c_tkt: return ['background-color: #fff3cd; color: #856404'] * 4
-                else: return ['background-color: #f8d7da; color: #721c24'] * 4
-
-            st.table(ranking.style.apply(color_semaforo, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))            
-
-# ========================================================
-# --- PESTAÑA NUEVA: RATING COMERCIAL (INYECCIÓN DINÁMICA) ---
-with tab_rating:
+# ==============================================================================
+# PANTALLA 1: INICIO (PORTERO / LANDING PAGE)
+# ==============================================================================
+if st.session_state.vista_actual == 'Inicio':
+    st.markdown("<h1 class='main-title'>MONITOR COMERCIAL ZONA OCCIDENTE</h1>", unsafe_allow_html=True)
+    st.markdown("<p class='sub-title'>Inteligencia comercial para mejores decisiones</p>", unsafe_allow_html=True)
     
-    # ---------------- MOTOR DE CÁLCULO AISLADO ----------------
-    try:
-        with st.spinner("Actualizando Liga de Campeones en tiempo real..."):
+    st.write("<br><br>", unsafe_allow_html=True)
+    
+    col1, esp, col2 = st.columns([1, 0.1, 1])
+    
+    with col1:
+        st.markdown("""
+        <div class='card-inicio'>
+            <div class='card-title'>👥 OPERACIÓN COMERCIAL</div>
+            <div class='card-desc'>Herramientas para el seguimiento diario de tiendas, desempeño comercial, bitácoras y capacitación.</div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("INGRESAR MÓDULO OPERATIVO", type="primary", use_container_width=True):
+            st.session_state.vista_actual = 'Operativo'
+            st.rerun()
+
+    with col2:
+        st.markdown("""
+        <div class='card-inicio'>
+            <div class='card-title'>📈 DECISIONES ESTRATÉGICAS 🔒</div>
+            <div class='card-desc'>Acceso exclusivo para la Gerencia Comercial. Inteligencia y análisis para la toma de decisiones.</div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("INGRESAR MÓDULO ESTRATÉGICO", use_container_width=True):
+            st.session_state.vista_actual = 'Login_Estrategico'
+            st.rerun()
             
-            # PASO 1: Extraer Ticket y Conversión
-            df_conv_r = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
-            df_conv_r = df_conv_r[~df_conv_r.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
-            c_tda_c = next((c for c in df_conv_r.columns if 'Tienda' in c or 'TIENDA' in c), df_conv_r.columns[0])
-            c_conv_real = next((c for c in df_conv_r.columns if 'Conv' in c and 'Actual' in c), None)
-            c_tkt_real = next((c for c in df_conv_r.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
+    st.markdown("<div class='footer'>© 2026 Flexi Occidente | Monitor Comercial | Todos los derechos reservados</div>", unsafe_allow_html=True)
+
+# ==============================================================================
+# PANTALLA 2: LOGIN ESTRATÉGICO
+# ==============================================================================
+elif st.session_state.vista_actual == 'Login_Estrategico':
+    st.markdown("<h1 style='color: white; margin-bottom: 30px;'>🔐 Autenticación Gerencial</h1>", unsafe_allow_html=True)
+    
+    col_l, col_r = st.columns([1, 2])
+    with col_l:
+        clave = st.text_input("Ingrese contraseña de acceso:", type="password")
+        if st.button("Validar Acceso", type="primary", use_container_width=True):
+            if clave == "Flexi2026":
+                st.session_state.vista_actual = 'Estrategico'
+                st.rerun()
+            else:
+                st.error("❌ Contraseña incorrecta.")
+        
+        st.write("<br>", unsafe_allow_html=True)
+        if st.button("← Volver al Inicio", use_container_width=True):
+            st.session_state.vista_actual = 'Inicio'
+            st.rerun()
+
+# ==============================================================================
+# PANTALLA 3: MÓDULO OPERATIVO (Las 9 Pestañas Originales)
+# ==============================================================================
+elif st.session_state.vista_actual == 'Operativo':
+    # Barra superior de navegación rápida
+    col_nav1, col_nav2 = st.columns([4, 1])
+    with col_nav1:
+        st.markdown("<h2 style='color: #E30613; margin-top: 0;'>Panel de Operación Comercial</h2>", unsafe_allow_html=True)
+    with col_nav2:
+        if st.button("← Volver al Menú Principal", use_container_width=True):
+            st.session_state.vista_actual = 'Inicio'
+            st.rerun()
             
-            datos_rating = []
-            for _, r in df_conv_r.iterrows():
-                tienda_str = str(r[c_tda_c]).strip()
-                conv_val = float(r[c_conv_real])
-                conv_val = conv_val * 100 if conv_val < 1 else conv_val
-                tkt_val = float(r[c_tkt_real])
-                datos_rating.append({"TIENDA": tienda_str, "CONVERSION": conv_val, "TICKET": tkt_val})
+    st.write("---")
+
+    tab_desempeno, tab_comparativo, tab_top20_tda, tab_top20_zona, tab_rating, tab_nivelacion, tab_bitacora, tab_ruta, tab_capacitacion = st.tabs([
+        "📊 Desempeño Comercial", 
+        "📈 Comparativo Mensual",
+        "👟 Top 20 Tiendas", 
+        "🌍 Top 20 Zona", 
+        "🏆 Rating Comercial",
+        "🔄 Nivelación de Stock",
+        "📝 Bitácora", 
+        "🧭 Ruta Cliente", 
+        "🎓 Capacitación"
+    ])
+
+    # --- PESTAÑA 1: DESEMPEÑO COMERCIAL ---
+    with tab_desempeno:
+        st.subheader("📊 DESEMPEÑO COMERCIAL")
+        fecha_act = obtener_fecha_actualizacion(archivo_conv)
+        st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
+        if archivo_conv:
+            df_c = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
+            df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
             
-            df_rating = pd.DataFrame(datos_rating)
+            col_tienda = next((c for c in df_c.columns if 'Tienda' in c or 'TIENDA' in c), df_c.columns[0])
+            col_conv_real = next((c for c in df_c.columns if 'Conv' in c and 'Actual' in c), None)
+            col_tkt_real = next((c for c in df_c.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
             
-            # Extraemos el identificador numérico de la tienda
-            df_rating['TIENDA_INT'] = df_rating['TIENDA'].apply(
-                lambda x: int(re.search(r'\d+', str(x)).group()) if re.search(r'\d+', str(x)) else -1
+            if col_conv_real and col_tkt_real:
+                meta_conv, meta_tkt = 10.9, 1.29
+                df_c['CONVERSIÓN'] = df_c[col_conv_real].apply(lambda x: x*100 if x < 1 else x)
+                df_c['TICKET PROMEDIO'] = df_c[col_tkt_real]
+                
+                ranking = df_c[[col_tienda, 'CONVERSIÓN', 'TICKET PROMEDIO']].sort_values(by='CONVERSIÓN', ascending=False).reset_index(drop=True)
+                ranking.insert(0, 'POS', range(1, len(ranking) + 1))
+                ranking.columns = ['#', 'TIENDA', 'CONVERSIÓN', 'TICKET PROMEDIO']
+
+                def color_semaforo(row):
+                    c_conv = row['CONVERSIÓN'] >= meta_conv
+                    c_tkt = row['TICKET PROMEDIO'] >= meta_tkt
+                    if c_conv and c_tkt: return ['background-color: #d4edda; color: #155724'] * 4
+                    elif c_conv or c_tkt: return ['background-color: #fff3cd; color: #856404'] * 4
+                    else: return ['background-color: #f8d7da; color: #721c24'] * 4
+
+                st.table(ranking.style.apply(color_semaforo, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))            
+
+    # --- PESTAÑA 2: COMPARATIVO MENSUAL ---
+    with tab_comparativo:
+        st.subheader("📈 Análisis Comparativo de Calzado Mensual")
+        fecha_act = obtener_fecha_actualizacion(archivo_comp)
+        st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
+        
+        if archivo_comp:
+            df_op = pd.read_excel(archivo_comp) if archivo_comp.endswith('.xlsx') else pd.read_csv(archivo_comp)
+            
+            c_ano = next((c for c in df_op.columns if 'año' in c.lower() or 'ano' in c.lower()), df_op.columns[0])
+            c_tda = next((c for c in df_op.columns if 'tienda' in c.lower() or 'sucursal' in c.lower()), df_op.columns[2])
+            c_prs = next((c for c in df_op.columns if 'pares' in c.lower() or 'cant' in c.lower()), None)
+            c_imp = next((c for c in df_op.columns if 'importe' in c.lower() or 'peso' in c.lower() or 'monto' in c.lower()), None)
+            c_prov = next((c for c in df_op.columns if 'prov' in c.lower()), None)
+            c_tipo = next((c for c in df_op.columns if 'tipo' in c.lower() or 'concepto' in c.lower()), None)
+            
+            if c_prs and c_imp:
+                df_op[c_tda] = df_op[c_tda].astype(str).str.strip()
+                df_op = df_op[~df_op[c_tda].str.contains('3004|3015', na=False)]
+                if c_prov:
+                    df_op = df_op[~df_op[c_prov].astype(str).str.strip().isin(['415', '426', '427'])]
+                if c_tipo:
+                    df_op = df_op[~df_op[c_tipo].astype(str).str.contains('BOLSA|REUSABLE|BOLSO', case=False, na=False)]
+                
+                resumen = df_op.groupby([c_tda, c_ano])[[c_prs, c_imp]].sum().unstack(fill_value=0)
+                resumen.columns = ['Pares 2025', 'Pares 2026', 'Pesos 2025', 'Pesos 2026']
+                resumen = resumen.reset_index()
+                resumen.columns = ['TIENDA', 'PARES 2025', 'PARES 2026', 'PESOS 2025', 'PESOS 2026']
+                
+                resumen['VAR PARES %'] = ((resumen['PARES 2026'] - resumen['PARES 2025']) / resumen['PARES 2025']) * 100
+                resumen['VAR PESOS %'] = ((resumen['PESOS 2026'] - resumen['PESOS 2025']) / resumen['PESOS 2025']) * 100
+                
+                tot_p25, tot_p26 = resumen['PARES 2025'].sum(), resumen['PARES 2026'].sum()
+                tot_w25, tot_w26 = resumen['PESOS 2025'].sum(), resumen['PESOS 2026'].sum()
+                var_p_global = ((tot_p26 - tot_p25) / tot_p25) * 100
+                var_w_global = ((tot_w26 - tot_w25) / tot_w25) * 100
+                
+                c1, c2 = st.columns(2)
+                with c1:
+                    signo_p = "+" if var_p_global >= 0 else ""
+                    col_p = "#155724" if var_p_global >= 0 else "#721c24"
+                    st.markdown(f"""
+                        <div class="kpi-box">
+                            <div class="kpi-title">📦 Total Pares Zona Occidente</div>
+                            <div class="kpi-value">{tot_p26:,.0f} Pares</div>
+                            <div class="kpi-delta" style="color: {col_p};">Variación: {signo_p}{var_p_global:.2f}% vs 2025</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                with c2:
+                    signo_w = "+" if var_w_global >= 0 else ""
+                    col_w = "#155724" if var_w_global >= 0 else "#721c24"
+                    st.markdown(f"""
+                        <div class="kpi-box">
+                            <div class="kpi-title">💰 Total Ventas ($) Zona Occidente</div>
+                            <div class="kpi-value">${tot_w26:,.2f} MXN</div>
+                            <div class="kpi-delta" style="color: {col_w};">Variación: {signo_w}{var_w_global:.2f}% vs 2025</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                
+                st.write("<br>", unsafe_allow_html=True)
+                tabla_comp = resumen[['TIENDA', 'PARES 2025', 'PARES 2026', 'VAR PARES %', 'PESOS 2025', 'PESOS 2026', 'VAR PESOS %']].sort_values(by='VAR PARES %', ascending=False).reset_index(drop=True)
+                
+                def color_variacion(val):
+                    if isinstance(val, (int, float)):
+                        color = '#d4edda' if val >= 0 else '#f8d7da'
+                        texto = '#155724' if val >= 0 else '#721c24'
+                        return f'background-color: {color}; color: {texto}; font-weight: bold;'
+                    return ''
+
+                st.table(tabla_comp.style.map(color_variacion, subset=['VAR PARES %', 'VAR PESOS %']).format({
+                    'PARES 2025': '{:,.0f}', 'PARES 2026': '{:,.0f}', 'VAR PARES %': '{:+.2f}%',
+                    'PESOS 2025': '${:,.2f}', 'PESOS 2026': '${:,.2f}', 'VAR PESOS %': '{:+.2f}%'
+                }))
+                
+                st.write("<br>", unsafe_allow_html=True)
+                st.markdown("---")
+                col_clave, col_boton = st.columns([1, 2])
+                with col_clave:
+                    password_input = st.text_input("Clave de autorización", type="password")
+                with col_boton:
+                    st.write("<br>", unsafe_allow_html=True)
+                    if st.button("🚀 Enviar Reporte Ejecutivo del Día (Tienda 56)", type="primary"):
+                        if password_input == "T5604b":
+                            tienda_obj = "56"
+                            conv_actual = 0.0
+                            tkt_actual = 0.0
+                            
+                            if archivo_conv:
+                                try:
+                                    df_c = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
+                                    df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
+                                    col_tda_c = next((c for c in df_c.columns if 'Tienda' in c or 'TIENDA' in c), df_c.columns[0])
+                                    col_conv_real = next((c for c in df_c.columns if 'Conv' in c and 'Actual' in c), None)
+                                    col_tkt_real = next((c for c in df_c.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
+                                    
+                                    df_c['CONVERSIÓN'] = df_c[col_conv_real].apply(lambda x: x*100 if x < 1 else x)
+                                    df_c['TICKET PROMEDIO'] = df_c[col_tkt_real]
+                                    
+                                    fila_c = df_c[df_c[col_tda_c].astype(str).str.contains(tienda_obj, na=False)]
+                                    if not fila_c.empty:
+                                        conv_actual = float(fila_c.iloc[0]['CONVERSIÓN'])
+                                        tkt_actual = float(fila_c.iloc[0]['TICKET PROMEDIO'])
+                                except: pass
+
+                            faltan_pares_calc = 0
+                            faltan_pesos_calc = 0.0
+                            
+                            if archivo_comp:
+                                try:
+                                    df_op = pd.read_excel(archivo_comp) if archivo_comp.endswith('.xlsx') else pd.read_csv(archivo_comp)
+                                    c_ano = next((c for c in df_op.columns if 'año' in c.lower() or 'ano' in c.lower()), df_op.columns[0])
+                                    c_tda = next((c for c in df_op.columns if 'tienda' in c.lower() or 'sucursal' in c.lower()), df_op.columns[2])
+                                    c_prs = next((c for c in df_op.columns if 'pares' in c.lower() or 'cant' in c.lower()), None)
+                                    c_imp = next((c for c in df_op.columns if 'importe' in c.lower() or 'peso' in c.lower() or 'monto' in c.lower()), None)
+                                    c_prov = next((c for c in df_op.columns if 'prov' in c.lower()), None)
+                                    c_tipo = next((c for c in df_op.columns if 'tipo' in c.lower() or 'concepto' in c.lower()), None)
+                                    
+                                    if c_prs and c_imp:
+                                        df_op[c_tda] = df_op[c_tda].astype(str).str.strip()
+                                        df_op = df_op[~df_op[c_tda].str.contains('3004|3015', na=False)]
+                                        if c_prov: df_op = df_op[~df_op[c_prov].astype(str).str.strip().isin(['415', '426', '427'])]
+                                        if c_tipo: df_op = df_op[~df_op[c_tipo].astype(str).str.contains('BOLSA|REUSABLE|BOLSO', case=False, na=False)]
+                                            
+                                        df_filtrado = df_op[df_op[c_tda].str.contains(tienda_obj, na=False)]
+                                        res = df_filtrado.groupby(c_ano)[[c_prs, c_imp]].sum()
+                                        
+                                        pares_2025 = int(res.get(c_prs).get(2025, 0))
+                                        pares_2026 = int(res.get(c_prs).get(2026, 0))
+                                        pesos_2025 = float(res.get(c_imp).get(2025, 0.0))
+                                        pesos_2026 = float(res.get(c_imp).get(2026, 0.0))
+                                        
+                                        faltan_pares_calc = pares_2025 - pares_2026
+                                        faltan_pesos_calc = pesos_2025 - pesos_2026
+                                except: pass
+                            
+                            with st.spinner("Enviando reporte ejecutivo..."):
+                                resultado_alerta = enviar_correo_ejecutivo(
+                                    tienda_objetivo=tienda_obj, conversion=conv_actual, ticket=tkt_actual, 
+                                    meta_conv=10.9, meta_tkt=1.29, faltan_pares=faltan_pares_calc, faltan_pesos=faltan_pesos_calc
+                                )
+                            
+                            if resultado_alerta:
+                                if "✅" in resultado_alerta: st.success(resultado_alerta)
+                                else: st.error(resultado_alerta)
+                        else:
+                            st.error("❌ Clave incorrecta. Acceso denegado para el envío.")
+
+    # --- PESTAÑAS 3 Y 4: DESPLIEGUE DE RANKINGS DE MODELOS ---
+    if archivo_modelos:
+        df_m = pd.read_excel(archivo_modelos) if archivo_modelos.endswith('.xlsx') else pd.read_csv(archivo_modelos)
+        col_m = next((c for c in df_m.columns if c.lower() in ['clave', 'modelo', 'estilo']), df_m.columns[1])
+        col_p = next((c for c in df_m.columns if 'pares' in c.lower() or 'cantidad' in c.lower() or 'venta' in c.lower()), df_m.columns[2])
+        col_t = next((c for c in df_m.columns if c.lower() in ['tienda', 'sucursal']), df_m.columns[0])
+        col_prov = next((c for c in df_m.columns if 'prov' in c.lower()), None)
+
+        df_m = df_m[~df_m[col_t].astype(str).str.contains('3004|3015', na=False)]
+        if col_prov: df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])]
+        df_m = df_m[~df_m[col_m].astype(str).str.contains('BOLSA|REUSABLE', case=False, na=False)]
+
+        def resaltar_top_5(data):
+            estilo = pd.DataFrame('', index=data.index, columns=data.columns)
+            estilo.iloc[0:5, :] = 'background-color: #d1e7dd; color: #0f5132; font-weight: bold'
+            return estilo
+
+        with tab_top20_tda:
+            st.subheader("👟 TOP 20 TIENDA")
+            fecha_act = obtener_fecha_actualizacion(archivo_modelos)
+            st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
+            
+            tiendas = sorted(df_m[col_t].unique())
+            t_sel = st.selectbox("Selecciona Tienda:", tiendas)
+            df_tienda_data = df_m[df_m[col_t] == t_sel].groupby(col_m)[col_p].sum().reset_index()
+            top_t = df_tienda_data.sort_values(by=col_p, ascending=False).head(20).reset_index(drop=True)
+            top_t.columns = ['MODELO', 'PARES VENDIDOS']
+            st.table(top_t.style.apply(resaltar_top_5, axis=None))
+
+            pdf_bytes = generar_reporte_top20_pdf(df_top20=top_t, nombre_sucursal=str(t_sel))
+
+            st.write("<br>", unsafe_allow_html=True)
+            st.download_button(
+                label="📄 Descargar Formato de Auditoría (PDF Oficial)",
+                data=pdf_bytes, file_name=f"Auditoria_Top20_{t_sel}.pdf", mime="application/pdf", type="primary"
             )
 
-            # PASO 2: Extraer Alcance (Comparativo)
-            if archivo_comp:
-                df_comp_r = pd.read_excel(archivo_comp) if archivo_comp.endswith('.xlsx') else pd.read_csv(archivo_comp)
-                c_ano = next((c for c in df_comp_r.columns if 'año' in c.lower() or 'ano' in c.lower()), df_comp_r.columns[0])
-                c_tda = next((c for c in df_comp_r.columns if 'tienda' in c.lower() or 'sucursal' in c.lower()), df_comp_r.columns[2])
-                c_prs = next((c for c in df_comp_r.columns if 'pares' in c.lower() or 'cant' in c.lower()), None)
-                c_prov = next((c for c in df_comp_r.columns if 'prov' in c.lower()), None)
-                
-                df_comp_r[c_tda] = df_comp_r[c_tda].astype(str).str.strip()
-                df_comp_r = df_comp_r[~df_comp_r[c_tda].str.contains('3004|3015', na=False)]
-                if c_prov: df_comp_r = df_comp_r[~df_comp_r[c_prov].astype(str).str.strip().isin(['415', '426', '427'])]
-                
-                res_comp = df_comp_r.groupby([c_tda, c_ano])[c_prs].sum().unstack(fill_value=0)
-                alcance_dict = {}
-                for tda_comp in res_comp.index:
-                    try:
-                        tda_comp_int = int(re.search(r'\d+', str(tda_comp)).group())
-                    except:
-                        tda_comp_int = -1
-                    pares_25 = res_comp.loc[tda_comp].get(2025, 0)
-                    pares_26 = res_comp.loc[tda_comp].get(2026, 0)
-                    alcance_dict[tda_comp_int] = (pares_26 / pares_25 * 100) if pares_25 > 0 else 0
-                
-                df_rating['ALCANCE'] = df_rating['TIENDA_INT'].map(alcance_dict).fillna(0)
+        with tab_top20_zona:
+            st.subheader("🌍 Consolidado Zona Occidente")
+            fecha_act = obtener_fecha_actualizacion(archivo_modelos)
+            st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
+            
+            df_z = df_m.groupby(col_m)[col_p].sum().reset_index()
+            top_z = df_z.sort_values(by=col_p, ascending=False).head(20).reset_index(drop=True)
+            top_z.columns = ['MODELO', 'PARES VENDIDOS']
+            st.table(top_z.style.apply(resaltar_top_5, axis=None))
 
-            # PASO 3: Contar Quiebres de MODELO en el Top 20
-            df_ventas_r = pd.read_excel("Ventas.xlsx")
-            df_tallas_r = pd.read_excel("Valores de tallas.xlsx")
-            
-            df_ventas_r['tienda_int'] = df_ventas_r['Tienda'].apply(
-                lambda x: int(re.search(r'\d+', str(x)).group()) if pd.notna(x) and re.search(r'\d+', str(x)) else -1
-            )
-            df_ventas_r = df_ventas_r[~df_ventas_r['Proveedor'].isin([415, 426, 427])]
-            
-            quiebres_dict = {}
-            for tda_num in df_rating['TIENDA_INT']:
-                df_tienda_v = df_ventas_r[df_ventas_r['tienda_int'] == tda_num]
+    # --- PESTAÑA 5: RATING COMERCIAL ---
+    with tab_rating:
+        try:
+            with st.spinner("Actualizando Liga de Campeones en tiempo real..."):
+                df_conv_r = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
+                df_conv_r = df_conv_r[~df_conv_r.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
+                c_tda_c = next((c for c in df_conv_r.columns if 'Tienda' in c or 'TIENDA' in c), df_conv_r.columns[0])
+                c_conv_real = next((c for c in df_conv_r.columns if 'Conv' in c and 'Actual' in c), None)
+                c_tkt_real = next((c for c in df_conv_r.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
                 
-                if df_tienda_v.empty:
-                    quiebres_dict[tda_num] = 0
-                    continue
+                datos_rating = []
+                for _, r in df_conv_r.iterrows():
+                    tienda_str = str(r[c_tda_c]).strip()
+                    conv_val = float(r[c_conv_real])
+                    conv_val = conv_val * 100 if conv_val < 1 else conv_val
+                    tkt_val = float(r[c_tkt_real])
+                    datos_rating.append({"TIENDA": tienda_str, "CONVERSION": conv_val, "TICKET": tkt_val})
+                
+                df_rating = pd.DataFrame(datos_rating)
+                df_rating['TIENDA_INT'] = df_rating['TIENDA'].apply(lambda x: int(re.search(r'\d+', str(x)).group()) if re.search(r'\d+', str(x)) else -1)
+
+                if archivo_comp:
+                    df_comp_r = pd.read_excel(archivo_comp) if archivo_comp.endswith('.xlsx') else pd.read_csv(archivo_comp)
+                    c_ano = next((c for c in df_comp_r.columns if 'año' in c.lower() or 'ano' in c.lower()), df_comp_r.columns[0])
+                    c_tda = next((c for c in df_comp_r.columns if 'tienda' in c.lower() or 'sucursal' in c.lower()), df_comp_r.columns[2])
+                    c_prs = next((c for c in df_comp_r.columns if 'pares' in c.lower() or 'cant' in c.lower()), None)
+                    c_prov = next((c for c in df_comp_r.columns if 'prov' in c.lower()), None)
                     
-                top_20 = df_tienda_v.groupby('Modelo')['Vtas'].sum().nlargest(20).index
-                df_top = df_tienda_v[df_tienda_v['Modelo'].isin(top_20)]
+                    df_comp_r[c_tda] = df_comp_r[c_tda].astype(str).str.strip()
+                    df_comp_r = df_comp_r[~df_comp_r[c_tda].str.contains('3004|3015', na=False)]
+                    if c_prov: df_comp_r = df_comp_r[~df_comp_r[c_prov].astype(str).str.strip().isin(['415', '426', '427'])]
+                    
+                    res_comp = df_comp_r.groupby([c_tda, c_ano])[c_prs].sum().unstack(fill_value=0)
+                    alcance_dict = {}
+                    for tda_comp in res_comp.index:
+                        try: tda_comp_int = int(re.search(r'\d+', str(tda_comp)).group())
+                        except: tda_comp_int = -1
+                        pares_25 = res_comp.loc[tda_comp].get(2025, 0)
+                        pares_26 = res_comp.loc[tda_comp].get(2026, 0)
+                        alcance_dict[tda_comp_int] = (pares_26 / pares_25 * 100) if pares_25 > 0 else 0
+                    
+                    df_rating['ALCANCE'] = df_rating['TIENDA_INT'].map(alcance_dict).fillna(0)
+
+                df_ventas_r = pd.read_excel("Ventas.xlsx")
+                df_tallas_r = pd.read_excel("Valores de tallas.xlsx")
+                df_ventas_r['tienda_int'] = df_ventas_r['Tienda'].apply(lambda x: int(re.search(r'\d+', str(x)).group()) if pd.notna(x) and re.search(r'\d+', str(x)) else -1)
+                df_ventas_r = df_ventas_r[~df_ventas_r['Proveedor'].isin([415, 426, 427])]
                 
-                modelos_quebrados = set()
+                quiebres_dict = {}
+                for tda_num in df_rating['TIENDA_INT']:
+                    df_tienda_v = df_ventas_r[df_ventas_r['tienda_int'] == tda_num]
+                    if df_tienda_v.empty:
+                        quiebres_dict[tda_num] = 0
+                        continue
+                        
+                    top_20 = df_tienda_v.groupby('Modelo')['Vtas'].sum().nlargest(20).index
+                    df_top = df_tienda_v[df_tienda_v['Modelo'].isin(top_20)]
+                    modelos_quebrados = set()
+                    
+                    for _, row in df_top.iterrows():
+                        dpto = str(row.get('Departamento', '')).strip().lower()
+                        tallas_row = df_tallas_r[df_tallas_r['Valor'].astype(str).str.strip().str.lower() == dpto]
+                        if not tallas_row.empty:
+                            for i in range(1, 16):
+                                ex_val = row.get(f'ex{i}', 0)
+                                p_val = row.get(f'p{i}', 0)
+                                if (pd.isna(ex_val) or ex_val == 0) and (pd.isna(p_val) or p_val == 0):
+                                    talla_fisica = tallas_row.iloc[0].get(f'ex{i}')
+                                    if pd.notna(talla_fisica) and str(talla_fisica).strip() != '':
+                                        talla_str = str(talla_fisica).strip()
+                                        es_305 = False
+                                        try:
+                                            t_num = float(talla_fisica)
+                                            if t_num == 305 or t_num == 30.5: es_305 = True
+                                        except:
+                                            if '305' in talla_str: es_305 = True
+                                        if dpto == 'caballero' and es_305: continue 
+                                        modelos_quebrados.add(row['Modelo'])
+                                        break 
+                    quiebres_dict[tda_num] = len(modelos_quebrados)
                 
+                df_rating['QUIEBRES'] = df_rating['TIENDA_INT'].map(quiebres_dict).fillna(0)
+
+                def calcular_pts_ticket(t): return 35 if t >= 1.29 else 25 if t >= 1.25 else 10 if t >= 1.20 else 5
+                def calcular_pts_conv(c): return 35 if c >= 10.9 else 25 if c >= 10.5 else 10 if c >= 10.0 else 5
+                def calcular_pts_alcance(a): return 20 if a >= 100 else 10 if a >= 95 else 5
+                def calcular_pts_quiebre(q): return 10 if q <= 5 else 5 if q <= 10 else 0
+
+                df_rating['PTS_TKT'] = df_rating['TICKET'].apply(calcular_pts_ticket)
+                df_rating['PTS_CONV'] = df_rating['CONVERSION'].apply(calcular_pts_conv)
+                df_rating['PTS_ALC'] = df_rating['ALCANCE'].apply(calcular_pts_alcance)
+                df_rating['PTS_QUIEBRE'] = df_rating['QUIEBRES'].apply(calcular_pts_quiebre)
+                
+                df_rating['BONO'] = df_rating['ALCANCE'].apply(lambda a: 5 if a >= 105 else 0)
+                df_rating['PUNTAJE_TOTAL'] = df_rating['PTS_TKT'] + df_rating['PTS_CONV'] + df_rating['PTS_ALC'] + df_rating['PTS_QUIEBRE'] + df_rating['BONO']
+                
+                df_rating = df_rating.sort_values(by=['PUNTAJE_TOTAL', 'CONVERSION'], ascending=[False, False]).reset_index(drop=True)
+                df_rating.insert(0, 'POSICIÓN', range(1, len(df_rating) + 1))
+                
+                df_tiendas_html = cargar_tiendas()
+                df_tiendas_html.columns = df_tiendas_html.columns.astype(str).str.strip().str.upper()
+                col_id = 'TIENDA' if 'TIENDA' in df_tiendas_html.columns else df_tiendas_html.columns[0]
+                col_nom = 'NOMBRE' if 'NOMBRE' in df_tiendas_html.columns else (df_tiendas_html.columns[1] if len(df_tiendas_html.columns) > 1 else df_tiendas_html.columns[0])
+                col_enc = 'ENCARGADO' if 'ENCARGADO' in df_tiendas_html.columns else None
+
+                df_tiendas_html['tienda_int'] = df_tiendas_html[col_id].astype(str).apply(lambda x: int(re.search(r'\d+', x).group()) if pd.notna(x) and re.search(r'\d+', str(x)) else -1)
+                
+                def get_tienda_info(pos):
+                    if len(df_rating) >= pos:
+                        row = df_rating.iloc[pos-1]
+                        tda_int = int(row['TIENDA_INT'])
+                        enc_row = df_tiendas_html[df_tiendas_html['tienda_int'] == tda_int]
+                        enc_name = "Encargada"
+                        if col_enc and not enc_row.empty:
+                            val = str(enc_row[col_enc].values[0])
+                            if val and val.lower() != 'nan' and val.strip(): enc_name = " ".join(val.split()[:2]) 
+                        tienda_nombre = "Sucursal"
+                        if not enc_row.empty:
+                            val_nom = str(enc_row[col_nom].values[0])
+                            if val_nom and val_nom.lower() != 'nan' and val_nom.strip(): tienda_nombre = val_nom.strip()
+                        return enc_name, str(tda_int), tienda_nombre, int(row['PUNTAJE_TOTAL']), int(row['BONO'])
+                    return "N/A", "0", "N/A", 0, 0
+
+                e1, num1, nom1, p1, b1 = get_tienda_info(1)
+                e2, num2, nom2, p2, b2 = get_tienda_info(2)
+                e3, num3, nom3, p3, b3 = get_tienda_info(3)
+
+                bono_tag_1 = '<span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider"><i class="fa-solid fa-star text-yellow-400"></i> Bono Crecimiento Activo</span>' if b1 > 0 else ''
+
+                podio_html = f"""
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16 items-end mt-16 px-4">
+                    <div class="bg-slate-800/80 rounded-2xl p-6 text-center h-[280px] flex flex-col justify-between hover-scale neon-border-silver relative">
+                        <div class="absolute -top-10 left-1/2 -translate-x-1/2 w-20 h-20 bg-slate-700 rounded-full border-4 border-slate-300 flex items-center justify-center shadow-[0_0_20px_rgba(148,163,184,0.5)]"><i class="fa-solid fa-medal text-3xl text-slate-300"></i></div>
+                        <div class="mt-8"><p class="text-4xl font-black text-white tracking-wide">{num2}</p><p class="text-sm text-cyan-400 font-bold uppercase tracking-wider mt-1">{nom2}</p><p class="text-sm text-slate-300 font-semibold uppercase mt-1"><i class="fa-solid fa-user-tie text-cyan-400 mr-1"></i> {e2}</p></div>
+                        <div class="text-5xl font-black grad-primary mt-2">{p2}<span class="text-2xl text-slate-500">.0</span></div>
+                    </div>
+                    <div class="bg-slate-800 rounded-2xl p-6 text-center h-[350px] flex flex-col justify-between hover-scale neon-border-gold relative transform md:-translate-y-8 z-10 bg-gradient-to-b from-yellow-500/10 to-transparent">
+                        <div class="absolute -top-12 left-1/2 -translate-x-1/2 w-24 h-24 bg-slate-800 rounded-full border-4 border-yellow-400 flex items-center justify-center shadow-[0_0_30px_rgba(234,179,8,0.6)]"><i class="fa-solid fa-trophy text-4xl text-yellow-400"></i></div>
+                        <div class="mt-8"><div class="text-yellow-400 text-sm font-black tracking-widest mb-1"><i class="fa-solid fa-crown"></i> LÍDER ABSOLUTO</div><p class="text-5xl font-black text-white tracking-wide">{num1}</p><p class="text-lg text-cyan-400 font-bold uppercase tracking-wider mt-1">{nom1}</p><p class="text-sm text-slate-300 font-semibold uppercase mt-1 mb-2"><i class="fa-solid fa-user-tie text-cyan-400 mr-1"></i> {e1}</p>{bono_tag_1}</div>
+                        <div class="text-6xl font-black text-yellow-400 drop-shadow-[0_0_10px_rgba(234,179,8,0.8)] mt-2">{p1}<span class="text-2xl text-yellow-600">.0</span></div>
+                    </div>
+                    <div class="bg-slate-800/80 rounded-2xl p-6 text-center h-[240px] flex flex-col justify-between hover-scale neon-border-bronze relative">
+                        <div class="absolute -top-10 left-1/2 -translate-x-1/2 w-20 h-20 bg-slate-700 rounded-full border-4 border-amber-600 flex items-center justify-center shadow-[0_0_20px_rgba(217,119,6,0.5)]"><i class="fa-solid fa-medal text-3xl text-amber-600"></i></div>
+                        <div class="mt-8"><p class="text-4xl font-black text-white tracking-wide">{num3}</p><p class="text-sm text-cyan-400 font-bold uppercase tracking-wider mt-1">{nom3}</p><p class="text-sm text-slate-300 font-semibold uppercase mt-1"><i class="fa-solid fa-user-tie text-cyan-400 mr-1"></i> {e3}</p></div>
+                        <div class="text-4xl font-black grad-primary mt-2">{p3}<span class="text-2xl text-slate-500">.0</span></div>
+                    </div>
+                </div>
+                """
+                
+                filas_html = ""
+                for index, row in df_rating.iterrows():
+                    pos = row['POSICIÓN']
+                    tda_int = int(row['TIENDA_INT'])
+                    enc_row = df_tiendas_html[df_tiendas_html['tienda_int'] == tda_int]
+                    
+                    encargado = "Encargada"
+                    if col_enc and not enc_row.empty:
+                        val = str(enc_row[col_enc].values[0])
+                        if val and val.lower() != 'nan' and val.strip(): encargado = " ".join(val.split()[:2])
+                    
+                    tienda_nombre = "Sucursal"
+                    if not enc_row.empty:
+                        val_nom = str(enc_row[col_nom].values[0])
+                        if val_nom and val_nom.lower() != 'nan' and val_nom.strip(): tienda_nombre = val_nom.strip()
+                    
+                    tienda_oficial = f"{tda_int} - {tienda_nombre}"
+                    conv = f"{row['CONVERSION']:.2f}%"
+                    tkt = f"{row['TICKET']:.2f}"
+                    alcance = f"{row['ALCANCE']:.0f}%"
+                    quiebres = int(row['QUIEBRES'])
+                    pts = int(row['PUNTAJE_TOTAL'])
+                    bono = int(row['BONO'])
+
+                    bg_tr = ""; color_pos = "text-slate-300"; color_bar = "bar-grad"; riesgo_tag = ""
+
+                    if pos <= 3: qualifier = "🏆 LÍDER"; qual_color = "text-yellow-400 font-bold"
+                    elif pts >= 85: qualifier = "⭐ DESTACADO"; qual_color = "text-emerald-400 font-semibold"
+                    elif pts >= 75: qualifier = "📈 COMPETITIVO"; qual_color = "text-blue-400 font-semibold"
+                    else: qualifier = "⚠️ EN DESARROLLO"; qual_color = "text-red-400 font-semibold"
+
+                    if pos == 1: bg_tr = "bg-gradient-to-r from-yellow-500/10 to-transparent"; color_pos = "text-yellow-500"
+                    elif pos == 2: color_pos = "text-slate-300"
+                    elif pos == 3: color_pos = "text-amber-600"
+                    elif pts < 75: 
+                        bg_tr = "bg-red-500/5"; color_pos = "text-slate-500"; color_bar = "bg-gradient-to-r from-red-600 to-orange-500"
+                        riesgo_tag = '<span class="text-[10px] text-red-400 bg-red-400/10 px-2 py-1 rounded">Zona de Riesgo</span>'
+
+                    bono_td = f'<br><span class="text-[10px] bg-yellow-500/20 px-1 rounded uppercase">+{bono} Bono</span>' if bono > 0 else ''
+                    bono_bar = f'<div class="absolute top-0 right-0 h-full w-[5%] bg-yellow-400 rounded-r-full shadow-[0_0_10px_rgba(234,179,8,1)]"></div>' if bono > 0 else ''
+
+                    filas_html += f"""
+                    <tr class="border-b border-slate-700/50 {bg_tr} hover:bg-slate-700/50 transition-colors">
+                        <td class="p-4 text-center font-black text-2xl {color_pos}">#{pos}</td>
+                        <td class="p-4">
+                            <p class="font-bold text-lg text-white whitespace-nowrap">{tienda_oficial}</p>
+                            <p class="text-xs text-slate-400 mt-1 uppercase tracking-wider"><i class="fa-solid fa-user-tie text-cyan-500 mr-1"></i> {encargado} &nbsp;|&nbsp; <span class="{qual_color}">{qualifier}</span></p>
+                        </td>
+                        <td class="p-4 text-center text-emerald-400 font-bold">{conv}</td>
+                        <td class="p-4 text-center text-emerald-400 font-bold">{tkt}</td>
+                        <td class="p-4 text-center text-yellow-400 font-black">{alcance} {bono_td}</td>
+                        <td class="p-4 text-center text-emerald-400 font-bold">{quiebres}</td>
+                        <td class="p-4 w-64">
+                            <div class="flex items-center justify-between mb-1"><span class="font-black text-white text-xl">{pts}.0</span>{riesgo_tag}</div>
+                            <div class="w-full bg-slate-900 rounded-full h-3 border border-slate-700 relative"><div class="{color_bar} h-full rounded-full" style="width: {min(100, (pts/105)*100)}%"></div>{bono_bar}</div>
+                        </td>
+                    </tr>
+                    """
+
+                modal_html = """
+                <div id="metaModal" class="fixed inset-0 bg-black/80 hidden items-center justify-center z-50 backdrop-blur-sm opacity-0 transition-opacity duration-300">
+                    <div class="bg-slate-900 border-2 border-cyan-500/50 p-8 rounded-2xl shadow-[0_0_30px_rgba(6,182,212,0.3)] max-w-sm w-full transform scale-95 transition-transform duration-300 relative">
+                        <button onclick="closeModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+                        <div class="text-center">
+                            <div class="w-16 h-16 bg-cyan-500/20 rounded-full flex items-center justify-center mx-auto mb-4 text-cyan-400 text-2xl"><i class="fa-solid fa-bullseye"></i></div>
+                            <h3 class="text-2xl font-black text-white mb-2 uppercase">Metas de Zona Occidente</h3>
+                            <p class="text-slate-300 mb-6">Para dominar el Rating, tu sucursal debe cumplir y sostener:</p>
+                            <div class="bg-slate-800 rounded-xl p-4 mb-4 border border-slate-700"><p class="text-sm text-slate-400 font-bold uppercase mb-1">Ticket Promedio</p><p class="text-4xl font-black text-cyan-400">1.29 <span class="text-sm text-slate-500">Uds</span></p></div>
+                            <div class="bg-slate-800 rounded-xl p-4 border border-slate-700"><p class="text-sm text-slate-400 font-bold uppercase mb-1">Conversión Mínima</p><p class="text-4xl font-black text-fuchsia-400">10.90%</p></div>
+                        </div>
+                    </div>
+                </div>
+                <script>
+                    function openModal() { const modal = document.getElementById('metaModal'); modal.classList.remove('hidden'); modal.classList.add('flex'); setTimeout(() => { modal.classList.remove('opacity-0'); modal.children[0].classList.remove('scale-95'); }, 10); }
+                    function closeModal() { const modal = document.getElementById('metaModal'); modal.classList.add('opacity-0'); modal.children[0].classList.add('scale-95'); setTimeout(() => { modal.classList.add('hidden'); modal.classList.remove('flex'); }, 300); }
+                </script>
+                </body>
+                """
+        except Exception as e:
+            st.error(f"Error en el motor de cálculo del Rating: {e}")
+
+        try:
+            if os.path.exists("Raiting Elegido..html"):
+                with open("Raiting Elegido..html", "r", encoding="utf-8") as f: html_code = f.read()
+                html_code = html_code.replace("TEMPORADA Q4 - 2026", "TEMPORADA Q2 - 2026")
+                html_code = re.sub(r'<!-- PODIO TOP 3 -->.*?<!-- LEADERBOARD \(TABLA\) -->', f'<!-- PODIO TOP 3 -->\n{podio_html}\n<!-- LEADERBOARD (TABLA) -->', html_code, flags=re.DOTALL)
+                html_code = re.sub(r'<tbody class="text-slate-200">.*?</tbody>', f'<tbody class="text-slate-200">\n{filas_html}\n</tbody>', html_code, flags=re.DOTALL)
+                html_code = re.sub(r'<button class="pulse-btn(.*?)>', r'<button onclick="openModal()" class="pulse-btn\1>', html_code)
+                html_code = html_code.replace("</body>", modal_html)
+                components.html(html_code, height=1200, scrolling=True)
+            else: st.warning("⚠️ El archivo 'Raiting Elegido..html' no se encontró en la carpeta de GitHub.")
+        except Exception as e:
+            st.error(f"Error al cargar el Rating: {e}")
+
+    # --- PESTAÑA 6: NIVELACIÓN DE STOCK ---
+    with tab_nivelacion:
+        st.markdown("<h2 style='color: #B22222;'>📈 Monitor de Nivelación Flexi Occidente</h2>", unsafe_allow_html=True)
+        fecha_act = obtener_fecha_actualizacion("Ventas.xlsx")
+        st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
+        cargar_archivos_locales()
+        if 'df_ventas' in st.session_state:
+            tiendas = sorted(st.session_state.df_ventas['Tienda'].unique().tolist())
+            tienda_sel = st.selectbox("Selecciona la Tienda para analizar:", tiendas)
+            if st.button("Ejecutar Análisis"):
+                df_tienda = st.session_state.df_ventas[(st.session_state.df_ventas['Tienda'] == tienda_sel) & (~st.session_state.df_ventas['Proveedor'].isin([415, 426, 427]))].copy()
+                top_20 = df_tienda.groupby('Modelo')['Vtas'].sum().nlargest(20).index
+                df_top = df_tienda[df_tienda['Modelo'].isin(top_20)].copy()
+                resultados = []
                 for _, row in df_top.iterrows():
-                    dpto = str(row.get('Departamento', '')).strip().lower()
-                    tallas_row = df_tallas_r[df_tallas_r['Valor'].astype(str).str.strip().str.lower() == dpto]
-                    
+                    dpto = str(row['Departamento']).strip().lower()
+                    tallas_row = st.session_state.df_tallas[st.session_state.df_tallas['Valor'].astype(str).str.lower() == dpto]
                     if not tallas_row.empty:
                         for i in range(1, 16):
                             ex_val = row.get(f'ex{i}', 0)
                             p_val = row.get(f'p{i}', 0)
-                            
                             if (pd.isna(ex_val) or ex_val == 0) and (pd.isna(p_val) or p_val == 0):
-                                talla_fisica = tallas_row.iloc[0].get(f'ex{i}')
-                                if pd.notna(talla_fisica) and str(talla_fisica).strip() != '':
-                                    
-                                    talla_str = str(talla_fisica).strip()
-                                    es_305 = False
-                                    try:
-                                        t_num = float(talla_fisica)
-                                        if t_num == 305 or t_num == 30.5: es_305 = True
-                                    except:
-                                        if '305' in talla_str: es_305 = True
-                                            
-                                    if dpto == 'caballero' and es_305:
-                                        continue 
-                                    
-                                    modelos_quebrados.add(row['Modelo'])
-                                    break 
-                                    
-                quiebres_dict[tda_num] = len(modelos_quebrados)
-            
-            df_rating['QUIEBRES'] = df_rating['TIENDA_INT'].map(quiebres_dict).fillna(0)
+                                talla_fisica = tallas_row.iloc[0][f'ex{i}']
+                                if pd.notna(talla_fisica): resultados.append({"Departamento": row['Departamento'].capitalize(), "Modelo": row['Modelo'], "Talla": talla_fisica})
+                if resultados:
+                    df_final = pd.DataFrame(resultados).drop_duplicates()
+                    for dpto in df_final['Departamento'].unique():
+                        st.markdown(f"<h3 style='color: #B22222;'>Bloque: {dpto}</h3>", unsafe_allow_html=True)
+                        st.dataframe(df_final[df_final['Departamento'] == dpto][['Modelo', 'Talla']])
+                else: st.success("¡Excelente! No hay faltantes en el Top 20.")            
+        else: st.warning("Archivos de ventas o tallas no encontrados localmente.")
 
-            # PASO 4: Motor de Asignación de Puntos 
-            def calcular_pts_ticket(t):
-                if t >= 1.29: return 35
-                elif t >= 1.25: return 25
-                elif t >= 1.20: return 10
-                return 5
-                
-            def calcular_pts_conv(c):
-                if c >= 10.9: return 35
-                elif c >= 10.5: return 25
-                elif c >= 10.0: return 10
-                return 5
-                
-            def calcular_pts_alcance(a):
-                if a >= 100: return 20
-                elif a >= 95: return 10
-                return 5
-                
-            def calcular_pts_quiebre(q):
-                if q <= 5: return 10
-                elif q <= 10: return 5
-                return 0
-
-            df_rating['PTS_TKT'] = df_rating['TICKET'].apply(calcular_pts_ticket)
-            df_rating['PTS_CONV'] = df_rating['CONVERSION'].apply(calcular_pts_conv)
-            df_rating['PTS_ALC'] = df_rating['ALCANCE'].apply(calcular_pts_alcance)
-            df_rating['PTS_QUIEBRE'] = df_rating['QUIEBRES'].apply(calcular_pts_quiebre)
-            
-            df_rating['BONO'] = df_rating['ALCANCE'].apply(lambda a: 5 if a >= 105 else 0)
-            df_rating['PUNTAJE_TOTAL'] = df_rating['PTS_TKT'] + df_rating['PTS_CONV'] + df_rating['PTS_ALC'] + df_rating['PTS_QUIEBRE'] + df_rating['BONO']
-            
-            df_rating = df_rating.sort_values(by=['PUNTAJE_TOTAL', 'CONVERSION'], ascending=[False, False]).reset_index(drop=True)
-            df_rating.insert(0, 'POSICIÓN', range(1, len(df_rating) + 1))
-            
-            # --- CONSTRUCCIÓN DINÁMICA DEL HTML ---
-            df_tiendas_html = cargar_tiendas()
-            
-            # Identificamos con precisión las columnas A, B y C del Excel CORREO DE TIENDAS.xlsx
-            df_tiendas_html.columns = df_tiendas_html.columns.astype(str).str.strip().str.upper()
-            col_id = 'TIENDA' if 'TIENDA' in df_tiendas_html.columns else df_tiendas_html.columns[0]
-            col_nom = 'NOMBRE' if 'NOMBRE' in df_tiendas_html.columns else (df_tiendas_html.columns[1] if len(df_tiendas_html.columns) > 1 else df_tiendas_html.columns[0])
-            col_enc = 'ENCARGADO' if 'ENCARGADO' in df_tiendas_html.columns else None
-
-            # Limpiamos ID de Tienda
-            df_tiendas_html['tienda_int'] = df_tiendas_html[col_id].astype(str).apply(
-                lambda x: int(re.search(r'\d+', x).group()) if pd.notna(x) and re.search(r'\d+', str(x)) else -1
-            )
-            
-            def get_tienda_info(pos):
-                if len(df_rating) >= pos:
-                    row = df_rating.iloc[pos-1]
-                    tda_int = int(row['TIENDA_INT'])
-                    enc_row = df_tiendas_html[df_tiendas_html['tienda_int'] == tda_int]
-                    
-                    # Extraer encargado
-                    enc_name = "Encargada"
-                    if col_enc and not enc_row.empty:
-                        val = str(enc_row[col_enc].values[0])
-                        if val and val.lower() != 'nan' and val.strip():
-                            enc_parts = val.split()
-                            enc_name = " ".join(enc_parts[:2]) 
-                    
-                    # Extraer el nombre de la tienda oficial (Columna B)
-                    tienda_nombre = "Sucursal"
-                    if not enc_row.empty:
-                        val_nom = str(enc_row[col_nom].values[0])
-                        if val_nom and val_nom.lower() != 'nan' and val_nom.strip():
-                            tienda_nombre = val_nom.strip()
-
-                    return enc_name, str(tda_int), tienda_nombre, int(row['PUNTAJE_TOTAL']), int(row['BONO'])
-                return "N/A", "0", "N/A", 0, 0
-
-            e1, num1, nom1, p1, b1 = get_tienda_info(1)
-            e2, num2, nom2, p2, b2 = get_tienda_info(2)
-            e3, num3, nom3, p3, b3 = get_tienda_info(3)
-
-            bono_tag_1 = '<span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider"><i class="fa-solid fa-star text-yellow-400"></i> Bono Crecimiento Activo</span>' if b1 > 0 else ''
-
-            # AJUSTE PODIO: Número grande intacto, nombre de sucursal en medio, encargada abajo.
-            podio_html = f"""
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16 items-end mt-16 px-4">
-                <!-- 2do Lugar -->
-                <div class="bg-slate-800/80 rounded-2xl p-6 text-center h-[280px] flex flex-col justify-between hover-scale neon-border-silver relative">
-                    <div class="absolute -top-10 left-1/2 -translate-x-1/2 w-20 h-20 bg-slate-700 rounded-full border-4 border-slate-300 flex items-center justify-center shadow-[0_0_20px_rgba(148,163,184,0.5)]">
-                        <i class="fa-solid fa-medal text-3xl text-slate-300"></i>
-                    </div>
-                    <div class="mt-8">
-                        <p class="text-4xl font-black text-white tracking-wide">{num2}</p>
-                        <p class="text-sm text-cyan-400 font-bold uppercase tracking-wider mt-1">{nom2}</p>
-                        <p class="text-sm text-slate-300 font-semibold uppercase mt-1"><i class="fa-solid fa-user-tie text-cyan-400 mr-1"></i> {e2}</p>
-                    </div>
-                    <div class="text-5xl font-black grad-primary mt-2">{p2}<span class="text-2xl text-slate-500">.0</span></div>
-                </div>
-
-                <!-- 1er Lugar -->
-                <div class="bg-slate-800 rounded-2xl p-6 text-center h-[350px] flex flex-col justify-between hover-scale neon-border-gold relative transform md:-translate-y-8 z-10 bg-gradient-to-b from-yellow-500/10 to-transparent">
-                    <div class="absolute -top-12 left-1/2 -translate-x-1/2 w-24 h-24 bg-slate-800 rounded-full border-4 border-yellow-400 flex items-center justify-center shadow-[0_0_30px_rgba(234,179,8,0.6)]">
-                        <i class="fa-solid fa-trophy text-4xl text-yellow-400"></i>
-                    </div>
-                    <div class="mt-8">
-                        <div class="text-yellow-400 text-sm font-black tracking-widest mb-1"><i class="fa-solid fa-crown"></i> LÍDER ABSOLUTO</div>
-                        <p class="text-5xl font-black text-white tracking-wide">{num1}</p>
-                        <p class="text-lg text-cyan-400 font-bold uppercase tracking-wider mt-1">{nom1}</p>
-                        <p class="text-sm text-slate-300 font-semibold uppercase mt-1 mb-2"><i class="fa-solid fa-user-tie text-cyan-400 mr-1"></i> {e1}</p>
-                        {bono_tag_1}
-                    </div>
-                    <div class="text-6xl font-black text-yellow-400 drop-shadow-[0_0_10px_rgba(234,179,8,0.8)] mt-2">{p1}<span class="text-2xl text-yellow-600">.0</span></div>
-                </div>
-
-                <!-- 3er Lugar -->
-                <div class="bg-slate-800/80 rounded-2xl p-6 text-center h-[240px] flex flex-col justify-between hover-scale neon-border-bronze relative">
-                    <div class="absolute -top-10 left-1/2 -translate-x-1/2 w-20 h-20 bg-slate-700 rounded-full border-4 border-amber-600 flex items-center justify-center shadow-[0_0_20px_rgba(217,119,6,0.5)]">
-                        <i class="fa-solid fa-medal text-3xl text-amber-600"></i>
-                    </div>
-                    <div class="mt-8">
-                        <p class="text-4xl font-black text-white tracking-wide">{num3}</p>
-                        <p class="text-sm text-cyan-400 font-bold uppercase tracking-wider mt-1">{nom3}</p>
-                        <p class="text-sm text-slate-300 font-semibold uppercase mt-1"><i class="fa-solid fa-user-tie text-cyan-400 mr-1"></i> {e3}</p>
-                    </div>
-                    <div class="text-4xl font-black grad-primary mt-2">{p3}<span class="text-2xl text-slate-500">.0</span></div>
-                </div>
-            </div>
-            """
-            
-            filas_html = ""
-            for index, row in df_rating.iterrows():
-                pos = row['POSICIÓN']
-                tda_int = int(row['TIENDA_INT'])
-                enc_row = df_tiendas_html[df_tiendas_html['tienda_int'] == tda_int]
-                
-                encargado = "Encargada"
-                if col_enc and not enc_row.empty:
-                    val = str(enc_row[col_enc].values[0])
-                    if val and val.lower() != 'nan' and val.strip():
-                        enc_parts = val.split()
-                        encargado = " ".join(enc_parts[:2])
-                
-                tienda_nombre = "Sucursal"
-                if not enc_row.empty:
-                    val_nom = str(enc_row[col_nom].values[0])
-                    if val_nom and val_nom.lower() != 'nan' and val_nom.strip():
-                        tienda_nombre = val_nom.strip()
-                
-                # AJUSTE TABLA: Combinamos Número y Nombre oficial ("56 - PLAZAS OUTLET")
-                tienda_oficial = f"{tda_int} - {tienda_nombre}"
-                
-                conv = f"{row['CONVERSION']:.2f}%"
-                tkt = f"{row['TICKET']:.2f}"
-                alcance = f"{row['ALCANCE']:.0f}%"
-                quiebres = int(row['QUIEBRES'])
-                pts = int(row['PUNTAJE_TOTAL'])
-                bono = int(row['BONO'])
-
-                bg_tr = ""
-                color_pos = "text-slate-300"
-                color_bar = "bar-grad"
-                riesgo_tag = ""
-
-                # AJUSTE CALIFICATIVOS: Dinámicos debajo del nombre
-                if pos <= 3:
-                    qualifier = "🏆 LÍDER"
-                    qual_color = "text-yellow-400 font-bold"
-                elif pts >= 85:
-                    qualifier = "⭐ DESTACADO"
-                    qual_color = "text-emerald-400 font-semibold"
-                elif pts >= 75:
-                    qualifier = "📈 COMPETITIVO"
-                    qual_color = "text-blue-400 font-semibold"
-                else:
-                    qualifier = "⚠️ EN DESARROLLO"
-                    qual_color = "text-red-400 font-semibold"
-
-                if pos == 1:
-                    bg_tr = "bg-gradient-to-r from-yellow-500/10 to-transparent"
-                    color_pos = "text-yellow-500"
-                elif pos == 2:
-                    color_pos = "text-slate-300"
-                elif pos == 3:
-                    color_pos = "text-amber-600"
-                elif pts < 75: 
-                    bg_tr = "bg-red-500/5"
-                    color_pos = "text-slate-500"
-                    color_bar = "bg-gradient-to-r from-red-600 to-orange-500"
-                    riesgo_tag = '<span class="text-[10px] text-red-400 bg-red-400/10 px-2 py-1 rounded">Zona de Riesgo</span>'
-
-                bono_td = f'<br><span class="text-[10px] bg-yellow-500/20 px-1 rounded uppercase">+{bono} Bono</span>' if bono > 0 else ''
-                bono_bar = f'<div class="absolute top-0 right-0 h-full w-[5%] bg-yellow-400 rounded-r-full shadow-[0_0_10px_rgba(234,179,8,1)]"></div>' if bono > 0 else ''
-
-                filas_html += f"""
-                <tr class="border-b border-slate-700/50 {bg_tr} hover:bg-slate-700/50 transition-colors">
-                    <td class="p-4 text-center font-black text-2xl {color_pos}">#{pos}</td>
-                    <td class="p-4">
-                        <p class="font-bold text-lg text-white whitespace-nowrap">{tienda_oficial}</p>
-                        <p class="text-xs text-slate-400 mt-1 uppercase tracking-wider">
-                            <i class="fa-solid fa-user-tie text-cyan-500 mr-1"></i> {encargado} &nbsp;|&nbsp; <span class="{qual_color}">{qualifier}</span>
-                        </p>
-                    </td>
-                    <td class="p-4 text-center text-emerald-400 font-bold">{conv}</td>
-                    <td class="p-4 text-center text-emerald-400 font-bold">{tkt}</td>
-                    <td class="p-4 text-center text-yellow-400 font-black">{alcance} {bono_td}</td>
-                    <td class="p-4 text-center text-emerald-400 font-bold">{quiebres}</td>
-                    <td class="p-4 w-64">
-                        <div class="flex items-center justify-between mb-1">
-                            <span class="font-black text-white text-xl">{pts}.0</span>
-                            {riesgo_tag}
-                        </div>
-                        <div class="w-full bg-slate-900 rounded-full h-3 border border-slate-700 relative">
-                            <div class="{color_bar} h-full rounded-full" style="width: {min(100, (pts/105)*100)}%"></div>
-                            {bono_bar}
-                        </div>
-                    </td>
-                </tr>
-                """
-
-            modal_html = """
-            <!-- MODAL META DIARIA (INYECTADO) -->
-            <div id="metaModal" class="fixed inset-0 bg-black/80 hidden items-center justify-center z-50 backdrop-blur-sm opacity-0 transition-opacity duration-300">
-                <div class="bg-slate-900 border-2 border-cyan-500/50 p-8 rounded-2xl shadow-[0_0_30px_rgba(6,182,212,0.3)] max-w-sm w-full transform scale-95 transition-transform duration-300 relative">
-                    <button onclick="closeModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
-                    <div class="text-center">
-                        <div class="w-16 h-16 bg-cyan-500/20 rounded-full flex items-center justify-center mx-auto mb-4 text-cyan-400 text-2xl">
-                            <i class="fa-solid fa-bullseye"></i>
-                        </div>
-                        <h3 class="text-2xl font-black text-white mb-2 uppercase">Metas de Zona Occidente</h3>
-                        <p class="text-slate-300 mb-6">Para dominar el Rating, tu sucursal debe cumplir y sostener:</p>
-                        <div class="bg-slate-800 rounded-xl p-4 mb-4 border border-slate-700">
-                            <p class="text-sm text-slate-400 font-bold uppercase mb-1">Ticket Promedio</p>
-                            <p class="text-4xl font-black text-cyan-400">1.29 <span class="text-sm text-slate-500">Uds</span></p>
-                        </div>
-                        <div class="bg-slate-800 rounded-xl p-4 border border-slate-700">
-                            <p class="text-sm text-slate-400 font-bold uppercase mb-1">Conversión Mínima</p>
-                            <p class="text-4xl font-black text-fuchsia-400">10.90%</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <script>
-                function openModal() {
-                    const modal = document.getElementById('metaModal');
-                    modal.classList.remove('hidden');
-                    modal.classList.add('flex');
-                    setTimeout(() => {
-                        modal.classList.remove('opacity-0');
-                        modal.children[0].classList.remove('scale-95');
-                    }, 10);
-                }
-                function closeModal() {
-                    const modal = document.getElementById('metaModal');
-                    modal.classList.add('opacity-0');
-                    modal.children[0].classList.add('scale-95');
-                    setTimeout(() => {
-                        modal.classList.add('hidden');
-                        modal.classList.remove('flex');
-                    }, 300);
-                }
-            </script>
-            </body>
-            """
-
-    except Exception as e:
-        st.error(f"Error en el motor de cálculo del Rating: {e}")
-
-    # ---------------- VISUALIZACIÓN DEL HTML (INYECCIÓN DINÁMICA) ----------------
-    try:
-        if os.path.exists("Raiting Elegido..html"):
-            with open("Raiting Elegido..html", "r", encoding="utf-8") as f:
-                html_code = f.read()
-            
-            # Actualizar Q4 a Q2
-            html_code = html_code.replace("TEMPORADA Q4 - 2026", "TEMPORADA Q2 - 2026")
-            
-            # Remplazamos etiquetas del Podio y Tabla
-            html_code = re.sub(
-                r'<!-- PODIO TOP 3 -->.*?<!-- LEADERBOARD \(TABLA\) -->',
-                f'<!-- PODIO TOP 3 -->\n{podio_html}\n<!-- LEADERBOARD (TABLA) -->',
-                html_code,
-                flags=re.DOTALL
-            )
-
-            html_code = re.sub(
-                r'<tbody class="text-slate-200">.*?</tbody>',
-                f'<tbody class="text-slate-200">\n{filas_html}\n</tbody>',
-                html_code,
-                flags=re.DOTALL
-            )
-            
-            # Inyectamos función al botón para abrir el Modal
-            html_code = re.sub(
-                r'<button class="pulse-btn(.*?)>',
-                r'<button onclick="openModal()" class="pulse-btn\1>',
-                html_code
-            )
-            
-            # Inyectamos el Modal visual justo antes de cerrar el body
-            html_code = html_code.replace("</body>", modal_html)
-            
-            # Dibujamos en pantalla
-            components.html(html_code, height=1200, scrolling=True)
-        else:
-            st.warning("⚠️ El archivo 'Raiting Elegido..html' no se encontró en la carpeta de GitHub.")
-    except Exception as e:
-        st.error(f"Error al cargar el Rating: {e}")
-
-# ========================================================
-# --- PESTAÑA 2: COMPARATIVO MENSUAL ---
-with tab_comparativo:
-    st.subheader("📈 Análisis Comparativo de Calzado Mensual")
-    fecha_act = obtener_fecha_actualizacion(archivo_comp)
-    st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
-    
-    if archivo_comp:
-        df_op = pd.read_excel(archivo_comp) if archivo_comp.endswith('.xlsx') else pd.read_csv(archivo_comp)
+    # --- PESTAÑA 7: BITÁCORA ---
+    with tab_bitacora:
+        st.subheader("📝 Registro de Incidencias Operativas")
+        df_tiendas = cargar_tiendas()
+        col1, col2 = st.columns([2, 1])
+        with col1: tienda_seleccionada = st.selectbox("Selecciona la Tienda:", df_tiendas['NOMBRE'].unique())
         
-        c_ano = next((c for c in df_op.columns if 'año' in c.lower() or 'ano' in c.lower()), df_op.columns[0])
-        c_tda = next((c for c in df_op.columns if 'tienda' in c.lower() or 'sucursal' in c.lower()), df_op.columns[2])
-        c_prs = next((c for c in df_op.columns if 'pares' in c.lower() or 'cant' in c.lower()), None)
-        c_imp = next((c for c in df_op.columns if 'importe' in c.lower() or 'peso' in c.lower() or 'monto' in c.lower()), None)
-        c_prov = next((c for c in df_op.columns if 'prov' in c.lower()), None)
-        c_tipo = next((c for c in df_op.columns if 'tipo' in c.lower() or 'concepto' in c.lower()), None)
+        fila_tienda = df_tiendas[df_tiendas['NOMBRE'] == tienda_seleccionada]
+        encargado_actual = fila_tienda['ENCARGADO'].values[0] if not fila_tienda.empty else "No encontrado"
+        tda_num_defecto = ""
+        for col in df_tiendas.columns:
+            if col.strip().upper() in ['TIENDA', 'SUCURSAL', 'NUMERO', 'ID']:
+                tda_num_defecto = str(fila_tienda[col].values[0])
+                break
+                
+        with col2: tienda_numero = st.text_input("N° Sucursal en SAP/Inventario (Ej. 56):", value=tda_num_defecto)
+        st.info(f"**Encargado(a) detectado(a):** {encargado_actual}")
+            
+        fecha_mexico = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
+        fecha = st.date_input("Fecha", fecha_mexico.date())
+        factor = st.selectbox("Factor Principal:", ["👟 Faltante de Tallas (Proyecto Tallas Extremas)", "🌧️ Clima adverso", "📉 Bajo tráfico atípico", "🧑‍🤝‍🧑 Plantilla incompleta", "🔌 Falla: VPN FortiClient", "💻 Falla: Sistema/Terminales", "🚧 Afectación de acceso", "🎉 Factor externo"])
         
-        if c_prs and c_imp:
-            df_op[c_tda] = df_op[c_tda].astype(str).str.strip()
-            df_op = df_op[~df_op[c_tda].str.contains('3004|3015', na=False)]
-            if c_prov:
-                df_op = df_op[~df_op[c_prov].astype(str).str.strip().isin(['415', '426', '427'])]
-            if c_tipo:
-                df_op = df_op[~df_op[c_tipo].astype(str).str.contains('BOLSA|REUSABLE|BOLSO', case=False, na=False)]
-            
-            resumen = df_op.groupby([c_tda, c_ano])[[c_prs, c_imp]].sum().unstack(fill_value=0)
-            resumen.columns = ['Pares 2025', 'Pares 2026', 'Pesos 2025', 'Pesos 2026']
-            resumen = resumen.reset_index()
-            resumen.columns = ['TIENDA', 'PARES 2025', 'PARES 2026', 'PESOS 2025', 'PESOS 2026']
-            
-            resumen['VAR PARES %'] = ((resumen['PARES 2026'] - resumen['PARES 2025']) / resumen['PARES 2025']) * 100
-            resumen['VAR PESOS %'] = ((resumen['PESOS 2026'] - resumen['PESOS 2025']) / resumen['PESOS 2025']) * 100
-            
-            tot_p25, tot_p26 = resumen['PARES 2025'].sum(), resumen['PARES 2026'].sum()
-            tot_w25, tot_w26 = resumen['PESOS 2025'].sum(), resumen['PESOS 2026'].sum()
-            var_p_global = ((tot_p26 - tot_p25) / tot_p25) * 100
-            var_w_global = ((tot_w26 - tot_w25) / tot_w25) * 100
-            
-            c1, c2 = st.columns(2)
-            with c1:
-                signo_p = "+" if var_p_global >= 0 else ""
-                col_p = "#155724" if var_p_global >= 0 else "#721c24"
-                st.markdown(f"""
-                    <div class="kpi-box">
-                        <div class="kpi-title">📦 Total Pares Zona Occidente</div>
-                        <div class="kpi-value">{tot_p26:,.0f} Pares</div>
-                        <div class="kpi-delta" style="color: {col_p};">Variación: {signo_p}{var_p_global:.2f}% vs 2025</div>
-                    </div>
-                """, unsafe_allow_html=True)
-            with c2:
-                signo_w = "+" if var_w_global >= 0 else ""
-                col_w = "#155724" if var_w_global >= 0 else "#721c24"
-                st.markdown(f"""
-                    <div class="kpi-box">
-                        <div class="kpi-title">💰 Total Ventas ($) Zona Occidente</div>
-                        <div class="kpi-value">${tot_w26:,.2f} MXN</div>
-                        <div class="kpi-delta" style="color: {col_w};">Variación: {signo_w}{var_w_global:.2f}% vs 2025</div>
-                    </div>
-                """, unsafe_allow_html=True)
-            
-            st.write("<br>", unsafe_allow_html=True)
-            tabla_comp = resumen[['TIENDA', 'PARES 2025', 'PARES 2026', 'VAR PARES %', 'PESOS 2025', 'PESOS 2026', 'VAR PESOS %']].sort_values(by='VAR PARES %', ascending=False).reset_index(drop=True)
-            
-            def color_variacion(val):
-                if isinstance(val, (int, float)):
-                    color = '#d4edda' if val >= 0 else '#f8d7da'
-                    texto = '#155724' if val >= 0 else '#721c24'
-                    return f'background-color: {color}; color: {texto}; font-weight: bold;'
-                return ''
-
-            st.table(tabla_comp.style.map(color_variacion, subset=['VAR PARES %', 'VAR PESOS %']).format({
-                'PARES 2025': '{:,.0f}', 'PARES 2026': '{:,.0f}', 'VAR PARES %': '{:+.2f}%',
-                'PESOS 2025': '${:,.2f}', 'PESOS 2026': '${:,.2f}', 'VAR PESOS %': '{:+.2f}%'
-            }))
-            # --- 3. BOTÓN DE ENVÍO MANUAL (PROTEGIDO POR CLAVE) ---
-            st.write("<br>", unsafe_allow_html=True)
-            st.markdown("---")
-            
-            col_clave, col_boton = st.columns([1, 2])
-            with col_clave:
-                password_input = st.text_input("Clave de autorización", type="password")
-            
-            with col_boton:
-                st.write("<br>", unsafe_allow_html=True)
-                if st.button("🚀 Enviar Reporte Ejecutivo del Día (Tienda 56)", type="primary"):
-                    if password_input == "T5604b":
-                        tienda_obj = "56"
-                        conv_actual = 0.0
-                        tkt_actual = 0.0
-                        
-                        if archivo_conv:
-                            try:
-                                df_c = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
-                                df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
-                                col_tda_c = next((c for c in df_c.columns if 'Tienda' in c or 'TIENDA' in c), df_c.columns[0])
-                                col_conv_real = next((c for c in df_c.columns if 'Conv' in c and 'Actual' in c), None)
-                                col_tkt_real = next((c for c in df_c.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
-                                
-                                df_c['CONVERSIÓN'] = df_c[col_conv_real].apply(lambda x: x*100 if x < 1 else x)
-                                df_c['TICKET PROMEDIO'] = df_c[col_tkt_real]
-                                
-                                fila_c = df_c[df_c[col_tda_c].astype(str).str.contains(tienda_obj, na=False)]
-                                if not fila_c.empty:
-                                    conv_actual = float(fila_c.iloc[0]['CONVERSIÓN'])
-                                    tkt_actual = float(fila_c.iloc[0]['TICKET PROMEDIO'])
-                            except:
-                                pass
-
-                        faltan_pares_calc = 0
-                        faltan_pesos_calc = 0.0
-                        
-                        if archivo_comp:
-                            try:
-                                df_op = pd.read_excel(archivo_comp) if archivo_comp.endswith('.xlsx') else pd.read_csv(archivo_comp)
-                                c_ano = next((c for c in df_op.columns if 'año' in c.lower() or 'ano' in c.lower()), df_op.columns[0])
-                                c_tda = next((c for c in df_op.columns if 'tienda' in c.lower() or 'sucursal' in c.lower()), df_op.columns[2])
-                                c_prs = next((c for c in df_op.columns if 'pares' in c.lower() or 'cant' in c.lower()), None)
-                                c_imp = next((c for c in df_op.columns if 'importe' in c.lower() or 'peso' in c.lower() or 'monto' in c.lower()), None)
-                                c_prov = next((c for c in df_op.columns if 'prov' in c.lower()), None)
-                                c_tipo = next((c for c in df_op.columns if 'tipo' in c.lower() or 'concepto' in c.lower()), None)
-                                
-                                if c_prs and c_imp:
-                                    df_op[c_tda] = df_op[c_tda].astype(str).str.strip()
-                                    df_op = df_op[~df_op[c_tda].str.contains('3004|3015', na=False)]
-                                    if c_prov:
-                                        df_op = df_op[~df_op[c_prov].astype(str).str.strip().isin(['415', '426', '427'])]
-                                    if c_tipo:
-                                        df_op = df_op[~df_op[c_tipo].astype(str).str.contains('BOLSA|REUSABLE|BOLSO', case=False, na=False)]
-                                        
-                                    df_filtrado = df_op[df_op[c_tda].str.contains(tienda_obj, na=False)]
-                                    res = df_filtrado.groupby(c_ano)[[c_prs, c_imp]].sum()
-                                    
-                                    pares_2025 = int(res.get(c_prs).get(2025, 0))
-                                    pares_2026 = int(res.get(c_prs).get(2026, 0))
-                                    pesos_2025 = float(res.get(c_imp).get(2025, 0.0))
-                                    pesos_2026 = float(res.get(c_imp).get(2026, 0.0))
-                                    
-                                    faltan_pares_calc = pares_2025 - pares_2026
-                                    faltan_pesos_calc = pesos_2025 - pesos_2026
-                            except:
-                                pass
-                        
-                        with st.spinner("Enviando reporte ejecutivo..."):
-                            resultado_alerta = enviar_correo_ejecutivo(
-                                tienda_objetivo=tienda_obj, 
-                                conversion=conv_actual, 
-                                ticket=tkt_actual, 
-                                meta_conv=10.9, 
-                                meta_tkt=1.29, 
-                                faltan_pares=faltan_pares_calc, 
-                                faltan_pesos=faltan_pesos_calc
-                            )
-                        
-                        if resultado_alerta:
-                            if "✅" in resultado_alerta: st.success(resultado_alerta)
-                            else: st.error(resultado_alerta)
-                    else:
-                        st.error("❌ Clave incorrecta. Acceso denegado para el envío.")
-
-# --- PESTAÑAS 3 Y 4: DESPLIEGUE DE RANKINGS DE MODELOS ---
-if archivo_modelos:
-    df_m = pd.read_excel(archivo_modelos) if archivo_modelos.endswith('.xlsx') else pd.read_csv(archivo_modelos)
-    col_m = next((c for c in df_m.columns if c.lower() in ['clave', 'modelo', 'estilo']), df_m.columns[1])
-    col_p = next((c for c in df_m.columns if 'pares' in c.lower() or 'cantidad' in c.lower() or 'venta' in c.lower()), df_m.columns[2])
-    col_t = next((c for c in df_m.columns if c.lower() in ['tienda', 'sucursal']), df_m.columns[0])
-    col_prov = next((c for c in df_m.columns if 'prov' in c.lower()), None)
-
-    df_m = df_m[~df_m[col_t].astype(str).str.contains('3004|3015', na=False)]
-    if col_prov:
-        df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])]
-    df_m = df_m[~df_m[col_m].astype(str).str.contains('BOLSA|REUSABLE', case=False, na=False)]
-
-    def resaltar_top_5(data):
-        estilo = pd.DataFrame('', index=data.index, columns=data.columns)
-        estilo.iloc[0:5, :] = 'background-color: #d1e7dd; color: #0f5132; font-weight: bold'
-        return estilo
-
-    with tab_top20_tda:
-        st.subheader("👟 TOP 20 TIENDA")
-        fecha_act = obtener_fecha_actualizacion(archivo_modelos)
-        st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
-        
-        tiendas = sorted(df_m[col_t].unique())
-        t_sel = st.selectbox("Selecciona Tienda:", tiendas)
-        df_tienda_data = df_m[df_m[col_t] == t_sel].groupby(col_m)[col_p].sum().reset_index()
-        top_t = df_tienda_data.sort_values(by=col_p, ascending=False).head(20).reset_index(drop=True)
-        top_t.columns = ['MODELO', 'PARES VENDIDOS']
-        st.table(top_t.style.apply(resaltar_top_5, axis=None))
-
-        pdf_bytes = generar_reporte_top20_pdf(
-            df_top20=top_t, 
-            nombre_sucursal=str(t_sel)
-        )
-
-        st.write("<br>", unsafe_allow_html=True)
-        st.download_button(
-            label="📄 Descargar Formato de Auditoría (PDF Oficial)",
-            data=pdf_bytes,
-            file_name=f"Auditoria_Top20_{t_sel}.pdf",
-            mime="application/pdf",
-            type="primary"
-        )
-
-    with tab_top20_zona:
-        st.subheader("🌍 Consolidado Zona Occidente")
-        fecha_act = obtener_fecha_actualizacion(archivo_modelos)
-        st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
-        
-        df_z = df_m.groupby(col_m)[col_p].sum().reset_index()
-        top_z = df_z.sort_values(by=col_p, ascending=False).head(20).reset_index(drop=True)
-        top_z.columns = ['MODELO', 'PARES VENDIDOS']
-        st.table(top_z.style.apply(resaltar_top_5, axis=None))
-
-# --- CONTENIDO DE LA PESTAÑA BITÁCORA ---
-with tab_bitacora:
-    st.subheader("📝 Registro de Incidencias Operativas")
-    df_tiendas = cargar_tiendas()
-    
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        tienda_seleccionada = st.selectbox("Selecciona la Tienda:", df_tiendas['NOMBRE'].unique())
-    
-    fila_tienda = df_tiendas[df_tiendas['NOMBRE'] == tienda_seleccionada]
-    encargado_actual = fila_tienda['ENCARGADO'].values[0] if not fila_tienda.empty else "No encontrado"
-    
-    tda_num_defecto = ""
-    for col in df_tiendas.columns:
-        if col.strip().upper() in ['TIENDA', 'SUCURSAL', 'NUMERO', 'ID']:
-            tda_num_defecto = str(fila_tienda[col].values[0])
-            break
-            
-    with col2:
-        tienda_numero = st.text_input("N° Sucursal en SAP/Inventario (Ej. 56):", value=tda_num_defecto)
-
-    st.info(f"**Encargado(a) detectado(a):** {encargado_actual}")
-        
-    fecha_mexico = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
-    fecha = st.date_input("Fecha", fecha_mexico.date())
-    factor = st.selectbox("Factor Principal:", [
-        "👟 Faltante de Tallas (Proyecto Tallas Extremas)",
-        "🌧️ Clima adverso", "📉 Bajo tráfico atípico", "🧑‍🤝‍🧑 Plantilla incompleta", 
-        "🔌 Falla: VPN FortiClient", "💻 Falla: Sistema/Terminales", 
-        "🚧 Afectación de acceso", "🎉 Factor externo"
-    ])
-    
-    modelo_captura = ""
-    talla_captura = 0
-    precio_captura = 0.0
-    status_validacion = "N/A"
-
-    if "Faltante de Tallas" in factor:
-        modelo_captura = st.text_input("Modelo:")
-        talla_captura = st.number_input("Talla (Ej. 250):", min_value=150, max_value=350, step=5, value=250)
-        precio_captura = st.number_input("Precio:", min_value=0.0)
-
-    notas = st.text_area("Detalles adicionales:")
-    
-    if st.button("💾 Guardar en Bitácora"):
-        puede_guardar = True
-        
+        modelo_captura = ""; talla_captura = 0; precio_captura = 0.0; status_validacion = "N/A"
         if "Faltante de Tallas" in factor:
-            if not modelo_captura:
-                st.error("❌ Para reportar falta de tallas, debes escribir el Modelo.")
-                puede_guardar = False
-            elif not tienda_numero.strip().isdigit():
-                st.error("❌ Por favor, ingresa un N° de Sucursal válido (SOLO NÚMEROS, ej. 56) en la parte superior para poder cruzar el inventario. El sistema no acepta letras.")
-                puede_guardar = False
-            else:
-                try:
-                    df_ventas = pd.read_excel("Ventas.xlsx")
-                    df_tallas = pd.read_excel("Valores de tallas.xlsx")
-                    es_valido, mensaje = validar_captura_stock(tienda_numero, modelo_captura, talla_captura, df_ventas, df_tallas)
-                    if not es_valido:
-                        st.error(mensaje)
-                        puede_guardar = False
-                    else:
-                        status_validacion = "VALIDADO"
-                except Exception as e:
-                    st.error(f"Error técnico en validación: {e}")
-                    puede_guardar = False
+            modelo_captura = st.text_input("Modelo:")
+            talla_captura = st.number_input("Talla (Ej. 250):", min_value=150, max_value=350, step=5, value=250)
+            precio_captura = st.number_input("Precio:", min_value=0.0)
 
-        if puede_guardar:
-            fila = [
-                str(fecha), tienda_seleccionada, encargado_actual, factor, notas, 
-                "", "", str(modelo_captura), str(int(talla_captura)), str(precio_captura), status_validacion
-            ]
-            try:
-                if 'sheet_bitacora' in globals():
-                    sheet_bitacora.append_row(fila)
-                    st.success(f"✅ Incidencia registrada para {tienda_seleccionada}")
+        notas = st.text_area("Detalles adicionales:")
+        
+        if st.button("💾 Guardar en Bitácora"):
+            puede_guardar = True
+            if "Faltante de Tallas" in factor:
+                if not modelo_captura:
+                    st.error("❌ Para reportar falta de tallas, debes escribir el Modelo."); puede_guardar = False
+                elif not tienda_numero.strip().isdigit():
+                    st.error("❌ Por favor, ingresa un N° de Sucursal válido."); puede_guardar = False
                 else:
-                    st.warning("⚠️ No se pudo conectar a Google Sheets, revisa tus credenciales o conexión.")
-            except Exception as e:
-                st.error(f"❌ Error al intentar guardar en Google Sheets: {e}")
+                    try:
+                        df_ventas = pd.read_excel("Ventas.xlsx"); df_tallas = pd.read_excel("Valores de tallas.xlsx")
+                        es_valido, mensaje = validar_captura_stock(tienda_numero, modelo_captura, talla_captura, df_ventas, df_tallas)
+                        if not es_valido: st.error(mensaje); puede_guardar = False
+                        else: status_validacion = "VALIDADO"
+                    except Exception as e: st.error(f"Error técnico en validación: {e}"); puede_guardar = False
 
-# --- PESTAÑA 5: RUTA DEL CLIENTE ---
-with tab_ruta:
-    st.subheader("🧭 Protocolo Operativo en Piso de Venta")
-    nombre_imagen = "RC Zona Occidente.png"
-    if os.path.exists(nombre_imagen):
-        st.image(nombre_imagen, use_container_width=True)
-    else:
-        st.warning("⚠️ La imagen 'RC Zona Occidente.png' aún no se encuentra en GitHub.")
+            if puede_guardar:
+                fila = [str(fecha), tienda_seleccionada, encargado_actual, factor, notas, "", "", str(modelo_captura), str(int(talla_captura)), str(precio_captura), status_validacion]
+                try:
+                    if 'sheet_bitacora' in globals():
+                        sheet_bitacora.append_row(fila)
+                        st.success(f"✅ Incidencia registrada para {tienda_seleccionada}")
+                    else: st.warning("⚠️ No se pudo conectar a Google Sheets.")
+                except Exception as e: st.error(f"❌ Error al intentar guardar en Google Sheets: {e}")
 
-# --- PESTAÑA 6: PORTAL DE CAPACITACIÓN ---
-with tab_capacitacion:
-    st.markdown("## 🎓 Centro de Capacitación y Desarrollo Operativo")
-    st.write("Bienvenido al espacio interactivo para el fortalecimiento del sentido de pertenencia y alineación comercial de la Zona Occidente.")
-    
-    col_izq, col_der = st.columns([1, 1.2]) 
-    
-    with col_izq:
-        st.markdown("### 📹 Material Audiovisual")
-        opciones_video = {
-            "Mi Nómina Flexi": "https://youtu.be/688Bi49rI30",
-            "Tutorial Vales de Zapatos": "https://youtu.be/6hB95lYcL1g",
-            "Tutorial mi Flexi": "https://youtu.be/WVi8geGSeOg"
-        }
-        video_seleccionado = st.selectbox("Selecciona el material audiovisual a reproducir:", list(opciones_video.keys()))
-        url_video = opciones_video[video_seleccionado]
-        st.write("<br>", unsafe_allow_html=True)
-        st.video(url_video)
-        st.link_button(f"🚀 Clic aquí para ver {video_seleccionado} directo en YouTube", url_video, type="primary")
-        
-    with col_der:
-        st.markdown("### 📘 Manual de Integración a Tiendas Flexi")
-        st.info("**🎯 Objetivo General:** Establecer un proceso de acogida estandarizado que reduzca la rotación de personal en los primeros 90 días, transformando la incorporación en una experiencia de bienvenida profesional y humana.")
-        st.write("*La permanencia del personal de nueva contratación no depende únicamente de las condiciones laborales, sino de la calidad de su integración inicial. Este manual presenta cinco pilares fundamentales para asegurar que el nuevo colaborador se sienta valorado, guiado y conectado con los objetivos de la organización.*")
-        
-        with st.expander("🎯 1. PROPÓSITO DEL MONITOR COMERCIAL", expanded=True):
-            st.markdown("""
-            Este monitor interactivo fue desarrollado bajo la dirección del **LAE. José Martín Estrada Cabrera** como una herramienta estratégica y de auditoría en tiempo real. Su propósito principal es dar visibilidad total a la operación del piso de venta, permitiendo tomar decisiones basadas en datos exactos y eliminar las suposiciones.
-            
-            **👥 La Importancia de la Integración (El Factor Humano):**
-            Para que este monitor refleje números de éxito, es vital comprender que **los resultados no los dan los sistemas, los dan las personas**. 
-            Una integración correcta, humana y profesional del personal de nuevo ingreso garantiza que:
-            * Comprendan el *por qué* de su rol y su impacto directo en la sucursal desde el día uno.
-            * Se sientan respaldados por su equipo, reduciendo drásticamente su curva de aprendizaje y la frustración.
-            * Transformen su esfuerzo diario en la conquista de los objetivos de la empresa.
-            
-            **📌 Nuestras Metas Inamovibles (El ADN de la Zona):**
-            Toda la capacitación y esfuerzo de la sucursal se resume en dominar estos dos indicadores de calzado:
-            * 👟 **Ticket Promedio:** Meta de **1.29** unidades por ticket.
-            * 📊 **Conversión Mínima:** Meta de **10.90%** en piso de venta.
-            """)
-            
-        with st.expander("1️⃣ PILAR I: BIENVENIDA (Logística y Orden)"):
-            st.markdown("""
-            **Concepto:** Proyectar orden y profesionalismo. La preparación del entorno de trabajo es el primer mensaje que el colaborador recibe sobre la cultura de la empresa.
-            * 🛠️ **La Acción:** Asegurarse de que el espacio físico esté impecable, las herramientas de trabajo (computadora, accesos, sistemas) estén configuradas y el uniforme de la talla correcta esté listo sobre su lugar antes de que el colaborador cruce la puerta (en la medida de lo posible).
-            * 🌟 **El Impacto:** Elimina la ansiedad e incertidumbre del primer día. Comunica de forma implícita: *"Te estábamos esperando y tu llegada es importante para nosotros"*.
-            """)
-            
-        with st.expander("2️⃣ PILAR II: ACOMPAÑAMIENTO (Mentoría)"):
-            st.markdown("""
-            **Concepto:** Eliminar la "soledad del novato" mediante el sistema de compañero guía.
-            * 👥 **La Acción:** Designar a un colaborador con experiencia y actitud positiva para que actúe como mentor durante la primera semana. Este guía resolverá dudas cotidianas y explicará las dinámicas no escritas.
-            * 🚀 **El Impacto:** Acelera la curva de aprendizaje social y técnico. Reduce el miedo a cometer errores básicos y crea un vínculo de confianza inmediato.
-            """)
-            
-        with st.expander("3️⃣ PILAR III: CLARIDAD DEL PROPÓSITO"):
-            st.markdown("""
-            **Concepto:** Conectar las tareas diarias con el impacto real en el éxito de la zona y la misión de la empresa.
-            * 🗣️ **La Acción:** Realizar una sesión de alineación donde se explique no solo "qué" debe hacer, sino "por qué" su rol es vital para alcanzar los objetivos generales. Mostrar cómo su esfuerzo contribuye al bienestar del cliente o del equipo.
-            * ❤️ **El Impacto:** Genera compromiso emocional. Un colaborador que encuentra propósito en su trabajo desarrolla una lealtad que va más allá de la oferta económica.
-            """)
-            
-        with st.expander("4️⃣ PILAR IV: METAS DE CORTO PLAZO"):
-            st.markdown("""
-            **Concepto:** Brindar claridad absoluta sobre las expectativas de desempeño en la etapa crítica.
-            * 🎯 **La Acción:** Establecer objetivos específicos, medibles y alcanzables para la primera semana, los primeros 15 días y el primer mes. Brindar retroalimentación constructiva al finalizar cada etapa.
-            * 📈 **El Impacto:** Reduce la frustración causada por la ambigüedad. Permite que el colaborador celebre victorias tempranas y desarrolle la autoconfianza necesaria para su profesionalización.
-            """)
-            
-        with st.expander("5️⃣ PILAR V: VINCULACIÓN SOCIAL"):
-            st.markdown("""
-            **Concepto:** Humanizar el entorno laboral y fomentar la integración grupal.
-            * 🎉 **La Acción:** Organizar activamente momentos de convivencia (como una dinámica de presentación) donde el equipo actual reciba formalmente al nuevo integrante.
-            * 🤝 **El Impacto:** Rompe las barreras invisibles entre el personal antiguo y el nuevo. El sentido de pertenencia a un grupo social es el factor de retención más potente ante ofertas de la competencia.
-            """)
-        
-        st.success("✨ **Nota Final:** La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.")
+    # --- PESTAÑA 8: RUTA DEL CLIENTE ---
+    with tab_ruta:
+        st.subheader("🧭 Protocolo Operativo en Piso de Venta")
+        nombre_imagen = "RC Zona Occidente.png"
+        if os.path.exists(nombre_imagen): st.image(nombre_imagen, use_container_width=True)
+        else: st.warning("⚠️ La imagen 'RC Zona Occidente.png' aún no se encuentra en GitHub.")
 
-# ========================================================
-# --- PESTAÑA 6: MONITOR DE NIVELACIÓN FLEXI OCCIDENTE ---
-with tab_nivelacion:
-    st.markdown("<h2 style='color: #B22222;'>📈 Monitor de Nivelación Flexi Occidente</h2>", unsafe_allow_html=True)
-    fecha_act = obtener_fecha_actualizacion("Ventas.xlsx")
-    st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
-    
-    cargar_archivos_locales()
-    
-    if 'df_ventas' in st.session_state:
-        tiendas = sorted(st.session_state.df_ventas['Tienda'].unique().tolist())
-        tienda_sel = st.selectbox("Selecciona la Tienda para analizar:", tiendas)
-        
-        if st.button("Ejecutar Análisis"):
-            df_tienda = st.session_state.df_ventas[
-                (st.session_state.df_ventas['Tienda'] == tienda_sel) & 
-                (~st.session_state.df_ventas['Proveedor'].isin([415, 426, 427]))
-            ].copy()
+    # --- PESTAÑA 9: CAPACITACIÓN ---
+    with tab_capacitacion:
+        st.markdown("## 🎓 Centro de Capacitación y Desarrollo Operativo")
+        st.write("Bienvenido al espacio interactivo para el fortalecimiento del sentido de pertenencia y alineación comercial de la Zona Occidente.")
+        col_izq, col_der = st.columns([1, 1.2]) 
+        with col_izq:
+            st.markdown("### 📹 Material Audiovisual")
+            opciones_video = {"Mi Nómina Flexi": "https://youtu.be/688Bi49rI30", "Tutorial Vales de Zapatos": "https://youtu.be/6hB95lYcL1g", "Tutorial mi Flexi": "https://youtu.be/WVi8geGSeOg"}
+            video_seleccionado = st.selectbox("Selecciona el material audiovisual a reproducir:", list(opciones_video.keys()))
+            url_video = opciones_video[video_seleccionado]
+            st.write("<br>", unsafe_allow_html=True)
+            st.video(url_video)
+            st.link_button(f"🚀 Clic aquí para ver {video_seleccionado} directo en YouTube", url_video, type="primary")
             
-            top_20 = df_tienda.groupby('Modelo')['Vtas'].sum().nlargest(20).index
-            df_top = df_tienda[df_tienda['Modelo'].isin(top_20)].copy()
-            
-            resultados = []
-            for _, row in df_top.iterrows():
-                dpto = str(row['Departamento']).strip().lower()
-                tallas_row = st.session_state.df_tallas[
-                    st.session_state.df_tallas['Valor'].astype(str).str.lower() == dpto
-                ]
-                
-                if not tallas_row.empty:
-                    for i in range(1, 16):
-                        ex_val = row.get(f'ex{i}', 0)
-                        p_val = row.get(f'p{i}', 0)
-                        
-                        if (pd.isna(ex_val) or ex_val == 0) and (pd.isna(p_val) or p_val == 0):
-                            talla_fisica = tallas_row.iloc[0][f'ex{i}']
-                            if pd.notna(talla_fisica):
-                                resultados.append({
-                                    "Departamento": row['Departamento'].capitalize(),
-                                    "Modelo": row['Modelo'],
-                                    "Talla": talla_fisica
-                                })
-            
-            if resultados:
-                df_final = pd.DataFrame(resultados).drop_duplicates()
-                for dpto in df_final['Departamento'].unique():
-                    st.markdown(f"<h3 style='color: #B22222;'>Bloque: {dpto}</h3>", unsafe_allow_html=True)
-                    st.dataframe(df_final[df_final['Departamento'] == dpto][['Modelo', 'Talla']])
-            else:
-                st.success("¡Excelente! No hay faltantes en el Top 20.")            
-    else:
-        st.warning("Archivos de ventas o tallas no encontrados localmente.")
+        with col_der:
+            st.markdown("### 📘 Manual de Integración a Tiendas Flexi")
+            st.info("**🎯 Objetivo General:** Establecer un proceso de acogida estandarizado que reduzca la rotación de personal en los primeros 90 días, transformando la incorporación en una experiencia de bienvenida profesional y humana.")
+            with st.expander("🎯 1. PROPÓSITO DEL MONITOR COMERCIAL", expanded=True):
+                st.markdown("Este monitor interactivo fue desarrollado bajo la dirección del **LAE. José Martín Estrada Cabrera**...\n* 👟 **Ticket Promedio:** Meta de **1.29** unidades por ticket.\n* 📊 **Conversión Mínima:** Meta de **10.90%** en piso de venta.")
+            with st.expander("1️⃣ PILAR I: BIENVENIDA (Logística y Orden)"): st.markdown("**Concepto:** Proyectar orden y profesionalismo...")
+            with st.expander("2️⃣ PILAR II: ACOMPAÑAMIENTO (Mentoría)"): st.markdown("**Concepto:** Eliminar la 'soledad del novato'...")
+            with st.expander("3️⃣ PILAR III: CLARIDAD DEL PROPÓSITO"): st.markdown("**Concepto:** Conectar las tareas diarias con el impacto real...")
+            with st.expander("4️⃣ PILAR IV: METAS DE CORTO PLAZO"): st.markdown("**Concepto:** Brindar claridad absoluta sobre las expectativas...")
+            with st.expander("5️⃣ PILAR V: VINCULACIÓN SOCIAL"): st.markdown("**Concepto:** Humanizar el entorno laboral...")
+            st.success("✨ **Nota Final:** La integración no termina al finalizar el primer día.")
 
-# ========================================================
-# --- PESTAÑA 10: DECISIONES ESTRATÉGICAS ---
-with tab_estrategia:
-    st.subheader("🎯 MÓDULO DE DECISIONES ESTRATÉGICAS")
-    st.write("Acceso exclusivo para Gerencia Comercial, Supervisión y Dirección.")
+# ==============================================================================
+# PANTALLA 4: MÓDULO ESTRATÉGICO (EXCLUSIVO GERENCIA)
+# ==============================================================================
+elif st.session_state.vista_actual == 'Estrategico':
+    # Barra superior de navegación rápida
+    col_nav1, col_nav2 = st.columns([4, 1])
+    with col_nav1:
+        st.markdown("<h2 style='color: #4338ca; margin-top: 0;'>Panel de Decisiones Estratégicas</h2>", unsafe_allow_html=True)
+    with col_nav2:
+        if st.button("← Volver al Menú Principal", use_container_width=True):
+            st.session_state.vista_actual = 'Inicio'
+            st.session_state.autenticado = False # Cerramos sesión al salir
+            st.rerun()
+            
+    st.write("---")
+
+    tab_monitor = st.tabs(["📡 Monitor Estratégico"])
     
-    clave = st.text_input("🔑 Ingrese clave de acceso:", type="password", key="clave_acceso_estrategia")
-    
-    if clave == "Flexi2026":
-        st.success("✅ Acceso autorizado")
-        
-        st.markdown("---")
-        st.markdown("### 📡 Monitor Estratégico (Conexión en Tiempo Real)")
+    with tab_monitor[0]:
+        st.subheader("🎯 Monitor Estratégico (Conexión en Tiempo Real)")
         st.write("Conexión directa con la base de datos maestra en la nube para cruce de inteligencia.")
         
         if st.button("Verificar Conexión y Cargar Datos", type="primary"):
@@ -1251,13 +1055,3 @@ with tab_estrategia:
                 st.error("Error de permisos (403): Verifique que el correo de servicio tenga acceso al archivo de Sheets.")
             except Exception as e:
                 st.error(f"Ocurrió un error inesperado de conexión: {e}")
-                
-    elif clave != "":
-        st.warning("⚠️ Módulo restringido. Clave incorrecta.")
-
-# PIE DE PÁGINA
-st.markdown("""
-    <div class="footer">
-        © 2026 Gerencia Comercial Zona Occidente | KPIs Administrados por LAE. José Martín Estrada Cabrera
-    </div>
-    """, unsafe_allow_html=True)
