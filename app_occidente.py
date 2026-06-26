@@ -12,6 +12,7 @@ import locale
 import subprocess
 import streamlit.components.v1 as components 
 import re
+import base64
 
 # 1. CONFIGURACIÓN DE PÁGINA (Debe ser la primera instrucción)
 st.set_page_config(page_title="Monitor Comercial Flexi Occidente", layout="wide", initial_sidebar_state="collapsed")
@@ -25,6 +26,8 @@ except:
 # --- ESTILO GLOBAL INTERACTIVO Y TEMA ---
 st.markdown("""
     <style>
+    /* Ajustes generales */
+    .block-container { padding-top: 1rem; padding-bottom: 2rem; }
     .main-title {
         text-align: center; color: #E30613; font-size: 32px; font-weight: bold;
         border-bottom: 3px solid #E30613; padding-bottom: 10px; margin-bottom: 20px;
@@ -36,12 +39,12 @@ st.markdown("""
     .landing-subtitle {
         color: #94a3b8; font-size: 18px; margin-bottom: 40px;
     }
-    /* Estilo del Pie de Página Original Restaurado */
+    /* Estilo del Pie de Página Original Restaurado y Mejorado */
     .footer {
         position: fixed; left: 0; bottom: 0; width: 100%;
-        background-color: white; color: #666; text-align: center;
-        padding: 8px; font-size: 13px; border-top: 1px solid #ddd;
-        z-index: 999; font-weight: bold;
+        background-color: #0f172a; color: #94a3b8; text-align: center;
+        padding: 12px; font-size: 13px; border-top: 1px solid #1e293b;
+        z-index: 999; font-weight: 500;
     }
     th {
         background-color: #E30613 !important; color: white !important;
@@ -72,6 +75,19 @@ st.markdown("""
     .card-desc {
         color: #94a3b8; font-size: 15px; margin-bottom: 25px;
     }
+    
+    /* Botones de las Tarjetas de Inicio (CSS HACK para Streamlit) */
+    div[data-testid="column"]:nth-of-type(1) div[data-testid="stButton"] button {
+        background-color: #E30613 !important; color: white !important;
+        border-radius: 0 0 16px 16px !important; border: none !important; height: 50px; font-weight: bold; width: 100%; transition: all 0.3s;
+    }
+    div[data-testid="column"]:nth-of-type(1) div[data-testid="stButton"] button:hover { background-color: #b9000b !important; }
+    
+    div[data-testid="column"]:nth-of-type(2) div[data-testid="stButton"] button {
+        background-color: #4f46e5 !important; color: white !important;
+        border-radius: 0 0 16px 16px !important; border: none !important; height: 50px; font-weight: bold; width: 100%; transition: all 0.3s;
+    }
+    div[data-testid="column"]:nth-of-type(2) div[data-testid="stButton"] button:hover { background-color: #3730a3 !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -91,7 +107,7 @@ try:
 except Exception as e:
     st.warning("Advertencia: No se pudo conectar a Google Sheets. Verifica tus secretos.")
 
-# --- FUNCIONES ---
+# --- FUNCIONES BASE ---
 def buscar_archivo(palabra_clave):
     archivos = [f for f in os.listdir('.') if palabra_clave.lower() in f.lower() and f.endswith(('.xlsx', '.csv'))]
     return sorted(archivos)[-1] if archivos else None
@@ -134,6 +150,130 @@ def cargar_archivos_locales():
             return False
     return True
 
+# --- FUNCIONES NUEVAS: IMÁGENES Y KPIS ---
+@st.cache_data
+def obtener_imagen_base64(ruta_imagen):
+    try:
+        with open(ruta_imagen, "rb") as image_file:
+            encoded_string = base64.b64encode(image_file.read()).decode()
+        ext = ruta_imagen.split('.')[-1].lower()
+        mime_type = "image/png" if ext == "png" else "image/jpeg"
+        return f"data:{mime_type};base64,{encoded_string}"
+    except Exception as e:
+        return ""
+
+@st.cache_data(ttl=300)
+def obtener_kpis_ejecutivos(f_conv, f_comp, f_modelos):
+    kpis = {
+        "pares": "0", "pares_delta": "+0.0%", "pares_col": "#10b981",
+        "venta": "$0.0 M", "venta_delta": "+0.0%", "venta_col": "#10b981",
+        "conv": "0.0%", "tkt": "0.0", "meta_str": "0 / 0", "meta_pct": "0%",
+        "cumpliendo": 0, "observacion": 0, "criticas": 0, "quiebres": 0, "crecimiento": "+0.0%"
+    }
+    
+    # 1. Comparativo (Pares, Venta, Tiendas Meta, Crecimiento)
+    if f_comp:
+        try:
+            df_op = pd.read_excel(f_comp) if f_comp.endswith('.xlsx') else pd.read_csv(f_comp)
+            c_ano = next((c for c in df_op.columns if 'año' in c.lower() or 'ano' in c.lower()), df_op.columns[0])
+            c_tda = next((c for c in df_op.columns if 'tienda' in c.lower() or 'sucursal' in c.lower()), df_op.columns[2])
+            c_prs = next((c for c in df_op.columns if 'pares' in c.lower() or 'cant' in c.lower()), None)
+            c_imp = next((c for c in df_op.columns if 'importe' in c.lower() or 'peso' in c.lower() or 'monto' in c.lower()), None)
+            
+            df_op[c_tda] = df_op[c_tda].astype(str).str.strip()
+            df_op = df_op[~df_op[c_tda].str.contains('3004|3015', na=False)]
+            
+            res = df_op.groupby([c_tda, c_ano])[[c_prs, c_imp]].sum().unstack(fill_value=0)
+            p_25 = res[c_prs].get(2025, pd.Series(dtype=float)).sum()
+            p_26 = res[c_prs].get(2026, pd.Series(dtype=float)).sum()
+            v_25 = res[c_imp].get(2025, pd.Series(dtype=float)).sum()
+            v_26 = res[c_imp].get(2026, pd.Series(dtype=float)).sum()
+            
+            kpis["pares"] = f"{int(p_26):,}"
+            d_p = ((p_26 - p_25)/p_25*100) if p_25 else 0
+            kpis["pares_delta"] = f"{d_p:+.1f}%"
+            kpis["pares_col"] = "#10b981" if d_p >= 0 else "#ef4444"
+            kpis["crecimiento"] = f"{d_p:+.1f}%"
+            
+            kpis["venta"] = f"${v_26/1000000:.1f} M"
+            d_v = ((v_26 - v_25)/v_25*100) if v_25 else 0
+            kpis["venta_delta"] = f"{d_v:+.1f}%"
+            kpis["venta_col"] = "#10b981" if d_v >= 0 else "#ef4444"
+            
+            t_activas = len(res)
+            t_meta = sum(res[c_prs].get(2026, pd.Series(dtype=float)) >= res[c_prs].get(2025, pd.Series(dtype=float)))
+            kpis["meta_str"] = f"{t_meta} / {t_activas}"
+            kpis["meta_pct"] = f"{(t_meta/t_activas*100):.1f}%" if t_activas else "0%"
+        except: pass
+
+    # 2. Desempeño (Conversión, Ticket, Críticas, Rating)
+    df_c_clean = pd.DataFrame()
+    if f_conv:
+        try:
+            df_c = pd.read_excel(f_conv) if f_conv.endswith('.xlsx') else pd.read_csv(f_conv)
+            df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
+            c_tda = next((c for c in df_c.columns if 'Tienda' in c or 'TIENDA' in c), df_c.columns[0])
+            c_cv = next((c for c in df_c.columns if 'Conv' in c and 'Actual' in c), None)
+            c_tk = next((c for c in df_c.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
+            
+            df_c['CONV'] = df_c[c_cv].apply(lambda x: x*100 if x < 1 else x)
+            df_c['TKT'] = df_c[c_tk]
+            df_c_clean = df_c.copy()
+            
+            kpis["conv"] = f"{df_c['CONV'].mean():.2f}%"
+            kpis["tkt"] = f"{df_c['TKT'].mean():.2f}"
+            kpis["criticas"] = len(df_c[(df_c['CONV'] < 10.9) & (df_c['TKT'] < 1.29)])
+        except: pass
+
+    # 3. Rating Calculado Internamente para Cumpliendo (>60) y Observación (<60)
+    if not df_c_clean.empty and os.path.exists("Ventas.xlsx") and os.path.exists("Valores de tallas.xlsx"):
+        try:
+            df_v = pd.read_excel("Ventas.xlsx")
+            df_v['tda_int'] = df_v['Tienda'].apply(lambda x: int(re.search(r'\d+', str(x)).group()) if pd.notna(x) and re.search(r'\d+', str(x)) else -1)
+            df_v = df_v[~df_v['Proveedor'].isin([415, 426, 427])]
+            df_t = pd.read_excel("Valores de tallas.xlsx")
+            
+            pts_totales = []
+            q_totales = 0
+            
+            for _, r in df_c_clean.iterrows():
+                try: tda_num = int(re.search(r'\d+', str(r[c_tda])).group())
+                except: tda_num = -1
+                
+                pt = 35 if r['TKT'] >= 1.29 else 25 if r['TKT'] >= 1.25 else 10 if r['TKT'] >= 1.20 else 5
+                pc = 35 if r['CONV'] >= 10.9 else 25 if r['CONV'] >= 10.5 else 10 if r['CONV'] >= 10.0 else 5
+                
+                # Quiebres rapidos
+                df_tv = df_v[df_v['tda_int'] == tda_num]
+                q_count = 0
+                if not df_tv.empty:
+                    top20 = df_tv.groupby('Modelo')['Vtas'].sum().nlargest(20).index
+                    df_top = df_tv[df_tv['Modelo'].isin(top20)]
+                    mq = set()
+                    for _, row in df_top.iterrows():
+                        dpto = str(row.get('Departamento', '')).strip().lower()
+                        t_row = df_t[df_t['Valor'].astype(str).str.strip().str.lower() == dpto]
+                        if not t_row.empty:
+                            for i in range(1, 16):
+                                if (pd.isna(row.get(f'ex{i}',0)) or row.get(f'ex{i}',0)==0) and (pd.isna(row.get(f'p{i}',0)) or row.get(f'p{i}',0)==0):
+                                    tf = t_row.iloc[0].get(f'ex{i}')
+                                    if pd.notna(tf) and str(tf).strip()!='':
+                                        if dpto == 'caballero' and ('305' in str(tf) or '30.5' in str(tf)): continue
+                                        mq.add(row['Modelo']); break
+                    q_count = len(mq)
+                
+                q_totales += q_count
+                pq = 10 if q_count <= 5 else 5 if q_count <= 10 else 0
+                pts_totales.append(pt + pc + pq + 10) # 10 pts base alcance (asumido para el KPI rápido)
+                
+            kpis["quiebres"] = q_totales
+            kpis["cumpliendo"] = sum(1 for p in pts_totales if p > 60)
+            kpis["observacion"] = sum(1 for p in pts_totales if p <= 60)
+        except: pass
+
+    return kpis
+
+# --- CONTINUACIÓN FUNCIONES BASE ---
 def validar_captura_stock(tienda_id, modelo, talla_input, df_ventas, df_tallas):
     try:
         df_ventas.columns = df_ventas.columns.astype(str).str.strip().str.lower()
@@ -348,58 +488,215 @@ if 'vista_actual' not in st.session_state:
     st.session_state.vista_actual = 'Inicio'
 
 # ==============================================================================
-# PANTALLA 1: INICIO (PORTERO / LANDING PAGE)
+# PANTALLA 1: INICIO (DASHBOARD GERENCIAL)
 # ==============================================================================
 if st.session_state.vista_actual == 'Inicio':
-    st.markdown("<h1 class='landing-title'>MONITOR COMERCIAL ZONA OCCIDENTE</h1>", unsafe_allow_html=True)
-    st.markdown("<p class='landing-subtitle'>Inteligencia comercial para mejores decisiones</p>", unsafe_allow_html=True)
     
-    st.write("<br><br>", unsafe_allow_html=True)
+    fecha_update = obtener_fecha_actualizacion(archivo_conv)
+    kpis = obtener_kpis_ejecutivos(archivo_conv, archivo_comp, archivo_modelos)
     
-    col1, esp, col2 = st.columns([1, 0.1, 1])
+    # Procesar imágenes locales para el HTML
+    tienda_img = obtener_imagen_base64("Tienda.jpg")
+    perfil_img = obtener_imagen_base64("Perfil.png")
+    
+    # Fallbacks por si las imágenes no se encuentran
+    bg_url = f"url('{tienda_img}')" if tienda_img else "url('https://images.unsplash.com/photo-1557870185-3004314c1d68?q=80&w=2000&auto=format&fit=crop')"
+    perfil_src = perfil_img if perfil_img else "https://ui-avatars.com/api/?name=Jose+Martin&background=E30613&color=fff&rounded=true"
+    
+    # HTML ESTRUCTURAL DE ALTO NIVEL
+    html_dashboard = f"""
+    <div style="background-image: {bg_url}; background-size: cover; background-position: center; border-radius: 20px; position: relative; padding: 40px; margin-bottom: 30px; box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);">
+        <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(90deg, rgba(15,23,42,0.98) 0%, rgba(15,23,42,0.85) 60%, rgba(15,23,42,0.6) 100%); border-radius: 20px;"></div>
+        <div style="position: relative; z-index: 1;">
+            <!-- Cabecera -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 50px;">
+                <div>
+                    <h1 style="color: #E30613; font-size: 50px; font-style: italic; font-weight: 900; margin: 0; letter-spacing: -2px; font-family: sans-serif;">flexi.</h1>
+                    <p style="color: white; font-weight: bold; margin: 0; font-size: 14px; letter-spacing: 1px;">MONITOR COMERCIAL <span style="color: #E30613;">ZONA OCCIDENTE</span></p>
+                </div>
+                <div style="display: flex; align-items: center; gap: 20px; color: #cbd5e1;">
+                    <div style="text-align: right;">
+                        <p style="margin:0; font-size: 11px; text-transform: uppercase;">Última actualización</p>
+                        <p style="margin:0; font-weight: bold; color: white; font-size: 13px;">{fecha_update}</p>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.1); padding: 8px 16px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.1);">
+                        <img src="{perfil_src}" style="width: 35px; height: 35px; object-fit: cover; border-radius: 50%;">
+                        <div style="text-align: left;">
+                            <p style="margin:0; font-weight: bold; color: white; font-size: 13px; line-height: 1.2;">José Martín</p>
+                            <p style="margin:0; font-size: 11px;">Gerencia Comercial</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Bienvenida -->
+            <div style="margin-bottom: 40px;">
+                <p style="color: #E30613; font-size: 18px; margin: 0; font-weight: bold;">Bienvenido,</p>
+                <h2 style="color: white; font-size: 56px; margin: 0; font-weight: 800; letter-spacing: -1px;">José Martín</h2>
+                <p style="color: #94a3b8; font-size: 18px;">Gerencia Comercial Zona Occidente</p>
+            </div>
+            
+            <!-- Resumen Ejecutivo (KPIs Top) -->
+            <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; margin-top: 15px;">
+                <div style="background: rgba(30,41,59,0.7); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 20px; backdrop-filter: blur(10px);">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <div style="width:36px; height:36px; border-radius:50%; border:2px solid #E30613; display:flex; align-items:center; justify-content:center; color:#E30613;">👟</div>
+                        <p style="color: #94a3b8; font-size: 11px; margin:0; font-weight:bold;">PARES VENDIDOS</p>
+                    </div>
+                    <h3 style="color: white; font-size: 28px; margin: 0; font-weight: 800;">{kpis['pares']}</h3>
+                    <p style="color: #64748b; font-size: 12px; margin: 5px 0 0 0;">vs 2025: <span style="color: {kpis['pares_col']}; font-weight: bold;">{kpis['pares_delta']}</span></p>
+                </div>
+                
+                <div style="background: rgba(30,41,59,0.7); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 20px; backdrop-filter: blur(10px);">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <div style="width:36px; height:36px; border-radius:50%; border:2px solid #E30613; display:flex; align-items:center; justify-content:center; color:#E30613;">💰</div>
+                        <p style="color: #94a3b8; font-size: 11px; margin:0; font-weight:bold;">VENTA ZONA</p>
+                    </div>
+                    <h3 style="color: white; font-size: 28px; margin: 0; font-weight: 800;">{kpis['venta']}</h3>
+                    <p style="color: #64748b; font-size: 12px; margin: 5px 0 0 0;">vs 2025: <span style="color: {kpis['venta_col']}; font-weight: bold;">{kpis['venta_delta']}</span></p>
+                </div>
+
+                <div style="background: rgba(30,41,59,0.7); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 20px; backdrop-filter: blur(10px);">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <div style="width:36px; height:36px; border-radius:50%; border:2px solid #E30613; display:flex; align-items:center; justify-content:center; color:#E30613;">📊</div>
+                        <p style="color: #94a3b8; font-size: 11px; margin:0; font-weight:bold;">CONVERSIÓN</p>
+                    </div>
+                    <h3 style="color: white; font-size: 28px; margin: 0; font-weight: 800;">{kpis['conv']}</h3>
+                    <p style="color: #64748b; font-size: 12px; margin: 5px 0 0 0;">Promedio Zona</p>
+                </div>
+
+                <div style="background: rgba(30,41,59,0.7); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 20px; backdrop-filter: blur(10px);">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <div style="width:36px; height:36px; border-radius:50%; border:2px solid #E30613; display:flex; align-items:center; justify-content:center; color:#E30613;">🏷️</div>
+                        <p style="color: #94a3b8; font-size: 11px; margin:0; font-weight:bold;">TICKET PROMEDIO</p>
+                    </div>
+                    <h3 style="color: white; font-size: 28px; margin: 0; font-weight: 800;">{kpis['tkt']}</h3>
+                    <p style="color: #64748b; font-size: 12px; margin: 5px 0 0 0;">Unidades de calzado</p>
+                </div>
+
+                <div style="background: rgba(30,41,59,0.7); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 20px; backdrop-filter: blur(10px);">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <div style="width:36px; height:36px; border-radius:50%; border:2px solid #E30613; display:flex; align-items:center; justify-content:center; color:#E30613;">🎯</div>
+                        <p style="color: #94a3b8; font-size: 11px; margin:0; font-weight:bold;">TIENDAS EN META</p>
+                    </div>
+                    <h3 style="color: white; font-size: 28px; margin: 0; font-weight: 800;">{kpis['meta_str']}</h3>
+                    <p style="color: #10b981; font-size: 12px; margin: 5px 0 0 0; font-weight:bold;">{kpis['meta_pct']} del total</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    """
+    st.markdown(html_dashboard, unsafe_allow_html=True)
+    
+    # DOS TARJETAS CENTRALES (CON BOTONES STREAMLIT INTEGRADOS)
+    col1, esp, col2 = st.columns([1, 0.05, 1])
     
     with col1:
         st.markdown("""
-        <div class='card-inicio'>
-            <div class='card-title'>👥 OPERACIÓN COMERCIAL</div>
-            <div class='card-desc'>Herramientas para el seguimiento diario de tiendas, desempeño comercial, bitácoras y capacitación.</div>
+        <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(227, 6, 19, 0.5); border-radius: 16px 16px 0 0; padding: 35px; height: 350px; box-shadow: 0 -10px 30px rgba(227,6,19,0.05);">
+            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                <div style="background: rgba(227,6,19,0.1); padding: 12px; border-radius: 50%; color: #E30613; font-size: 24px; border: 1px solid rgba(227,6,19,0.3);">👥</div>
+                <h3 style="color: white; margin: 0; font-size: 22px; font-weight: 800;">OPERACIÓN COMERCIAL</h3>
+            </div>
+            <p style="color: #94a3b8; font-size: 15px; margin-bottom: 30px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px;">Herramientas para el seguimiento diario de tiendas y desempeño comercial.</p>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; color: #cbd5e1; font-size: 14px; font-weight: 500;">
+                <div><span style="color:#E30613; margin-right:8px;">✓</span> Desempeño Comercial</div>
+                <div><span style="color:#E30613; margin-right:8px;">✓</span> Rating Comercial</div>
+                <div><span style="color:#E30613; margin-right:8px;">✓</span> Comparativos Mensuales</div>
+                <div><span style="color:#E30613; margin-right:8px;">✓</span> Nivelación de Stock</div>
+                <div><span style="color:#E30613; margin-right:8px;">✓</span> Top 20 Tiendas</div>
+                <div><span style="color:#E30613; margin-right:8px;">✓</span> Bitácora Operativa</div>
+                <div><span style="color:#E30613; margin-right:8px;">✓</span> Top 20 Zona</div>
+                <div><span style="color:#E30613; margin-right:8px;">✓</span> Capacitación</div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("INGRESAR MÓDULO OPERATIVO", type="primary", use_container_width=True):
+        if st.button("INGRESAR AL MÓDULO OPERATIVO ➔", key="btn_op"):
             st.session_state.vista_actual = 'Operativo'
             st.rerun()
 
     with col2:
         st.markdown("""
-        <div class='card-inicio'>
-            <div class='card-title'>📈 DECISIONES ESTRATÉGICAS 🔒</div>
-            <div class='card-desc'>Acceso exclusivo para la Gerencia Comercial. Inteligencia y análisis para la toma de decisiones.</div>
+        <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(79, 70, 229, 0.5); border-radius: 16px 16px 0 0; padding: 35px; height: 350px; box-shadow: 0 -10px 30px rgba(79,70,229,0.05);">
+            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                <div style="background: rgba(79,70,229,0.1); padding: 12px; border-radius: 50%; color: #4f46e5; font-size: 24px; border: 1px solid rgba(79,70,229,0.3);">🧠</div>
+                <h3 style="color: white; margin: 0; font-size: 22px; font-weight: 800;">CENTRO DE INTELIGENCIA COMERCIAL 🔒</h3>
+            </div>
+            <p style="color: #94a3b8; font-size: 15px; margin-bottom: 30px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px;">Acceso exclusivo para análisis estratégico, inteligencia y toma de decisiones.</p>
+            <div style="display: grid; grid-template-columns: 1fr; gap: 15px; color: #cbd5e1; font-size: 14px; font-weight: 500;">
+                <div><span style="color:#4f46e5; margin-right:8px;">✓</span> Dashboard Ejecutivo</div>
+                <div><span style="color:#4f46e5; margin-right:8px;">✓</span> Impacto Financiero por quiebre</div>
+                <div><span style="color:#4f46e5; margin-right:8px;">✓</span> Diagnóstico de Demanda</div>
+                <div><span style="color:#4f46e5; margin-right:8px;">✓</span> Nivelación Inteligente</div>
+                <div><span style="color:#4f46e5; margin-right:8px;">✓</span> Correlación Macroeconómica (INPC)</div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("INGRESAR MÓDULO ESTRATÉGICO", use_container_width=True):
+        if st.button("INGRESAR 🔒", key="btn_est"):
             st.session_state.vista_actual = 'Login_Estrategico'
             st.rerun()
+
+    # BARRA INFERIOR (ESTADO DE LA ZONA)
+    html_estado = f"""
+    <div style="background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 25px 35px; display: flex; justify-content: space-between; align-items: center; margin-top: 30px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+        <div>
+            <p style="color: white; font-weight: 800; font-size: 16px; margin:0; letter-spacing: 1px;">ESTADO DE LA ZONA</p>
+            <p style="color: #64748b; font-size: 12px; margin: 4px 0 0 0;">Resumen general operativo</p>
+        </div>
+        
+        <div style="display: flex; gap: 40px;">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <div style="width:45px; height:45px; border-radius:50%; border:2px solid #10b981; display:flex; align-items:center; justify-content:center; color:#10b981; font-size: 18px;">✓</div>
+                <div><p style="color:white; font-weight:800; font-size:24px; margin:0; line-height:1;">{kpis['cumpliendo']}</p><p style="color:#94a3b8; font-size:11px; margin:4px 0 0 0; text-transform:uppercase;">Tiendas cumpliendo KPI's</p></div>
+            </div>
+            
+            <div style="display:flex; align-items:center; gap:12px;">
+                <div style="width:45px; height:45px; border-radius:50%; border:2px solid #f59e0b; display:flex; align-items:center; justify-content:center; color:#f59e0b; font-size: 18px; font-weight:bold;">!</div>
+                <div><p style="color:white; font-weight:800; font-size:24px; margin:0; line-height:1;">{kpis['observacion']}</p><p style="color:#94a3b8; font-size:11px; margin:4px 0 0 0; text-transform:uppercase;">Tiendas en observación</p></div>
+            </div>
+            
+            <div style="display:flex; align-items:center; gap:12px;">
+                <div style="width:45px; height:45px; border-radius:50%; border:2px solid #ef4444; display:flex; align-items:center; justify-content:center; color:#ef4444; font-size: 18px; font-weight:bold;">!</div>
+                <div><p style="color:white; font-weight:800; font-size:24px; margin:0; line-height:1;">{kpis['criticas']}</p><p style="color:#94a3b8; font-size:11px; margin:4px 0 0 0; text-transform:uppercase;">Tiendas críticas</p></div>
+            </div>
+            
+            <div style="display:flex; align-items:center; gap:12px;">
+                <div style="width:45px; height:45px; border-radius:50%; border:2px solid #3b82f6; display:flex; align-items:center; justify-content:center; color:#3b82f6; font-size: 18px;">📦</div>
+                <div><p style="color:white; font-weight:800; font-size:24px; margin:0; line-height:1;">{kpis['quiebres']}</p><p style="color:#94a3b8; font-size:11px; margin:4px 0 0 0; text-transform:uppercase;">Modelos mayor quiebre</p></div>
+            </div>
+            
+            <div style="display:flex; align-items:center; gap:12px;">
+                <div style="width:45px; height:45px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:{kpis['pares_col']}; font-size: 24px;">📈</div>
+                <div><p style="color:white; font-weight:800; font-size:24px; margin:0; line-height:1;">{kpis['crecimiento']}</p><p style="color:#94a3b8; font-size:11px; margin:4px 0 0 0; text-transform:uppercase;">Crecimiento vs 2025</p></div>
+            </div>
+        </div>
+    </div>
+    """
+    st.markdown(html_estado, unsafe_allow_html=True)
+    st.markdown("<div style='height: 80px;'></div>", unsafe_allow_html=True)
 
 # ==============================================================================
 # PANTALLA 2: LOGIN ESTRATÉGICO
 # ==============================================================================
 elif st.session_state.vista_actual == 'Login_Estrategico':
-    st.markdown("<h1 style='color: white; margin-bottom: 30px;'>🔐 Autenticación Gerencial</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='color: white; margin-bottom: 30px; text-align: center; margin-top: 50px;'>🔐 Autenticación Gerencial</h1>", unsafe_allow_html=True)
     
-    col_l, col_r = st.columns([1, 2])
-    with col_l:
+    col_esp1, col_center, col_esp2 = st.columns([1, 1.5, 1])
+    with col_center:
+        st.markdown("<div style='background: #1e293b; padding: 40px; border-radius: 16px; border: 1px solid #4f46e5; text-align: center;'>", unsafe_allow_html=True)
         clave = st.text_input("Ingrese contraseña de acceso:", type="password")
+        st.write("<br>", unsafe_allow_html=True)
         if st.button("Validar Acceso", type="primary", use_container_width=True):
             if clave == "Flexi2026":
                 st.session_state.vista_actual = 'Estrategico'
                 st.rerun()
             else:
                 st.error("❌ Contraseña incorrecta.")
-        
         st.write("<br>", unsafe_allow_html=True)
         if st.button("← Volver al Inicio", use_container_width=True):
             st.session_state.vista_actual = 'Inicio'
             st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
 # ==============================================================================
 # PANTALLA 3: MÓDULO OPERATIVO (Las 9 Pestañas Originales)
@@ -1135,9 +1432,16 @@ elif st.session_state.vista_actual == 'Estrategico':
             
     st.write("---")
 
-    tab_monitor = st.tabs(["📡 Monitor Estratégico"])
+    # NUEVAS PESTAÑAS ESTRATÉGICAS
+    tab_monitor, tab_impacto, tab_demanda, tab_nivelacion_intel, tab_macro = st.tabs([
+        "📡 Monitor Estratégico", 
+        "💰 Impacto Financiero por quiebre", 
+        "📊 Diagnóstico de Demanda", 
+        "🧠 Nivelación Inteligente", 
+        "🌍 Correlación Macroeconómica (INPC)"
+    ])
     
-    with tab_monitor[0]:
+    with tab_monitor:
         st.subheader("🎯 Monitor Estratégico (Conexión en Tiempo Real)")
         st.write("Conexión directa con la base de datos maestra en la nube para cruce de inteligencia.")
         
@@ -1159,10 +1463,34 @@ elif st.session_state.vista_actual == 'Estrategico':
                 st.error("Error de permisos (403): Verifique que el correo de servicio tenga acceso al archivo de Sheets.")
             except Exception as e:
                 st.error(f"Ocurrió un error inesperado de conexión: {e}")
+                
+    with tab_impacto:
+        st.subheader("💰 Impacto Financiero por quiebre")
+        st.info("Módulo en construcción. Calculando fuga de capital...")
+        
+    with tab_demanda:
+        st.subheader("📊 Diagnóstico de Demanda")
+        st.info("Módulo en construcción. Análisis multivariable de factores...")
+        
+    with tab_nivelacion_intel:
+        st.subheader("🧠 Nivelación Inteligente")
+        st.info("Módulo en construcción. Algoritmos de sugerencia de stock...")
+        
+    with tab_macro:
+        st.subheader("🌍 Correlación Macroeconómica (INPC)")
+        st.info("Módulo en construcción. Cruzando ticket promedio vs inflación...")
 
-# PIE DE PÁGINA (Siempre visible, con el estilo original que solicitó)
+# --- PIE DE PÁGINA (ESTÁTICO Y SIEMPRE VISIBLE) ---
 st.markdown("""
     <div class="footer">
-        © 2026 Gerencia Comercial Zona Occidente | KPIs Administrados por LAE. José Martín Estrada Cabrera
+        <div style="display: flex; justify-content: space-between; padding: 0 40px; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="border: 1px solid #94a3b8; border-radius: 50%; padding: 2px 6px; font-size: 10px;">✓</span> Sistema seguro
+            </div>
+            <div>Monitor Comercial Flexi Occidente | Versión 2.0.0</div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                ☁️ Sincronizado con Google Sheets <span style="color: #10b981; font-size: 16px;">●</span>
+            </div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
