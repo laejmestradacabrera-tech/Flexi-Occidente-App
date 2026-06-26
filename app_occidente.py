@@ -13,7 +13,7 @@ import subprocess
 import streamlit.components.v1 as components 
 import re
 
-# 1. CONFIGURACIÓN INICIAL DE PÁGINA (Debe ser lo primero)
+# 1. CONFIGURACIÓN DE PÁGINA (Debe ser la primera instrucción)
 st.set_page_config(page_title="Monitor Comercial Flexi Occidente", layout="wide", initial_sidebar_state="collapsed")
 
 # Intentamos configurar el idioma español para las fechas
@@ -22,21 +22,26 @@ try:
 except:
     pass
 
-# --- ESTILO GLOBAL INTERACTIVO Y TEMA OSCURO PARA EL INICIO ---
+# --- ESTILO GLOBAL INTERACTIVO Y TEMA ---
 st.markdown("""
     <style>
     .main-title {
+        text-align: center; color: #E30613; font-size: 32px; font-weight: bold;
+        border-bottom: 3px solid #E30613; padding-bottom: 10px; margin-bottom: 20px;
+    }
+    .landing-title {
         color: #E30613; font-size: 38px; font-weight: 900;
         margin-bottom: 0px; padding-bottom: 0px; letter-spacing: -1px;
     }
-    .sub-title {
+    .landing-subtitle {
         color: #94a3b8; font-size: 18px; margin-bottom: 40px;
     }
+    /* Estilo del Pie de Página Original Restaurado */
     .footer {
         position: fixed; left: 0; bottom: 0; width: 100%;
-        background-color: #0f172a; color: #64748b; text-align: center;
-        padding: 12px; font-size: 13px; border-top: 1px solid #1e293b;
-        z-index: 999; font-weight: 500;
+        background-color: white; color: #666; text-align: center;
+        padding: 8px; font-size: 13px; border-top: 1px solid #ddd;
+        z-index: 999; font-weight: bold;
     }
     th {
         background-color: #E30613 !important; color: white !important;
@@ -80,15 +85,13 @@ scope = [
 try:
     creds = ServiceAccountCredentials.from_json_keyfile_dict(dict(st.secrets["gcp_service_account"]), scope)
     client = gspread.authorize(creds)
-    # Conexiones usando el ID
     ID_ARCHIVO = '1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM'
     archivo_ventas_g = client.open_by_key(ID_ARCHIVO)
     sheet_bitacora = client.open_by_key(ID_ARCHIVO).sheet1
 except Exception as e:
     st.warning("Advertencia: No se pudo conectar a Google Sheets. Verifica tus secretos.")
 
-# --- FUNCIONES GLOBALES ---
-@st.cache_data(ttl=300) # Hacemos la función más ligera usando caché por 5 mins
+# --- FUNCIONES ---
 def buscar_archivo(palabra_clave):
     archivos = [f for f in os.listdir('.') if palabra_clave.lower() in f.lower() and f.endswith(('.xlsx', '.csv'))]
     return sorted(archivos)[-1] if archivos else None
@@ -115,7 +118,6 @@ def obtener_fecha_actualizacion(nombre_archivo):
     except Exception:
         return "Fecha no disponible"
 
-@st.cache_data
 def cargar_tiendas():
     nombre_archivo = "CORREO DE TIENDAS.xlsx"
     try:
@@ -349,8 +351,8 @@ if 'vista_actual' not in st.session_state:
 # PANTALLA 1: INICIO (PORTERO / LANDING PAGE)
 # ==============================================================================
 if st.session_state.vista_actual == 'Inicio':
-    st.markdown("<h1 class='main-title'>MONITOR COMERCIAL ZONA OCCIDENTE</h1>", unsafe_allow_html=True)
-    st.markdown("<p class='sub-title'>Inteligencia comercial para mejores decisiones</p>", unsafe_allow_html=True)
+    st.markdown("<h1 class='landing-title'>MONITOR COMERCIAL ZONA OCCIDENTE</h1>", unsafe_allow_html=True)
+    st.markdown("<p class='landing-subtitle'>Inteligencia comercial para mejores decisiones</p>", unsafe_allow_html=True)
     
     st.write("<br><br>", unsafe_allow_html=True)
     
@@ -377,8 +379,6 @@ if st.session_state.vista_actual == 'Inicio':
         if st.button("INGRESAR MÓDULO ESTRATÉGICO", use_container_width=True):
             st.session_state.vista_actual = 'Login_Estrategico'
             st.rerun()
-            
-    st.markdown("<div class='footer'>© 2026 Flexi Occidente | Monitor Comercial | Todos los derechos reservados</div>", unsafe_allow_html=True)
 
 # ==============================================================================
 # PANTALLA 2: LOGIN ESTRATÉGICO
@@ -901,56 +901,91 @@ elif st.session_state.vista_actual == 'Operativo':
         st.markdown("<h2 style='color: #B22222;'>📈 Monitor de Nivelación Flexi Occidente</h2>", unsafe_allow_html=True)
         fecha_act = obtener_fecha_actualizacion("Ventas.xlsx")
         st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
+        
         cargar_archivos_locales()
+        
         if 'df_ventas' in st.session_state:
             tiendas = sorted(st.session_state.df_ventas['Tienda'].unique().tolist())
             tienda_sel = st.selectbox("Selecciona la Tienda para analizar:", tiendas)
+            
             if st.button("Ejecutar Análisis"):
-                df_tienda = st.session_state.df_ventas[(st.session_state.df_ventas['Tienda'] == tienda_sel) & (~st.session_state.df_ventas['Proveedor'].isin([415, 426, 427]))].copy()
+                df_tienda = st.session_state.df_ventas[
+                    (st.session_state.df_ventas['Tienda'] == tienda_sel) & 
+                    (~st.session_state.df_ventas['Proveedor'].isin([415, 426, 427]))
+                ].copy()
+                
                 top_20 = df_tienda.groupby('Modelo')['Vtas'].sum().nlargest(20).index
                 df_top = df_tienda[df_tienda['Modelo'].isin(top_20)].copy()
+                
                 resultados = []
                 for _, row in df_top.iterrows():
                     dpto = str(row['Departamento']).strip().lower()
-                    tallas_row = st.session_state.df_tallas[st.session_state.df_tallas['Valor'].astype(str).str.lower() == dpto]
+                    tallas_row = st.session_state.df_tallas[
+                        st.session_state.df_tallas['Valor'].astype(str).str.lower() == dpto
+                    ]
+                    
                     if not tallas_row.empty:
                         for i in range(1, 16):
                             ex_val = row.get(f'ex{i}', 0)
                             p_val = row.get(f'p{i}', 0)
+                            
                             if (pd.isna(ex_val) or ex_val == 0) and (pd.isna(p_val) or p_val == 0):
                                 talla_fisica = tallas_row.iloc[0][f'ex{i}']
-                                if pd.notna(talla_fisica): resultados.append({"Departamento": row['Departamento'].capitalize(), "Modelo": row['Modelo'], "Talla": talla_fisica})
+                                if pd.notna(talla_fisica):
+                                    resultados.append({
+                                        "Departamento": row['Departamento'].capitalize(),
+                                        "Modelo": row['Modelo'],
+                                        "Talla": talla_fisica
+                                    })
+                
                 if resultados:
                     df_final = pd.DataFrame(resultados).drop_duplicates()
                     for dpto in df_final['Departamento'].unique():
                         st.markdown(f"<h3 style='color: #B22222;'>Bloque: {dpto}</h3>", unsafe_allow_html=True)
                         st.dataframe(df_final[df_final['Departamento'] == dpto][['Modelo', 'Talla']])
-                else: st.success("¡Excelente! No hay faltantes en el Top 20.")            
-        else: st.warning("Archivos de ventas o tallas no encontrados localmente.")
+                else:
+                    st.success("¡Excelente! No hay faltantes en el Top 20.")            
+        else:
+            st.warning("Archivos de ventas o tallas no encontrados localmente.")
 
     # --- PESTAÑA 7: BITÁCORA ---
     with tab_bitacora:
         st.subheader("📝 Registro de Incidencias Operativas")
         df_tiendas = cargar_tiendas()
+        
         col1, col2 = st.columns([2, 1])
-        with col1: tienda_seleccionada = st.selectbox("Selecciona la Tienda:", df_tiendas['NOMBRE'].unique())
+        
+        with col1:
+            tienda_seleccionada = st.selectbox("Selecciona la Tienda:", df_tiendas['NOMBRE'].unique())
         
         fila_tienda = df_tiendas[df_tiendas['NOMBRE'] == tienda_seleccionada]
         encargado_actual = fila_tienda['ENCARGADO'].values[0] if not fila_tienda.empty else "No encontrado"
+        
         tda_num_defecto = ""
         for col in df_tiendas.columns:
             if col.strip().upper() in ['TIENDA', 'SUCURSAL', 'NUMERO', 'ID']:
                 tda_num_defecto = str(fila_tienda[col].values[0])
                 break
                 
-        with col2: tienda_numero = st.text_input("N° Sucursal en SAP/Inventario (Ej. 56):", value=tda_num_defecto)
+        with col2:
+            tienda_numero = st.text_input("N° Sucursal en SAP/Inventario (Ej. 56):", value=tda_num_defecto)
+
         st.info(f"**Encargado(a) detectado(a):** {encargado_actual}")
             
         fecha_mexico = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
         fecha = st.date_input("Fecha", fecha_mexico.date())
-        factor = st.selectbox("Factor Principal:", ["👟 Faltante de Tallas (Proyecto Tallas Extremas)", "🌧️ Clima adverso", "📉 Bajo tráfico atípico", "🧑‍🤝‍🧑 Plantilla incompleta", "🔌 Falla: VPN FortiClient", "💻 Falla: Sistema/Terminales", "🚧 Afectación de acceso", "🎉 Factor externo"])
+        factor = st.selectbox("Factor Principal:", [
+            "👟 Faltante de Tallas (Proyecto Tallas Extremas)",
+            "🌧️ Clima adverso", "📉 Bajo tráfico atípico", "🧑‍🤝‍🧑 Plantilla incompleta", 
+            "🔌 Falla: VPN FortiClient", "💻 Falla: Sistema/Terminales", 
+            "🚧 Afectación de acceso", "🎉 Factor externo"
+        ])
         
-        modelo_captura = ""; talla_captura = 0; precio_captura = 0.0; status_validacion = "N/A"
+        modelo_captura = ""
+        talla_captura = 0
+        precio_captura = 0.0
+        status_validacion = "N/A"
+
         if "Faltante de Tallas" in factor:
             modelo_captura = st.text_input("Modelo:")
             talla_captura = st.number_input("Talla (Ej. 250):", min_value=150, max_value=350, step=5, value=250)
@@ -960,43 +995,65 @@ elif st.session_state.vista_actual == 'Operativo':
         
         if st.button("💾 Guardar en Bitácora"):
             puede_guardar = True
+            
             if "Faltante de Tallas" in factor:
                 if not modelo_captura:
-                    st.error("❌ Para reportar falta de tallas, debes escribir el Modelo."); puede_guardar = False
+                    st.error("❌ Para reportar falta de tallas, debes escribir el Modelo.")
+                    puede_guardar = False
                 elif not tienda_numero.strip().isdigit():
-                    st.error("❌ Por favor, ingresa un N° de Sucursal válido."); puede_guardar = False
+                    st.error("❌ Por favor, ingresa un N° de Sucursal válido (SOLO NÚMEROS, ej. 56) en la parte superior para poder cruzar el inventario. El sistema no acepta letras.")
+                    puede_guardar = False
                 else:
                     try:
-                        df_ventas = pd.read_excel("Ventas.xlsx"); df_tallas = pd.read_excel("Valores de tallas.xlsx")
+                        df_ventas = pd.read_excel("Ventas.xlsx")
+                        df_tallas = pd.read_excel("Valores de tallas.xlsx")
                         es_valido, mensaje = validar_captura_stock(tienda_numero, modelo_captura, talla_captura, df_ventas, df_tallas)
-                        if not es_valido: st.error(mensaje); puede_guardar = False
-                        else: status_validacion = "VALIDADO"
-                    except Exception as e: st.error(f"Error técnico en validación: {e}"); puede_guardar = False
+                        if not es_valido:
+                            st.error(mensaje)
+                            puede_guardar = False
+                        else:
+                            status_validacion = "VALIDADO"
+                    except Exception as e:
+                        st.error(f"Error técnico en validación: {e}")
+                        puede_guardar = False
 
             if puede_guardar:
-                fila = [str(fecha), tienda_seleccionada, encargado_actual, factor, notas, "", "", str(modelo_captura), str(int(talla_captura)), str(precio_captura), status_validacion]
+                fila = [
+                    str(fecha), tienda_seleccionada, encargado_actual, factor, notas, 
+                    "", "", str(modelo_captura), str(int(talla_captura)), str(precio_captura), status_validacion
+                ]
                 try:
                     if 'sheet_bitacora' in globals():
                         sheet_bitacora.append_row(fila)
                         st.success(f"✅ Incidencia registrada para {tienda_seleccionada}")
-                    else: st.warning("⚠️ No se pudo conectar a Google Sheets.")
-                except Exception as e: st.error(f"❌ Error al intentar guardar en Google Sheets: {e}")
+                    else:
+                        st.warning("⚠️ No se pudo conectar a Google Sheets, revisa tus credenciales o conexión.")
+                except Exception as e:
+                    st.error(f"❌ Error al intentar guardar en Google Sheets: {e}")
 
     # --- PESTAÑA 8: RUTA DEL CLIENTE ---
     with tab_ruta:
         st.subheader("🧭 Protocolo Operativo en Piso de Venta")
         nombre_imagen = "RC Zona Occidente.png"
-        if os.path.exists(nombre_imagen): st.image(nombre_imagen, use_container_width=True)
-        else: st.warning("⚠️ La imagen 'RC Zona Occidente.png' aún no se encuentra en GitHub.")
+        if os.path.exists(nombre_imagen):
+            st.image(nombre_imagen, use_container_width=True)
+        else:
+            st.warning("⚠️ La imagen 'RC Zona Occidente.png' aún no se encuentra en GitHub.")
 
     # --- PESTAÑA 9: CAPACITACIÓN ---
     with tab_capacitacion:
         st.markdown("## 🎓 Centro de Capacitación y Desarrollo Operativo")
         st.write("Bienvenido al espacio interactivo para el fortalecimiento del sentido de pertenencia y alineación comercial de la Zona Occidente.")
+        
         col_izq, col_der = st.columns([1, 1.2]) 
+        
         with col_izq:
             st.markdown("### 📹 Material Audiovisual")
-            opciones_video = {"Mi Nómina Flexi": "https://youtu.be/688Bi49rI30", "Tutorial Vales de Zapatos": "https://youtu.be/6hB95lYcL1g", "Tutorial mi Flexi": "https://youtu.be/WVi8geGSeOg"}
+            opciones_video = {
+                "Mi Nómina Flexi": "https://youtu.be/688Bi49rI30",
+                "Tutorial Vales de Zapatos": "https://youtu.be/6hB95lYcL1g",
+                "Tutorial mi Flexi": "https://youtu.be/WVi8geGSeOg"
+            }
             video_seleccionado = st.selectbox("Selecciona el material audiovisual a reproducir:", list(opciones_video.keys()))
             url_video = opciones_video[video_seleccionado]
             st.write("<br>", unsafe_allow_html=True)
@@ -1006,14 +1063,61 @@ elif st.session_state.vista_actual == 'Operativo':
         with col_der:
             st.markdown("### 📘 Manual de Integración a Tiendas Flexi")
             st.info("**🎯 Objetivo General:** Establecer un proceso de acogida estandarizado que reduzca la rotación de personal en los primeros 90 días, transformando la incorporación en una experiencia de bienvenida profesional y humana.")
+            st.write("*La permanencia del personal de nueva contratación no depende únicamente de las condiciones laborales, sino de la calidad de su integración inicial. Este manual presenta cinco pilares fundamentales para asegurar que el nuevo colaborador se sienta valorado, guiado y conectado con los objetivos de la organización.*")
+            
             with st.expander("🎯 1. PROPÓSITO DEL MONITOR COMERCIAL", expanded=True):
-                st.markdown("Este monitor interactivo fue desarrollado bajo la dirección del **LAE. José Martín Estrada Cabrera**...\n* 👟 **Ticket Promedio:** Meta de **1.29** unidades por ticket.\n* 📊 **Conversión Mínima:** Meta de **10.90%** en piso de venta.")
-            with st.expander("1️⃣ PILAR I: BIENVENIDA (Logística y Orden)"): st.markdown("**Concepto:** Proyectar orden y profesionalismo...")
-            with st.expander("2️⃣ PILAR II: ACOMPAÑAMIENTO (Mentoría)"): st.markdown("**Concepto:** Eliminar la 'soledad del novato'...")
-            with st.expander("3️⃣ PILAR III: CLARIDAD DEL PROPÓSITO"): st.markdown("**Concepto:** Conectar las tareas diarias con el impacto real...")
-            with st.expander("4️⃣ PILAR IV: METAS DE CORTO PLAZO"): st.markdown("**Concepto:** Brindar claridad absoluta sobre las expectativas...")
-            with st.expander("5️⃣ PILAR V: VINCULACIÓN SOCIAL"): st.markdown("**Concepto:** Humanizar el entorno laboral...")
-            st.success("✨ **Nota Final:** La integración no termina al finalizar el primer día.")
+                st.markdown("""
+                Este monitor interactivo fue desarrollado bajo la dirección del **LAE. José Martín Estrada Cabrera** como una herramienta estratégica y de auditoría en tiempo real. Su propósito principal es dar visibilidad total a la operación del piso de venta, permitiendo tomar decisiones basadas en datos exactos y eliminar las suposiciones.
+                
+                **👥 La Importancia de la Integración (El Factor Humano):**
+                Para que este monitor refleje números de éxito, es vital comprender que **los resultados no los dan los sistemas, los dan las personas**. 
+                Una integración correcta, humana y profesional del personal de nuevo ingreso garantiza que:
+                * Comprendan el *por qué* de su rol y su impacto directo en la sucursal desde el día uno.
+                * Se sientan respaldados por su equipo, reduciendo drásticamente su curva de aprendizaje y la frustración.
+                * Transformen su esfuerzo diario en la conquista de los objetivos de la empresa.
+                
+                **📌 Nuestras Metas Inamovibles (El ADN de la Zona):**
+                Toda la capacitación y esfuerzo de la sucursal se resume en dominar estos dos indicadores de calzado:
+                * 👟 **Ticket Promedio:** Meta de **1.29** unidades por ticket.
+                * 📊 **Conversión Mínima:** Meta de **10.90%** en piso de venta.
+                """)
+                
+            with st.expander("1️⃣ PILAR I: BIENVENIDA (Logística y Orden)"):
+                st.markdown("""
+                **Concepto:** Proyectar orden y profesionalismo. La preparación del entorno de trabajo es el primer mensaje que el colaborador recibe sobre la cultura de la empresa.
+                * 🛠️ **La Acción:** Asegurarse de que el espacio físico esté impecable, las herramientas de trabajo (computadora, accesos, sistemas) estén configuradas y el uniforme de la talla correcta esté listo sobre su lugar antes de que el colaborador cruce la puerta (en la medida de lo posible).
+                * 🌟 **El Impacto:** Elimina la ansiedad e incertidumbre del primer día. Comunica de forma implícita: *"Te estábamos esperando y tu llegada es importante para nosotros"*.
+                """)
+                
+            with st.expander("2️⃣ PILAR II: ACOMPAÑAMIENTO (Mentoría)"):
+                st.markdown("""
+                **Concepto:** Eliminar la "soledad del novato" mediante el sistema de compañero guía.
+                * 👥 **La Acción:** Designar a un colaborador con experiencia y actitud positiva para que actúe como mentor durante la primera semana. Este guía resolverá dudas cotidianas y explicará las dinámicas no escritas.
+                * 🚀 **El Impacto:** Acelera la curva de aprendizaje social y técnico. Reduce el miedo a cometer errores básicos y crea un vínculo de confianza inmediato.
+                """)
+                
+            with st.expander("3️⃣ PILAR III: CLARIDAD DEL PROPÓSITO"):
+                st.markdown("""
+                **Concepto:** Conectar las tareas diarias con el impacto real en el éxito de la zona y la misión de la empresa.
+                * 🗣️ **La Acción:** Realizar una sesión de alineación donde se explique no solo "qué" debe hacer, sino "por qué" su rol es vital para alcanzar los objetivos generales. Mostrar cómo su esfuerzo contribuye al bienestar del cliente o del equipo.
+                * ❤️ **El Impacto:** Genera compromiso emocional. Un colaborador que encuentra propósito en su trabajo desarrolla una lealtad que va más allá de la oferta económica.
+                """)
+                
+            with st.expander("4️⃣ PILAR IV: METAS DE CORTO PLAZO"):
+                st.markdown("""
+                **Concepto:** Brindar claridad absoluta sobre las expectativas de desempeño en la etapa crítica.
+                * 🎯 **La Acción:** Establecer objetivos específicos, medibles y alcanzables para la primera semana, los primeros 15 días y el primer mes. Brindar retroalimentación constructiva al finalizar cada etapa.
+                * 📈 **El Impacto:** Reduce la frustración causada por la ambigüedad. Permite que el colaborador celebre victorias tempranas y desarrolle la autoconfianza necesaria para su profesionalización.
+                """)
+                
+            with st.expander("5️⃣ PILAR V: VINCULACIÓN SOCIAL"):
+                st.markdown("""
+                **Concepto:** Humanizar el entorno laboral y fomentar la integración grupal.
+                * 🎉 **La Acción:** Organizar activamente momentos de convivencia (como una dinámica de presentación) donde el equipo actual reciba formalmente al nuevo integrante.
+                * 🤝 **El Impacto:** Rompe las barreras invisibles entre el personal antiguo y el nuevo. El sentido de pertenencia a un grupo social es el factor de retención más potente ante ofertas de la competencia.
+                """)
+            
+            st.success("✨ **Nota Final:** La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.")
 
 # ==============================================================================
 # PANTALLA 4: MÓDULO ESTRATÉGICO (EXCLUSIVO GERENCIA)
@@ -1055,3 +1159,10 @@ elif st.session_state.vista_actual == 'Estrategico':
                 st.error("Error de permisos (403): Verifique que el correo de servicio tenga acceso al archivo de Sheets.")
             except Exception as e:
                 st.error(f"Ocurrió un error inesperado de conexión: {e}")
+
+# PIE DE PÁGINA (Siempre visible, con el estilo original que solicitó)
+st.markdown("""
+    <div class="footer">
+        © 2026 Gerencia Comercial Zona Occidente | KPIs Administrados por LAE. José Martín Estrada Cabrera
+    </div>
+    """, unsafe_allow_html=True)
