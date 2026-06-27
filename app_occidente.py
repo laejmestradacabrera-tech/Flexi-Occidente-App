@@ -70,12 +70,12 @@ st.markdown("""
     
     .kpi-row-lobby { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px; }
     .kpi-card-lobby { background-color: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 15px; }
-    .kpi-icon-lobby { width: 50px; height: 50px; border-radius: 8px; border: 2px solid #E30613; display: flex; align-items: center; justify-content: center; font-size: 22px; color: #E30613; flex-shrink: 0; background-color: rgba(227,6,19,0.05); }
+    .kpi-icon-lobby { width: 50px; height: 50px; border-radius: 8px; border: 2px solid #E30613; display: flex; align-items: center; justify-content: center; color: #E30613; flex-shrink: 0; background-color: rgba(227,6,19,0.05); }
     .kpi-data-lobby h3 { font-size: 24px; font-weight: bold; color: white; margin: 0; line-height: 1.2; }
     .kpi-data-lobby p { font-size: 12px; color: #94a3b8; margin: 0; }
     
     .action-card-lobby { background-color: #1e293b; border: 1px solid #334155; border-radius: 12px 12px 0 0; padding: 40px; display: flex; align-items: center; gap: 20px; height: 180px; border-bottom: none; }
-    .action-icon-circle { width: 80px; height: 80px; border-radius: 50%; border: 3px solid #E30613; display: flex; align-items: center; justify-content: center; font-size: 35px; color: #E30613; flex-shrink: 0; background-color: rgba(227,6,19,0.05); }
+    .action-icon-circle { width: 80px; height: 80px; border-radius: 50%; border: 3px solid #E30613; display: flex; align-items: center; justify-content: center; color: #E30613; flex-shrink: 0; background-color: rgba(227,6,19,0.05); }
     .action-texts h3 { font-size: 22px; font-weight: bold; color: white; margin: 0 0 5px 0; }
     .action-texts p { font-size: 15px; color: #94a3b8; margin: 0; }
     
@@ -410,15 +410,11 @@ if st.session_state.vista_actual == 'Inicio':
 
     # 3. HTML del Dashboard Lobby
     html_lobby = f"""
-    <div style="{bg_css} background-size: cover; background-position: center; border-radius: 16px; padding: 50px 40px; box-shadow: 0 20px 40px rgba(0,0,0,0.5);">
-        
-        <!-- Etiqueta Versión Top Right -->
+    <div style="{bg_css} background-size: cover; background-position: center; border-radius: 16px; padding: 50px 40px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); position: relative;">
         <div style="position: absolute; top: 30px; right: 40px; text-align: right; color: white; font-size: 13px;">
             <p style="margin:0;"><span style="color: #E30613; font-weight:bold;">Versión</span> 2.0</p>
             <p style="margin:0;">Zona Occidente</p>
         </div>
-
-        <!-- Header Central -->
         <div class="lobby-header">
             <h1 style="color: #E30613; font-size: 55px; font-weight: 900; font-style: italic; letter-spacing: -2px; margin: 0; line-height: 1;">flexi<span style="font-size: 20px; vertical-align: super;">®</span></h1>
             <div style="width: 60px; height: 3px; background-color: #E30613; margin: 5px auto 15px auto; border-radius: 5px;"></div>
@@ -426,32 +422,30 @@ if st.session_state.vista_actual == 'Inicio':
             <h2>ZONA OCCIDENTE</h2>
             <p>Inteligencia que impulsa decisiones</p>
         </div>
-
-        <!-- Fila de KPIs -->
         <div class="kpi-row-lobby">
             <div class="kpi-card-lobby">
-                <div class="kpi-icon-lobby">📦</div>
+                <div class="kpi-icon-lobby"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg></div>
                 <div class="kpi-data-lobby">
                     <h3>{alcance_principal}</h3>
                     <p>Var. Pares | {alcance_txt}</p>
                 </div>
             </div>
             <div class="kpi-card-lobby">
-                <div class="kpi-icon-lobby">📈</div>
+                <div class="kpi-icon-lobby"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg></div>
                 <div class="kpi-data-lobby">
                     <h3>{conv_val}</h3>
                     <p>Conversión Promedio</p>
                 </div>
             </div>
             <div class="kpi-card-lobby">
-                <div class="kpi-icon-lobby">💲</div>
+                <div class="kpi-icon-lobby"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"></path><line x1="12" y1="18" x2="12" y2="6"></line></svg></div>
                 <div class="kpi-data-lobby">
                     <h3>{tkt_val}</h3>
                     <p>Ticket Promedio</p>
                 </div>
             </div>
             <div class="kpi-card-lobby">
-                <div class="kpi-icon-lobby">📅</div>
+                <div class="kpi-icon-lobby"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg></div>
                 <div class="kpi-data-lobby">
                     <h3 style="font-size: 18px;">{fecha_val.split(' - ')[0] if ' - ' in fecha_val else fecha_val}</h3>
                     <p>Última actualización</p>
@@ -461,35 +455,37 @@ if st.session_state.vista_actual == 'Inicio':
     </div>
     """
     
-    st.markdown(html_lobby, unsafe_allow_html=True)
+    st.markdown(html_lobby.replace('\n', ''), unsafe_allow_html=True)
     
     # 4. Tarjetas de Acción (Streamlit Columns)
     col1, esp, col2 = st.columns([1, 0.05, 1])
     
     with col1:
-        st.markdown("""
+        html_card1 = """
         <div class="action-card-lobby">
-            <div class="action-icon-circle">👤</div>
+            <div class="action-icon-circle"><svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div>
             <div class="action-texts">
                 <h3>OPERACIÓN COMERCIAL</h3>
                 <p>Seguimiento diario de la operación</p>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """
+        st.markdown(html_card1.replace('\n', ''), unsafe_allow_html=True)
         if st.button("INGRESAR", key="btn_op", use_container_width=True):
             st.session_state.vista_actual = 'Operativo'
             st.rerun()
 
     with col2:
-        st.markdown("""
+        html_card2 = """
         <div class="action-card-lobby">
-            <div class="action-icon-circle">🔒</div>
+            <div class="action-icon-circle"><svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></div>
             <div class="action-texts">
                 <h3>CENTRO DE INTELIGENCIA COMERCIAL</h3>
                 <p>Acceso exclusivo para usuarios autorizados</p>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """
+        st.markdown(html_card2.replace('\n', ''), unsafe_allow_html=True)
         if st.button("INGRESAR", key="btn_est", use_container_width=True):
             st.session_state.vista_actual = 'Login_Estrategico'
             st.rerun()
