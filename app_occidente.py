@@ -39,7 +39,7 @@ def obtener_imagen_base64(ruta_imagen):
 st.markdown("""
     <style>
     /* CSS para ocultar el padding superior de Streamlit y dar sensación de App */
-    .block-container { padding-top: 1rem; padding-bottom: 2rem; max-width: 1300px; }
+    .block-container { padding-top: 3rem; padding-bottom: 2rem; max-width: 1300px; }
     
     .footer {
         position: fixed; left: 0; bottom: 0; width: 100%;
@@ -364,8 +364,9 @@ if 'vista_actual' not in st.session_state:
 if st.session_state.vista_actual == 'Inicio':
     
     # 1. Extracción Segura de KPIs
-    alcance_txt = "Pares: 0% | Pesos: 0%"
-    conv_val = "0.0%"
+    v_p_str = "0.00%"
+    v_w_str = "0.00%"
+    conv_val = "0.00%"
     tkt_val = "0.00"
     fecha_val = obtener_fecha_actualizacion(archivo_conv)
 
@@ -386,23 +387,32 @@ if st.session_state.vista_actual == 'Inicio':
         try:
             df_op = pd.read_excel(archivo_comp) if archivo_comp.endswith('.xlsx') else pd.read_csv(archivo_comp)
             c_ano = next((c for c in df_op.columns if 'año' in c.lower() or 'ano' in c.lower()), df_op.columns[0])
+            c_tda = next((c for c in df_op.columns if 'tienda' in c.lower() or 'sucursal' in c.lower()), df_op.columns[2])
             c_prs = next((c for c in df_op.columns if 'pares' in c.lower() or 'cant' in c.lower()), None)
             c_imp = next((c for c in df_op.columns if 'importe' in c.lower() or 'peso' in c.lower() or 'monto' in c.lower()), None)
+            c_prov = next((c for c in df_op.columns if 'prov' in c.lower()), None)
+            c_tipo = next((c for c in df_op.columns if 'tipo' in c.lower() or 'concepto' in c.lower()), None)
             
             if c_prs and c_imp:
-                res = df_op.groupby(c_ano)[[c_prs, c_imp]].sum()
-                p25 = res.get(c_prs, {}).get(2025, 0); p26 = res.get(c_prs, {}).get(2026, 0)
-                w25 = res.get(c_imp, {}).get(2025, 0); w26 = res.get(c_imp, {}).get(2026, 0)
+                df_op_filt = df_op.copy()
+                df_op_filt[c_tda] = df_op_filt[c_tda].astype(str).str.strip()
+                df_op_filt = df_op_filt[~df_op_filt[c_tda].str.contains('3004|3015', na=False)]
+                if c_prov: df_op_filt = df_op_filt[~df_op_filt[c_prov].astype(str).str.strip().isin(['415', '426', '427'])]
+                if c_tipo: df_op_filt = df_op_filt[~df_op_filt[c_tipo].astype(str).str.contains('BOLSA|REUSABLE|BOLSO', case=False, na=False)]
+                
+                df_op_filt[c_ano] = pd.to_numeric(df_op_filt[c_ano], errors='coerce')
+                
+                p25 = df_op_filt[df_op_filt[c_ano] == 2025][c_prs].sum()
+                p26 = df_op_filt[df_op_filt[c_ano] == 2026][c_prs].sum()
+                w25 = df_op_filt[df_op_filt[c_ano] == 2025][c_imp].sum()
+                w26 = df_op_filt[df_op_filt[c_ano] == 2026][c_imp].sum()
                 
                 v_p = ((p26 - p25)/p25*100) if p25 else 0
                 v_w = ((w26 - w25)/w25*100) if w25 else 0
-                v_p_str = f"{'+' if v_p>0 else ''}{v_p:.1f}%"
-                v_w_str = f"{'+' if v_w>0 else ''}{v_w:.1f}%"
-                alcance_txt = f"Var. Pesos: {v_w_str}"
-                alcance_principal = v_p_str
+                
+                v_p_str = f"{'+' if v_p>0 else ''}{v_p:.2f}%"
+                v_w_str = f"{'+' if v_w>0 else ''}{v_w:.2f}%"
         except: pass
-    else:
-        alcance_principal = "0%"
 
     # 2. Configuración de la Imagen de Fondo
     tienda_b64 = obtener_imagen_base64("Tienda.jpg")
@@ -410,7 +420,7 @@ if st.session_state.vista_actual == 'Inicio':
 
     # 3. HTML del Dashboard Lobby
     html_lobby = f"""
-    <div style="{bg_css} background-size: cover; background-position: center; border-radius: 16px; padding: 50px 40px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); position: relative;">
+    <div style="{bg_css} background-size: cover; background-position: center; border-radius: 16px; padding: 50px 40px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); position: relative; margin-top: 20px;">
         <div style="position: absolute; top: 30px; right: 40px; text-align: right; color: white; font-size: 13px;">
             <p style="margin:0;"><span style="color: #E30613; font-weight:bold;">Versión</span> 2.0</p>
             <p style="margin:0;">Zona Occidente</p>
@@ -425,9 +435,15 @@ if st.session_state.vista_actual == 'Inicio':
         <div class="kpi-row-lobby">
             <div class="kpi-card-lobby">
                 <div class="kpi-icon-lobby"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg></div>
-                <div class="kpi-data-lobby">
-                    <h3>{alcance_principal}</h3>
-                    <p>Var. Pares | {alcance_txt}</p>
+                <div class="kpi-data-lobby" style="display: flex; gap: 15px; align-items: center;">
+                    <div>
+                        <h3 style="font-size: 20px;">{v_p_str}</h3>
+                        <p style="font-size: 11px;">Var. Pares</p>
+                    </div>
+                    <div style="border-left: 1px solid #334155; padding-left: 15px;">
+                        <h3 style="font-size: 20px;">{v_w_str}</h3>
+                        <p style="font-size: 11px;">Var. Pesos</p>
+                    </div>
                 </div>
             </div>
             <div class="kpi-card-lobby">
