@@ -1314,6 +1314,6 @@ elif st.session_state.vista_actual == 'Estrategico':
 # --- PIE DE PÁGINA (ESTÁTICO Y SIEMPRE VISIBLE) ---
 st.markdown("""
     <div class="footer">
-        Monitor Comercial Flexi Occidente | Información confiable para decisiones oportunas
+        KPI"s desarrollados por el LAE. José Martín Estrada Cabrera | © 2026 Todos los Derechos Reservados
     </div>
     """, unsafe_allow_html=True)
