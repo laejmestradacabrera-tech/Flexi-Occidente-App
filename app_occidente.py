@@ -12,6 +12,7 @@ import locale
 import subprocess
 import streamlit.components.v1 as components 
 import re
+import base64
 
 # 1. CONFIGURACIÓN DE PÁGINA (Debe ser la primera instrucción)
 st.set_page_config(page_title="Monitor Comercial Flexi Occidente", layout="wide", initial_sidebar_state="collapsed")
@@ -22,26 +23,29 @@ try:
 except:
     pass
 
+# --- FUNCIÓN PARA LEER IMÁGENES LOCALES ---
+@st.cache_data
+def obtener_imagen_base64(ruta_imagen):
+    try:
+        with open(ruta_imagen, "rb") as image_file:
+            encoded_string = base64.b64encode(image_file.read()).decode()
+        ext = ruta_imagen.split('.')[-1].lower()
+        mime_type = "image/png" if ext == "png" else "image/jpeg"
+        return f"data:{mime_type};base64,{encoded_string}"
+    except Exception as e:
+        return ""
+
 # --- ESTILO GLOBAL INTERACTIVO Y TEMA ---
 st.markdown("""
     <style>
-    .main-title {
-        text-align: center; color: #E30613; font-size: 32px; font-weight: bold;
-        border-bottom: 3px solid #E30613; padding-bottom: 10px; margin-bottom: 20px;
-    }
-    .landing-title {
-        color: #E30613; font-size: 38px; font-weight: 900;
-        margin-bottom: 0px; padding-bottom: 0px; letter-spacing: -1px;
-    }
-    .landing-subtitle {
-        color: #94a3b8; font-size: 18px; margin-bottom: 40px;
-    }
-    /* Estilo del Pie de Página Original Restaurado */
+    /* CSS para ocultar el padding superior de Streamlit y dar sensación de App */
+    .block-container { padding-top: 1rem; padding-bottom: 2rem; max-width: 1300px; }
+    
     .footer {
         position: fixed; left: 0; bottom: 0; width: 100%;
-        background-color: white; color: #666; text-align: center;
-        padding: 8px; font-size: 13px; border-top: 1px solid #ddd;
-        z-index: 999; font-weight: bold;
+        background-color: #0f172a; color: #94a3b8; text-align: center;
+        padding: 12px; font-size: 13px; border-top: 1px solid #1e293b;
+        z-index: 999; font-weight: 500;
     }
     th {
         background-color: #E30613 !important; color: white !important;
@@ -58,20 +62,27 @@ st.markdown("""
     .kpi-value { font-size: 24px; color: #E30613; font-weight: bold; margin: 5px 0; }
     .kpi-delta { font-size: 15px; font-weight: bold; }
 
-    /* Tarjetas de Inicio */
-    .card-inicio {
-        background-color: #1e293b;
-        border: 1px solid #334155;
-        border-radius: 12px;
-        padding: 30px;
-        height: 100%;
-    }
-    .card-title {
-        color: #f8fafc; font-size: 24px; font-weight: 700; margin-bottom: 10px;
-    }
-    .card-desc {
-        color: #94a3b8; font-size: 15px; margin-bottom: 25px;
-    }
+    /* ESTILOS DEL NUEVO LOBBY CORPORATIVO */
+    .lobby-header { text-align: center; margin-bottom: 40px; position: relative; }
+    .lobby-header h1 { font-family: 'Arial Black', sans-serif; font-size: 45px; color: white; margin: 10px 0 0 0; line-height: 1.1; letter-spacing: -1px; }
+    .lobby-header h2 { font-family: 'Arial', sans-serif; font-size: 20px; color: #E30613; margin-top: 5px; font-weight: bold; letter-spacing: 2px; }
+    .lobby-header p { color: #94a3b8; font-size: 16px; margin-top: 10px; }
+    
+    .kpi-row-lobby { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px; }
+    .kpi-card-lobby { background-color: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 15px; }
+    .kpi-icon-lobby { width: 50px; height: 50px; border-radius: 8px; border: 2px solid #E30613; display: flex; align-items: center; justify-content: center; font-size: 22px; color: #E30613; flex-shrink: 0; background-color: rgba(227,6,19,0.05); }
+    .kpi-data-lobby h3 { font-size: 24px; font-weight: bold; color: white; margin: 0; line-height: 1.2; }
+    .kpi-data-lobby p { font-size: 12px; color: #94a3b8; margin: 0; }
+    
+    .action-card-lobby { background-color: #1e293b; border: 1px solid #334155; border-radius: 12px 12px 0 0; padding: 40px; display: flex; align-items: center; gap: 20px; height: 180px; border-bottom: none; }
+    .action-icon-circle { width: 80px; height: 80px; border-radius: 50%; border: 3px solid #E30613; display: flex; align-items: center; justify-content: center; font-size: 35px; color: #E30613; flex-shrink: 0; background-color: rgba(227,6,19,0.05); }
+    .action-texts h3 { font-size: 22px; font-weight: bold; color: white; margin: 0 0 5px 0; }
+    .action-texts p { font-size: 15px; color: #94a3b8; margin: 0; }
+    
+    /* Botones de acción integrados a las tarjetas */
+    div[data-testid="column"]:nth-child(1) button { background-color: #E30613 !important; color: white !important; font-weight: bold !important; height: 50px !important; border-radius: 0 0 12px 12px !important; border: 1px solid #334155 !important; border-top: none !important; width: 100% !important; font-size: 16px !important; margin-top: -16px !important; transition: all 0.3s; }
+    div[data-testid="column"]:nth-child(2) button { background-color: #E30613 !important; color: white !important; font-weight: bold !important; height: 50px !important; border-radius: 0 0 12px 12px !important; border: 1px solid #334155 !important; border-top: none !important; width: 100% !important; font-size: 16px !important; margin-top: -16px !important; transition: all 0.3s; }
+    div[data-testid="column"] button:hover { background-color: #b9000b !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -348,35 +359,138 @@ if 'vista_actual' not in st.session_state:
     st.session_state.vista_actual = 'Inicio'
 
 # ==============================================================================
-# PANTALLA 1: INICIO (PORTERO / LANDING PAGE)
+# PANTALLA 1: INICIO (LOBBY CORPORATIVO TIPO "MAS SENCILLO.PNG")
 # ==============================================================================
 if st.session_state.vista_actual == 'Inicio':
-    st.markdown("<h1 class='landing-title'>MONITOR COMERCIAL ZONA OCCIDENTE</h1>", unsafe_allow_html=True)
-    st.markdown("<p class='landing-subtitle'>Inteligencia comercial para mejores decisiones</p>", unsafe_allow_html=True)
     
-    st.write("<br><br>", unsafe_allow_html=True)
+    # 1. Extracción Segura de KPIs
+    alcance_txt = "Pares: 0% | Pesos: 0%"
+    conv_val = "0.0%"
+    tkt_val = "0.00"
+    fecha_val = obtener_fecha_actualizacion(archivo_conv)
+
+    if archivo_conv:
+        try:
+            df_c = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
+            df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
+            c_cv = next((c for c in df_c.columns if 'Conv' in c and 'Actual' in c), None)
+            c_tk = next((c for c in df_c.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
+            if c_cv and c_tk:
+                conv_mean = df_c[c_cv].apply(lambda x: x*100 if x < 1 else x).mean()
+                tkt_mean = df_c[c_tk].mean()
+                conv_val = f"{conv_mean:.2f}%"
+                tkt_val = f"{tkt_mean:.2f}"
+        except: pass
+
+    if archivo_comp:
+        try:
+            df_op = pd.read_excel(archivo_comp) if archivo_comp.endswith('.xlsx') else pd.read_csv(archivo_comp)
+            c_ano = next((c for c in df_op.columns if 'año' in c.lower() or 'ano' in c.lower()), df_op.columns[0])
+            c_prs = next((c for c in df_op.columns if 'pares' in c.lower() or 'cant' in c.lower()), None)
+            c_imp = next((c for c in df_op.columns if 'importe' in c.lower() or 'peso' in c.lower() or 'monto' in c.lower()), None)
+            
+            if c_prs and c_imp:
+                res = df_op.groupby(c_ano)[[c_prs, c_imp]].sum()
+                p25 = res.get(c_prs, {}).get(2025, 0); p26 = res.get(c_prs, {}).get(2026, 0)
+                w25 = res.get(c_imp, {}).get(2025, 0); w26 = res.get(c_imp, {}).get(2026, 0)
+                
+                v_p = ((p26 - p25)/p25*100) if p25 else 0
+                v_w = ((w26 - w25)/w25*100) if w25 else 0
+                v_p_str = f"{'+' if v_p>0 else ''}{v_p:.1f}%"
+                v_w_str = f"{'+' if v_w>0 else ''}{v_w:.1f}%"
+                alcance_txt = f"Var. Pesos: {v_w_str}"
+                alcance_principal = v_p_str
+        except: pass
+    else:
+        alcance_principal = "0%"
+
+    # 2. Configuración de la Imagen de Fondo
+    tienda_b64 = obtener_imagen_base64("Tienda.jpg")
+    bg_css = f"background-image: linear-gradient(rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.95)), url('{tienda_b64}');" if tienda_b64 else "background-color: #0f172a;"
+
+    # 3. HTML del Dashboard Lobby
+    html_lobby = f"""
+    <div style="{bg_css} background-size: cover; background-position: center; border-radius: 16px; padding: 50px 40px; box-shadow: 0 20px 40px rgba(0,0,0,0.5);">
+        
+        <!-- Etiqueta Versión Top Right -->
+        <div style="position: absolute; top: 30px; right: 40px; text-align: right; color: white; font-size: 13px;">
+            <p style="margin:0;"><span style="color: #E30613; font-weight:bold;">Versión</span> 2.0</p>
+            <p style="margin:0;">Zona Occidente</p>
+        </div>
+
+        <!-- Header Central -->
+        <div class="lobby-header">
+            <h1 style="color: #E30613; font-size: 55px; font-weight: 900; font-style: italic; letter-spacing: -2px; margin: 0; line-height: 1;">flexi<span style="font-size: 20px; vertical-align: super;">®</span></h1>
+            <div style="width: 60px; height: 3px; background-color: #E30613; margin: 5px auto 15px auto; border-radius: 5px;"></div>
+            <h1>MONITOR COMERCIAL</h1>
+            <h2>ZONA OCCIDENTE</h2>
+            <p>Inteligencia que impulsa decisiones</p>
+        </div>
+
+        <!-- Fila de KPIs -->
+        <div class="kpi-row-lobby">
+            <div class="kpi-card-lobby">
+                <div class="kpi-icon-lobby">📦</div>
+                <div class="kpi-data-lobby">
+                    <h3>{alcance_principal}</h3>
+                    <p>Var. Pares | {alcance_txt}</p>
+                </div>
+            </div>
+            <div class="kpi-card-lobby">
+                <div class="kpi-icon-lobby">📈</div>
+                <div class="kpi-data-lobby">
+                    <h3>{conv_val}</h3>
+                    <p>Conversión Promedio</p>
+                </div>
+            </div>
+            <div class="kpi-card-lobby">
+                <div class="kpi-icon-lobby">💲</div>
+                <div class="kpi-data-lobby">
+                    <h3>{tkt_val}</h3>
+                    <p>Ticket Promedio</p>
+                </div>
+            </div>
+            <div class="kpi-card-lobby">
+                <div class="kpi-icon-lobby">📅</div>
+                <div class="kpi-data-lobby">
+                    <h3 style="font-size: 18px;">{fecha_val.split(' - ')[0] if ' - ' in fecha_val else fecha_val}</h3>
+                    <p>Última actualización</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    """
     
-    col1, esp, col2 = st.columns([1, 0.1, 1])
+    st.markdown(html_lobby, unsafe_allow_html=True)
+    
+    # 4. Tarjetas de Acción (Streamlit Columns)
+    col1, esp, col2 = st.columns([1, 0.05, 1])
     
     with col1:
         st.markdown("""
-        <div class='card-inicio'>
-            <div class='card-title'>👥 OPERACIÓN COMERCIAL</div>
-            <div class='card-desc'>Herramientas para el seguimiento diario de tiendas, desempeño comercial, bitácoras y capacitación.</div>
+        <div class="action-card-lobby">
+            <div class="action-icon-circle">👤</div>
+            <div class="action-texts">
+                <h3>OPERACIÓN COMERCIAL</h3>
+                <p>Seguimiento diario de la operación</p>
+            </div>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("INGRESAR MÓDULO OPERATIVO", type="primary", use_container_width=True):
+        if st.button("INGRESAR", key="btn_op", use_container_width=True):
             st.session_state.vista_actual = 'Operativo'
             st.rerun()
 
     with col2:
         st.markdown("""
-        <div class='card-inicio'>
-            <div class='card-title'>📈 DECISIONES ESTRATÉGICAS 🔒</div>
-            <div class='card-desc'>Acceso exclusivo para la Gerencia Comercial. Inteligencia y análisis para la toma de decisiones.</div>
+        <div class="action-card-lobby">
+            <div class="action-icon-circle">🔒</div>
+            <div class="action-texts">
+                <h3>CENTRO DE INTELIGENCIA COMERCIAL</h3>
+                <p>Acceso exclusivo para usuarios autorizados</p>
+            </div>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("INGRESAR MÓDULO ESTRATÉGICO", use_container_width=True):
+        if st.button("INGRESAR", key="btn_est", use_container_width=True):
             st.session_state.vista_actual = 'Login_Estrategico'
             st.rerun()
 
@@ -384,22 +498,24 @@ if st.session_state.vista_actual == 'Inicio':
 # PANTALLA 2: LOGIN ESTRATÉGICO
 # ==============================================================================
 elif st.session_state.vista_actual == 'Login_Estrategico':
-    st.markdown("<h1 style='color: white; margin-bottom: 30px;'>🔐 Autenticación Gerencial</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='color: #E30613; margin-bottom: 30px; text-align: center; margin-top: 50px;'>🔐 Autenticación Gerencial</h1>", unsafe_allow_html=True)
     
-    col_l, col_r = st.columns([1, 2])
-    with col_l:
+    col_esp1, col_center, col_esp2 = st.columns([1, 1.5, 1])
+    with col_center:
+        st.markdown("<div style='background: #1e293b; padding: 40px; border-radius: 16px; border: 1px solid #334155; text-align: center;'>", unsafe_allow_html=True)
         clave = st.text_input("Ingrese contraseña de acceso:", type="password")
+        st.write("<br>", unsafe_allow_html=True)
         if st.button("Validar Acceso", type="primary", use_container_width=True):
             if clave == "Flexi2026":
                 st.session_state.vista_actual = 'Estrategico'
                 st.rerun()
             else:
                 st.error("❌ Contraseña incorrecta.")
-        
         st.write("<br>", unsafe_allow_html=True)
         if st.button("← Volver al Inicio", use_container_width=True):
             st.session_state.vista_actual = 'Inicio'
             st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
 # ==============================================================================
 # PANTALLA 3: MÓDULO OPERATIVO (Las 9 Pestañas Originales)
@@ -1135,9 +1251,16 @@ elif st.session_state.vista_actual == 'Estrategico':
             
     st.write("---")
 
-    tab_monitor = st.tabs(["📡 Monitor Estratégico"])
+    # NUEVAS PESTAÑAS ESTRATÉGICAS
+    tab_monitor, tab_impacto, tab_demanda, tab_nivelacion_intel, tab_macro = st.tabs([
+        "📡 Monitor Estratégico", 
+        "💰 Impacto Financiero por quiebre", 
+        "📊 Diagnóstico de Demanda", 
+        "🧠 Nivelación Inteligente", 
+        "🌍 Correlación Macroeconómica (INPC)"
+    ])
     
-    with tab_monitor[0]:
+    with tab_monitor:
         st.subheader("🎯 Monitor Estratégico (Conexión en Tiempo Real)")
         st.write("Conexión directa con la base de datos maestra en la nube para cruce de inteligencia.")
         
@@ -1159,10 +1282,26 @@ elif st.session_state.vista_actual == 'Estrategico':
                 st.error("Error de permisos (403): Verifique que el correo de servicio tenga acceso al archivo de Sheets.")
             except Exception as e:
                 st.error(f"Ocurrió un error inesperado de conexión: {e}")
+                
+    with tab_impacto:
+        st.subheader("💰 Impacto Financiero por quiebre")
+        st.info("Módulo en construcción. Calculando fuga de capital...")
+        
+    with tab_demanda:
+        st.subheader("📊 Diagnóstico de Demanda")
+        st.info("Módulo en construcción. Análisis multivariable de factores...")
+        
+    with tab_nivelacion_intel:
+        st.subheader("🧠 Nivelación Inteligente")
+        st.info("Módulo en construcción. Algoritmos de sugerencia de stock...")
+        
+    with tab_macro:
+        st.subheader("🌍 Correlación Macroeconómica (INPC)")
+        st.info("Módulo en construcción. Cruzando ticket promedio vs inflación...")
 
-# PIE DE PÁGINA (Siempre visible, con el estilo original que solicitó)
+# --- PIE DE PÁGINA (ESTÁTICO Y SIEMPRE VISIBLE) ---
 st.markdown("""
     <div class="footer">
-        © 2026 Gerencia Comercial Zona Occidente | KPIs Administrados por LAE. José Martín Estrada Cabrera
+        Monitor Comercial Flexi Occidente | Información confiable para decisiones oportunas
     </div>
     """, unsafe_allow_html=True)
