@@ -1297,7 +1297,74 @@ elif st.session_state.vista_actual == 'Estrategico':
                 
     with tab_impacto:
         st.subheader("💰 Impacto Financiero por quiebre")
-        st.info("Módulo en construcción. Calculando fuga de capital...")
+        st.write("Proyección estadística de fugas de capital basada en el monitoreo de piso de venta.")
+        
+        if st.button("Ejecutar Motor de Proyección", type="primary"):
+            with st.spinner("Procesando y cruzando datos de la base maestra..."):
+                try:
+                    scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+                    creds = ServiceAccountCredentials.from_json_keyfile_dict(dict(st.secrets["gcp_service_account"]), scope)
+                    client_gs = gspread.authorize(creds)
+                    
+                    archivo = client_gs.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM')
+                    sheet = archivo.get_worksheet(0)
+                    datos = sheet.get_all_values()
+                    
+                    if len(datos) > 1:
+                        df_bitacora = pd.DataFrame(datos[1:], columns=datos[0])
+                        df_bitacora.columns = df_bitacora.columns.str.strip()
+                        
+                        # Mapeo dinámico de columnas por seguridad
+                        col_incidencia = next((c for c in df_bitacora.columns if 'Incidencia' in c or 'Factor' in c), df_bitacora.columns[3])
+                        col_status = next((c for c in df_bitacora.columns if 'Status' in c or 'Validacion' in c), df_bitacora.columns[-1])
+                        col_precio = next((c for c in df_bitacora.columns if 'Precio' in c), df_bitacora.columns[-2])
+                        col_tienda = next((c for c in df_bitacora.columns if 'Tienda' in c), df_bitacora.columns[1])
+                        col_modelo = next((c for c in df_bitacora.columns if 'Modelo' in c), df_bitacora.columns[-4])
+                        
+                        # 1. Filtramos solo Faltantes que estén VALIDADOS
+                        df_quiebres = df_bitacora[
+                            (df_bitacora[col_incidencia].astype(str).str.contains("Faltante", case=False, na=False)) & 
+                            (df_bitacora[col_status].astype(str).str.upper() == "VALIDADO")
+                        ].copy()
+                        
+                        # Convertimos precio a número para poder sumar
+                        df_quiebres[col_precio] = pd.to_numeric(df_quiebres[col_precio], errors='coerce').fillna(0)
+                        
+                        # 2. Cálculos de Proyección
+                        tiendas_piloto = df_bitacora[col_tienda].nunique()
+                        if tiendas_piloto == 0: tiendas_piloto = 1
+                        total_tiendas = 19
+                        factor_proyeccion = total_tiendas / tiendas_piloto
+                        
+                        perdida_real = df_quiebres[col_precio].sum()
+                        proyeccion_total = perdida_real * factor_proyeccion
+                        
+                        # 3. Despliegue de Resultados Ejecutivos
+                        st.markdown("---")
+                        col1, col2, col3 = st.columns(3)
+                        
+                        col1.metric("Cobertura Piloto", f"{tiendas_piloto} de {total_tiendas} Tdas", f"{int((tiendas_piloto/total_tiendas)*100)}% de Operación")
+                        col2.metric("Venta Perdida (Real)", f"${perdida_real:,.2f}", f"{len(df_quiebres)} quiebres validados", delta_color="inverse")
+                        col3.metric("Proyección Zona (19 Tdas)", f"${proyeccion_total:,.2f}", f"Factor de Expansión: {factor_proyeccion:.2f}x", delta_color="off")
+                        
+                        st.markdown("---")
+                        c_graf, c_tab = st.columns([2, 1])
+                        
+                        with c_graf:
+                            st.write("### 🏢 Fuga de Capital por Sucursal")
+                            impacto_tda = df_quiebres.groupby(col_tienda)[col_precio].sum().sort_values(ascending=False)
+                            st.bar_chart(impacto_tda)
+                            
+                        with c_tab:
+                            st.write("### 👟 Top Modelos Quebrados")
+                            ranking_mod = df_quiebres.groupby(col_modelo)[col_precio].sum().sort_values(ascending=False).head(10).reset_index()
+                            ranking_mod.columns = ['Modelo', 'Fuga ($)']
+                            st.dataframe(ranking_mod.style.format({'Fuga ($)': '${:,.2f}'}), use_container_width=True)
+                            
+                    else:
+                        st.warning("No hay suficientes registros en la bitácora para proyectar.")
+                except Exception as e:
+                    st.error(f"Error procesando el cruce de datos: {e}")
         
     with tab_demanda:
         st.subheader("📊 Diagnóstico de Demanda")
@@ -1314,6 +1381,6 @@ elif st.session_state.vista_actual == 'Estrategico':
 # --- PIE DE PÁGINA (ESTÁTICO Y SIEMPRE VISIBLE) ---
 st.markdown("""
     <div class="footer">
-        KPI"s desarrollados por el LAE. José Martín Estrada Cabrera | © 2026 Todos los Derechos Reservados
+        KPI's desarrollados por el LAE. José Martín Estrada Cabrera | © 2026 Todos los Derechos Reservados
     </div>
     """, unsafe_allow_html=True)
