@@ -1331,8 +1331,8 @@ elif st.session_state.vista_actual == 'Estrategico':
                         df_quiebres[col_precio] = pd.to_numeric(df_quiebres[col_precio], errors='coerce').fillna(0)
                         
                         # 2. Cálculos de Proyección
-                        tiendas_piloto = df_bitacora[col_tienda].nunique()
-                        if tiendas_piloto == 0: tiendas_piloto = 1
+                        tiendas_piloto = df_quiebres[col_tienda].nunique() # Ahora cuenta solo tiendas con faltantes validados
+                        if tiendas_piloto == 0: tiendas_piloto = 1 # Para evitar división por cero
                         total_tiendas = 19
                         factor_proyeccion = total_tiendas / tiendas_piloto
                         
