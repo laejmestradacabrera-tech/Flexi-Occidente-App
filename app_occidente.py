@@ -38,7 +38,6 @@ def obtener_imagen_base64(ruta_imagen):
 # --- ESTILO GLOBAL INTERACTIVO Y TEMA ---
 st.markdown("""
     <style>
-    /* CSS para ocultar el padding superior de Streamlit y dar sensación de App */
     .block-container { padding-top: 3rem; padding-bottom: 2rem; max-width: 1300px; }
     
     .footer {
@@ -62,7 +61,6 @@ st.markdown("""
     .kpi-value { font-size: 24px; color: #E30613; font-weight: bold; margin: 5px 0; }
     .kpi-delta { font-size: 15px; font-weight: bold; }
 
-    /* ESTILOS DEL NUEVO LOBBY CORPORATIVO */
     .lobby-header { text-align: center; margin-bottom: 40px; position: relative; }
     .lobby-header h1 { font-family: 'Arial Black', sans-serif; font-size: 45px; color: white; margin: 10px 0 0 0; line-height: 1.1; letter-spacing: -1px; }
     .lobby-header h2 { font-family: 'Arial', sans-serif; font-size: 20px; color: #E30613; margin-top: 5px; font-weight: bold; letter-spacing: 2px; }
@@ -79,12 +77,11 @@ st.markdown("""
     .action-texts h3 { font-size: 22px; font-weight: bold; color: white; margin: 0 0 5px 0; }
     .action-texts p { font-size: 15px; color: #94a3b8; margin: 0; }
     
-    /* Botones de acción integrados a las tarjetas */
     div[data-testid="column"]:nth-child(1) button { background-color: #E30613 !important; color: white !important; font-weight: bold !important; height: 50px !important; border-radius: 0 0 12px 12px !important; border: 1px solid #334155 !important; border-top: none !important; width: 100% !important; font-size: 16px !important; margin-top: -16px !important; transition: all 0.3s; }
     div[data-testid="column"]:nth-child(2) button { background-color: #E30613 !important; color: white !important; font-weight: bold !important; height: 50px !important; border-radius: 0 0 12px 12px !important; border: 1px solid #334155 !important; border-top: none !important; width: 100% !important; font-size: 16px !important; margin-top: -16px !important; transition: all 0.3s; }
     div[data-testid="column"] button:hover { background-color: #b9000b !important; }
     </style>
-    """, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 # --- CONFIGURACIÓN CENTRALIZADA DE GOOGLE ---
 scope = [
@@ -665,10 +662,10 @@ elif st.session_state.vista_actual == 'Operativo':
                 st.markdown("---")
                 col_clave, col_boton = st.columns([1, 2])
                 with col_clave:
-                    password_input = st.text_input("Clave de autorización", type="password")
+                    password_input = st.text_input("Clave de autorización", type="password", key="comp_clave")
                 with col_boton:
                     st.write("<br>", unsafe_allow_html=True)
-                    if st.button("🚀 Enviar Reporte Ejecutivo del Día (Tienda 56)", type="primary"):
+                    if st.button("🚀 Enviar Reporte Ejecutivo del Día (Tienda 56)", type="primary", key="comp_btn"):
                         if password_input == "T5604b":
                             tienda_obj = "56"
                             conv_actual = 0.0
@@ -757,7 +754,7 @@ elif st.session_state.vista_actual == 'Operativo':
             st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
             
             tiendas = sorted(df_m[col_t].unique())
-            t_sel = st.selectbox("Selecciona Tienda:", tiendas)
+            t_sel = st.selectbox("Selecciona Tienda:", tiendas, key="top20_tienda")
             df_tienda_data = df_m[df_m[col_t] == t_sel].groupby(col_m)[col_p].sum().reset_index()
             top_t = df_tienda_data.sort_values(by=col_p, ascending=False).head(20).reset_index(drop=True)
             top_t.columns = ['MODELO', 'PARES VENDIDOS']
@@ -768,7 +765,8 @@ elif st.session_state.vista_actual == 'Operativo':
             st.write("<br>", unsafe_allow_html=True)
             st.download_button(
                 label="📄 Descargar Formato de Auditoría (PDF Oficial)",
-                data=pdf_bytes, file_name=f"Auditoria_Top20_{t_sel}.pdf", mime="application/pdf", type="primary"
+                data=pdf_bytes, file_name=f"Auditoria_Top20_{t_sel}.pdf", mime="application/pdf", type="primary",
+                key=f"top20_download_{t_sel}"
             )
 
         with tab_top20_zona:
@@ -1034,9 +1032,9 @@ elif st.session_state.vista_actual == 'Operativo':
         
         if 'df_ventas' in st.session_state:
             tiendas = sorted(st.session_state.df_ventas['Tienda'].unique().tolist())
-            tienda_sel = st.selectbox("Selecciona la Tienda para analizar:", tiendas)
+            tienda_sel = st.selectbox("Selecciona la Tienda para analizar:", tiendas, key="nivelacion_tienda")
             
-            if st.button("Ejecutar Análisis"):
+            if st.button("Ejecutar Análisis", key="nivelacion_btn"):
                 df_tienda = st.session_state.df_ventas[
                     (st.session_state.df_ventas['Tienda'] == tienda_sel) & 
                     (~st.session_state.df_ventas['Proveedor'].isin([415, 426, 427]))
@@ -1084,7 +1082,7 @@ elif st.session_state.vista_actual == 'Operativo':
         col1, col2 = st.columns([2, 1])
         
         with col1:
-            tienda_seleccionada = st.selectbox("Selecciona la Tienda:", df_tiendas['NOMBRE'].unique())
+            tienda_seleccionada = st.selectbox("Selecciona la Tienda:", df_tiendas['NOMBRE'].unique(), key="bitacora_tienda")
         
         fila_tienda = df_tiendas[df_tiendas['NOMBRE'] == tienda_seleccionada]
         encargado_actual = fila_tienda['ENCARGADO'].values[0] if not fila_tienda.empty else "No encontrado"
@@ -1096,18 +1094,18 @@ elif st.session_state.vista_actual == 'Operativo':
                 break
                 
         with col2:
-            tienda_numero = st.text_input("N° Sucursal en SAP/Inventario (Ej. 56):", value=tda_num_defecto)
+            tienda_numero = st.text_input("N° Sucursal en SAP/Inventario (Ej. 56):", value=tda_num_defecto, key="bitacora_num")
 
         st.info(f"**Encargado(a) detectado(a):** {encargado_actual}")
             
         fecha_mexico = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
-        fecha = st.date_input("Fecha", fecha_mexico.date())
+        fecha = st.date_input("Fecha", fecha_mexico.date(), key="bitacora_fecha")
         factor = st.selectbox("Factor Principal:", [
             "👟 Faltante de Tallas (Proyecto Tallas Extremas)",
             "🌧️ Clima adverso", "📉 Bajo tráfico atípico", "🧑‍🤝‍🧑 Plantilla incompleta", 
             "🔌 Falla: VPN FortiClient", "💻 Falla: Sistema/Terminales", 
             "🚧 Afectación de acceso", "🎉 Factor externo"
-        ])
+        ], key="bitacora_factor")
         
         modelo_captura = ""
         talla_captura = 0
@@ -1115,13 +1113,13 @@ elif st.session_state.vista_actual == 'Operativo':
         status_validacion = "N/A"
 
         if "Faltante de Tallas" in factor:
-            modelo_captura = st.text_input("Modelo:")
-            talla_captura = st.number_input("Talla (Ej. 250):", min_value=150, max_value=350, step=5, value=250)
-            precio_captura = st.number_input("Precio:", min_value=0.0)
+            modelo_captura = st.text_input("Modelo:", key="bitacora_modelo")
+            talla_captura = st.number_input("Talla (Ej. 250):", min_value=150, max_value=350, step=5, value=250, key="bitacora_talla")
+            precio_captura = st.number_input("Precio:", min_value=0.0, key="bitacora_precio")
 
-        notas = st.text_area("Detalles adicionales:")
+        notas = st.text_area("Detalles adicionales:", key="bitacora_notas")
         
-        if st.button("💾 Guardar en Bitácora"):
+        if st.button("💾 Guardar en Bitácora", key="bitacora_btn"):
             puede_guardar = True
             
             if "Faltante de Tallas" in factor:
@@ -1182,7 +1180,7 @@ elif st.session_state.vista_actual == 'Operativo':
                 "Tutorial Vales de Zapatos": "https://youtu.be/6hB95lYcL1g",
                 "Tutorial mi Flexi": "https://youtu.be/WVi8geGSeOg"
             }
-            video_seleccionado = st.selectbox("Selecciona el material audiovisual a reproducir:", list(opciones_video.keys()))
+            video_seleccionado = st.selectbox("Selecciona el material audiovisual a reproducir:", list(opciones_video.keys()), key="cap_video")
             url_video = opciones_video[video_seleccionado]
             st.write("<br>", unsafe_allow_html=True)
             st.video(url_video)
