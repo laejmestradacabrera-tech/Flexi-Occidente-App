@@ -732,24 +732,24 @@ elif st.session_state.vista_actual == 'Operativo':
                             st.error("❌ Clave incorrecta. Acceso denegado para el envío.")
 
     # --- PESTAÑAS 3 Y 4: DESPLIEGUE DE RANKINGS DE MODELOS ---
-    if archivo_modelos:
-        df_m = pd.read_excel(archivo_modelos) if archivo_modelos.endswith('.xlsx') else pd.read_csv(archivo_modelos)
-        col_m = next((c for c in df_m.columns if c.lower() in ['clave', 'modelo', 'estilo']), df_m.columns[1])
-        col_p = next((c for c in df_m.columns if 'pares' in c.lower() or 'cantidad' in c.lower() or 'venta' in c.lower()), df_m.columns[2])
-        col_t = next((c for c in df_m.columns if c.lower() in ['tienda', 'sucursal']), df_m.columns[0])
-        col_prov = next((c for c in df_m.columns if 'prov' in c.lower()), None)
+    with tab_top20_tda:
+        st.subheader("👟 TOP 20 TIENDA")
+        if archivo_modelos:
+            df_m = pd.read_excel(archivo_modelos) if archivo_modelos.endswith('.xlsx') else pd.read_csv(archivo_modelos)
+            col_m = next((c for c in df_m.columns if c.lower() in ['clave', 'modelo', 'estilo']), df_m.columns[1])
+            col_p = next((c for c in df_m.columns if 'pares' in c.lower() or 'cantidad' in c.lower() or 'venta' in c.lower()), df_m.columns[2])
+            col_t = next((c for c in df_m.columns if c.lower() in ['tienda', 'sucursal']), df_m.columns[0])
+            col_prov = next((c for c in df_m.columns if 'prov' in c.lower()), None)
 
-        df_m = df_m[~df_m[col_t].astype(str).str.contains('3004|3015', na=False)]
-        if col_prov: df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])]
-        df_m = df_m[~df_m[col_m].astype(str).str.contains('BOLSA|REUSABLE', case=False, na=False)]
+            df_m = df_m[~df_m[col_t].astype(str).str.contains('3004|3015', na=False)]
+            if col_prov: df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])]
+            df_m = df_m[~df_m[col_m].astype(str).str.contains('BOLSA|REUSABLE', case=False, na=False)]
 
-        def resaltar_top_5(data):
-            estilo = pd.DataFrame('', index=data.index, columns=data.columns)
-            estilo.iloc[0:5, :] = 'background-color: #d1e7dd; color: #0f5132; font-weight: bold'
-            return estilo
+            def resaltar_top_5(data):
+                estilo = pd.DataFrame('', index=data.index, columns=data.columns)
+                estilo.iloc[0:5, :] = 'background-color: #d1e7dd; color: #0f5132; font-weight: bold'
+                return estilo
 
-        with tab_top20_tda:
-            st.subheader("👟 TOP 20 TIENDA")
             fecha_act = obtener_fecha_actualizacion(archivo_modelos)
             st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
             
@@ -768,9 +768,23 @@ elif st.session_state.vista_actual == 'Operativo':
                 data=pdf_bytes, file_name=f"Auditoria_Top20_{t_sel}.pdf", mime="application/pdf", type="primary",
                 key=f"top20_download_{t_sel}"
             )
+        else:
+            st.warning("⚠️ Archivo de Modelos no encontrado.")
 
-        with tab_top20_zona:
-            st.subheader("🌍 Consolidado Zona Occidente")
+    with tab_top20_zona:
+        st.subheader("🌍 Consolidado Zona Occidente")
+        if archivo_modelos:
+            # Re-cargamos para evitar problemas de variables no definidas si salta directamente aquí
+            df_m = pd.read_excel(archivo_modelos) if archivo_modelos.endswith('.xlsx') else pd.read_csv(archivo_modelos)
+            col_m = next((c for c in df_m.columns if c.lower() in ['clave', 'modelo', 'estilo']), df_m.columns[1])
+            col_p = next((c for c in df_m.columns if 'pares' in c.lower() or 'cantidad' in c.lower() or 'venta' in c.lower()), df_m.columns[2])
+            col_t = next((c for c in df_m.columns if c.lower() in ['tienda', 'sucursal']), df_m.columns[0])
+            col_prov = next((c for c in df_m.columns if 'prov' in c.lower()), None)
+
+            df_m = df_m[~df_m[col_t].astype(str).str.contains('3004|3015', na=False)]
+            if col_prov: df_m = df_m[~df_m[col_prov].astype(str).isin(['415', '426', '427'])]
+            df_m = df_m[~df_m[col_m].astype(str).str.contains('BOLSA|REUSABLE', case=False, na=False)]
+
             fecha_act = obtener_fecha_actualizacion(archivo_modelos)
             st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
             
@@ -778,6 +792,8 @@ elif st.session_state.vista_actual == 'Operativo':
             top_z = df_z.sort_values(by=col_p, ascending=False).head(20).reset_index(drop=True)
             top_z.columns = ['MODELO', 'PARES VENDIDOS']
             st.table(top_z.style.apply(resaltar_top_5, axis=None))
+        else:
+            st.warning("⚠️ Archivo de Modelos no encontrado.")
 
     # --- PESTAÑA 5: RATING COMERCIAL ---
     with tab_rating:
