@@ -212,7 +212,8 @@ def validar_captura_stock(tienda_id, modelo, talla_input, df_ventas, df_tallas):
         st.error(f"Error interno en validación: {e}")
         return True, ""
 
-def enviar_correo_ejecutivo(tienda_objetivo, conversion, ticket, meta_conv, meta_tkt, faltan_pares, faltan_pesos):
+# Modificada para aceptar el destinatario dinámico
+def enviar_correo_ejecutivo(tienda_objetivo, conversion, ticket, meta_conv, meta_tkt, faltan_pares, faltan_pesos, correo_destinatario="fleoutgdl@divec-flexi.com"):
     logro_conv = conversion >= meta_conv
     logro_ticket = ticket >= meta_tkt
     desviacion_conv = conversion - meta_conv
@@ -221,11 +222,12 @@ def enviar_correo_ejecutivo(tienda_objetivo, conversion, ticket, meta_conv, meta
     try:
         remitente = st.secrets["CORREO_REMITENTE"]
         password = st.secrets["CORREO_PASSWORD"]
-        destinatario = "fleoutgdl@divec-flexi.com" 
+        # Usamos el destinatario dinámico extraído del Excel
+        destinatario = correo_destinatario 
         
         asunto = f"🚀 Desempeño Comercial y Reto Acumulado - Tienda {tienda_objetivo}"
         
-        cuerpo = f"Estimada Lety y equipo de la Tienda {tienda_objetivo}:\n\n"
+        cuerpo = f"Estimada encargada y equipo de la Tienda {tienda_objetivo}:\n\n"
         cuerpo += "Les compartimos el análisis de resultados comerciales de su sucursal, obtenido directamente tras la última actualización del monitor.\n\n"
         cuerpo += "--------------------------------------------------------------------------------\n"
         
@@ -482,7 +484,7 @@ if st.session_state.vista_actual == 'Inicio':
             <div class="action-icon-circle"><svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div>
             <div class="action-texts">
                 <h3>OPERACIÓN COMERCIAL</h3>
-                <p>Seguimiento diario de la operación</p>
+                <p>Seguimiento diario de la operation</p>
             </div>
         </div>
         """
@@ -622,21 +624,22 @@ elif st.session_state.vista_actual == 'Operativo':
             df_op = pd.read_excel(archivo_comp) if archivo_comp.endswith('.xlsx') else pd.read_csv(archivo_comp)
             
             c_ano = next((c for c in df_op.columns if 'año' in c.lower() or 'ano' in c.lower()), df_op.columns[0])
-            c_tda = next((c for c in df_op.columns if 'tienda' in c.lower() or 'sucursal' in c.lower()), df_op.columns[2])
-            c_prs = next((c for c in df_op.columns if 'pares' in c.lower() or 'cant' in c.lower()), None)
-            c_imp = next((c for c in df_op.columns if 'importe' in c.lower() or 'peso' in c.lower() or 'monto' in c.lower()), None)
+            c_tda_op = next((c for c in df_op.columns if 'tienda' in c.lower() or 'sucursal' in c.lower()), df_op.columns[2])
+            c_prs_op = next((c for c in df_op.columns if 'pares' in c.lower() or 'cant' in c.lower()), None)
+            c_imp_op = next((c for c in df_op.columns if 'importe' in c.lower() or 'peso' in c.lower() or 'monto' in c.lower()), None)
             c_prov = next((c for c in df_op.columns if 'prov' in c.lower()), None)
             c_tipo = next((c for c in df_op.columns if 'tipo' in c.lower() or 'concepto' in c.lower()), None)
             
-            if c_prs and c_imp:
-                df_op[c_tda] = df_op[c_tda].astype(str).str.strip()
-                df_op = df_op[~df_op[c_tda].str.contains('3004|3015', na=False)]
+            if c_prs_op and c_imp_op:
+                df_op_display = df_op.copy()
+                df_op_display[c_tda_op] = df_op_display[c_tda_op].astype(str).str.strip()
+                df_op_display = df_op_display[~df_op_display[c_tda_op].str.contains('3004|3015', na=False)]
                 if c_prov:
-                    df_op = df_op[~df_op[c_prov].astype(str).str.strip().isin(['415', '426', '427'])]
+                    df_op_display = df_op_display[~df_op_display[c_prov].astype(str).str.strip().isin(['415', '426', '427'])]
                 if c_tipo:
-                    df_op = df_op[~df_op[c_tipo].astype(str).str.contains('BOLSA|REUSABLE|BOLSO', case=False, na=False)]
+                    df_op_display = df_op_display[~df_op_display[c_tipo].astype(str).str.contains('BOLSA|REUSABLE|BOLSO', case=False, na=False)]
                 
-                resumen = df_op.groupby([c_tda, c_ano])[[c_prs, c_imp]].sum().unstack(fill_value=0)
+                resumen = df_op_display.groupby([c_tda_op, c_ano])[[c_prs_op, c_imp_op]].sum().unstack(fill_value=0)
                 resumen.columns = ['Pares 2025', 'Pares 2026', 'Pesos 2025', 'Pesos 2026']
                 resumen = resumen.reset_index()
                 resumen.columns = ['TIENDA', 'PARES 2025', 'PARES 2026', 'PESOS 2025', 'PESOS 2026']
@@ -688,76 +691,105 @@ elif st.session_state.vista_actual == 'Operativo':
                 
                 st.write("<br>", unsafe_allow_html=True)
                 st.markdown("---")
+                
+                # SECCIÓN DE ENVÍO MASIVO ("BOTÓN NUCLEAR")
+                st.markdown("### 📧 Plataforma de Comunicación Ejecutiva")
                 col_clave, col_boton = st.columns([1, 2])
                 with col_clave:
-                    password_input = st.text_input("Clave de autorización", type="password", key="comp_clave")
+                    password_input = st.text_input("Clave de autorización:", type="password", key="comp_clave")
+                    confirmar_envio = st.checkbox("Confirmo el envío masivo a toda la Zona Occidente.", key="confirmar_envio")
                 with col_boton:
                     st.write("<br>", unsafe_allow_html=True)
-                    if st.button("🚀 Enviar Reporte Ejecutivo del Día (Tienda 56)", type="primary", key="comp_btn"):
+                    if st.button("🚀 ENVIAR REPORTE A TODAS LAS TIENDAS", type="primary", key="comp_btn_masivo", use_container_width=True):
                         if password_input == "T5604b":
-                            tienda_obj = "56"
-                            conv_actual = 0.0
-                            tkt_actual = 0.0
-                            
-                            if archivo_conv:
-                                try:
-                                    df_c = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
-                                    df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
-                                    col_tda_c = next((c for c in df_c.columns if 'Tienda' in c or 'TIENDA' in c), df_c.columns[0])
-                                    col_conv_real = next((c for c in df_c.columns if 'Conv' in c and 'Actual' in c), None)
-                                    col_tkt_real = next((c for c in df_c.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
-                                    
-                                    df_c['CONVERSIÓN'] = df_c[col_conv_real].apply(lambda x: x*100 if x < 1 else x)
-                                    df_c['TICKET PROMEDIO'] = df_c[col_tkt_real]
-                                    
-                                    fila_c = df_c[df_c[col_tda_c].astype(str).str.contains(tienda_obj, na=False)]
-                                    if not fila_c.empty:
-                                        conv_actual = float(fila_c.iloc[0]['CONVERSIÓN'])
-                                        tkt_actual = float(fila_c.iloc[0]['TICKET PROMEDIO'])
-                                except: pass
+                            if not confirmar_envio:
+                                st.warning("⚠️ Debes marcar la casilla de confirmación para habilitar el envío masivo.")
+                            else:
+                                # 1. Preparamos DataFrames globales para no leer los archivos 19 veces
+                                df_tdas_envio = cargar_tiendas()
+                                df_tdas_envio.columns = df_tdas_envio.columns.astype(str).str.strip().str.upper()
+                                col_id_tda_envio = next((c for c in df_tdas_envio.columns if c in ['TIENDA', 'SUCURSAL', 'NUMERO', 'ID']), df_tdas_envio.columns[0])
+                                col_correo_envio = next((c for c in df_tdas_envio.columns if 'CORREO' in c or 'EMAIL' in c), None)
 
-                            faltan_pares_calc = 0
-                            faltan_pesos_calc = 0.0
-                            
-                            if archivo_comp:
-                                try:
-                                    df_op = pd.read_excel(archivo_comp) if archivo_comp.endswith('.xlsx') else pd.read_csv(archivo_comp)
-                                    c_ano = next((c for c in df_op.columns if 'año' in c.lower() or 'ano' in c.lower()), df_op.columns[0])
-                                    c_tda = next((c for c in df_op.columns if 'tienda' in c.lower() or 'sucursal' in c.lower()), df_op.columns[2])
-                                    c_prs = next((c for c in df_op.columns if 'pares' in c.lower() or 'cant' in c.lower()), None)
-                                    c_imp = next((c for c in df_op.columns if 'importe' in c.lower() or 'peso' in c.lower() or 'monto' in c.lower()), None)
-                                    c_prov = next((c for c in df_op.columns if 'prov' in c.lower()), None)
-                                    c_tipo = next((c for c in df_op.columns if 'tipo' in c.lower() or 'concepto' in c.lower()), None)
+                                if archivo_conv:
+                                    df_c_envio = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
+                                    df_c_envio = df_c_envio[~df_c_envio.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
+                                    col_tda_c = next((c for c in df_c_envio.columns if 'Tienda' in c or 'TIENDA' in c), df_c_envio.columns[0])
+                                    col_conv_real = next((c for c in df_c_envio.columns if 'Conv' in c and 'Actual' in c), None)
+                                    col_tkt_real = next((c for c in df_c_envio.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
+                                    df_c_envio['CONVERSIÓN'] = df_c_envio[col_conv_real].apply(lambda x: x*100 if x < 1 else x)
+                                    df_c_envio['TICKET PROMEDIO'] = df_c_envio[col_tkt_real]
+
+                                # 2. Barras de estado UI
+                                progress_bar = st.progress(0)
+                                status_text = st.empty()
+                                success_count = 0
+                                
+                                total_tiendas = len(df_tdas_envio)
+                                
+                                # 3. Iniciamos el Bucle sobre todas las tiendas de CORREO DE TIENDAS.xlsx
+                                for idx, row_tda in df_tdas_envio.iterrows():
+                                    tda_raw = str(row_tda[col_id_tda_envio])
+                                    match = re.search(r'\d+', tda_raw)
+                                    if not match:
+                                        continue # Si no encuentra un número válido, salta.
+                                        
+                                    tienda_obj = match.group()
                                     
-                                    if c_prs and c_imp:
-                                        df_op[c_tda] = df_op[c_tda].astype(str).str.strip()
-                                        df_op = df_op[~df_op[c_tda].str.contains('3004|3015', na=False)]
-                                        if c_prov: df_op = df_op[~df_op[c_prov].astype(str).str.strip().isin(['415', '426', '427'])]
-                                        if c_tipo: df_op = df_op[~df_op[c_tipo].astype(str).str.contains('BOLSA|REUSABLE|BOLSO', case=False, na=False)]
+                                    # Extraer el correo de la base o poner fallback por seguridad
+                                    correo_oficial = str(row_tda[col_correo_envio]).strip() if col_correo_envio else "fleoutgdl@divec-flexi.com"
+                                    if correo_oficial.lower() == 'nan' or not correo_oficial:
+                                        correo_oficial = "fleoutgdl@divec-flexi.com"
+
+                                    status_text.text(f"Procesando y enviando reporte a Tienda {tienda_obj}...")
+
+                                    # Cálculo de variables por tienda
+                                    conv_actual = 0.0
+                                    tkt_actual = 0.0
+                                    if archivo_conv and 'df_c_envio' in locals():
+                                        fila_c = df_c_envio[df_c_envio[col_tda_c].astype(str).str.contains(tienda_obj, na=False)]
+                                        if not fila_c.empty:
+                                            conv_actual = float(fila_c.iloc[0]['CONVERSIÓN'])
+                                            tkt_actual = float(fila_c.iloc[0]['TICKET PROMEDIO'])
+
+                                    faltan_pares_calc = 0
+                                    faltan_pesos_calc = 0.0
+                                    if archivo_comp and c_prs_op and c_imp_op:
+                                        # Utilizamos df_op que ya está filtrado por año
+                                        df_filtrado_env = df_op[df_op[c_tda_op].str.contains(tienda_obj, na=False)]
+                                        if not df_filtrado_env.empty:
+                                            res_env = df_filtrado_env.groupby(c_ano)[[c_prs_op, c_imp_op]].sum()
                                             
-                                        df_filtrado = df_op[df_op[c_tda].str.contains(tienda_obj, na=False)]
-                                        res = df_filtrado.groupby(c_ano)[[c_prs, c_imp]].sum()
+                                            pares_2025 = int(res_env.get(c_prs_op).get(2025, 0)) if 2025 in res_env.index else 0
+                                            pares_2026 = int(res_env.get(c_prs_op).get(2026, 0)) if 2026 in res_env.index else 0
+                                            pesos_2025 = float(res_env.get(c_imp_op).get(2025, 0.0)) if 2025 in res_env.index else 0.0
+                                            pesos_2026 = float(res_env.get(c_imp_op).get(2026, 0.0)) if 2026 in res_env.index else 0.0
+                                            
+                                            faltan_pares_calc = pares_2025 - pares_2026
+                                            faltan_pesos_calc = pesos_2025 - pesos_2026
+
+                                    # Enviar correo llamando a la función y pasándole el destinatario dinámico
+                                    resultado_alerta = enviar_correo_ejecutivo(
+                                        tienda_objetivo=tienda_obj, 
+                                        conversion=conv_actual, 
+                                        ticket=tkt_actual, 
+                                        meta_conv=10.9, 
+                                        meta_tkt=1.29, 
+                                        faltan_pares=faltan_pares_calc, 
+                                        faltan_pesos=faltan_pesos_calc,
+                                        correo_destinatario=correo_oficial
+                                    )
+                                    
+                                    if "✅" in resultado_alerta:
+                                        success_count += 1
                                         
-                                        pares_2025 = int(res.get(c_prs).get(2025, 0))
-                                        pares_2026 = int(res.get(c_prs).get(2026, 0))
-                                        pesos_2025 = float(res.get(c_imp).get(2025, 0.0))
-                                        pesos_2026 = float(res.get(c_imp).get(2026, 0.0))
-                                        
-                                        faltan_pares_calc = pares_2025 - pares_2026
-                                        faltan_pesos_calc = pesos_2025 - pesos_2026
-                                except: pass
-                            
-                            with st.spinner("Enviando reporte ejecutivo..."):
-                                resultado_alerta = enviar_correo_ejecutivo(
-                                    tienda_objetivo=tienda_obj, conversion=conv_actual, ticket=tkt_actual, 
-                                    meta_conv=10.9, meta_tkt=1.29, faltan_pares=faltan_pares_calc, faltan_pesos=faltan_pesos_calc
-                                )
-                            
-                            if resultado_alerta:
-                                if "✅" in resultado_alerta: st.success(resultado_alerta)
-                                else: st.error(resultado_alerta)
+                                    # Update UI
+                                    progress_bar.progress((idx + 1) / total_tiendas)
+                                    
+                                status_text.text("Completado.")
+                                st.success(f"✅ ¡Operación exitosa! Se enviaron reportes ejecutivos a {success_count} sucursales.")
                         else:
-                            st.error("❌ Clave incorrecta. Acceso denegado para el envío.")
+                            st.error("❌ Clave incorrecta. Acceso denegado para el envío masivo.")
 
     # --- PESTAÑAS 3 Y 4: DESPLIEGUE DE RANKINGS DE MODELOS ---
     elif modulo_activo == "👟 Top 20 Tiendas":
@@ -1146,7 +1178,7 @@ elif st.session_state.vista_actual == 'Operativo':
             st.markdown("**N° Sucursal en SAP/Inventario:**")
             st.info(f"🏪 {tda_num_defecto}")
             
-        # Asignamos el valor directamente a la variable para que el sistema lo use
+        # Asignamos el valor directamente en la memoria para la validación
         tienda_numero = tda_num_defecto
 
         st.info(f"**Encargado(a) detectado(a):** {encargado_actual}")
