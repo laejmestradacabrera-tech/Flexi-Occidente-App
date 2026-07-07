@@ -1143,7 +1143,11 @@ elif st.session_state.vista_actual == 'Operativo':
                 break
                 
         with col2:
-            tienda_numero = st.text_input("N° Sucursal en SAP/Inventario (Ej. 56):", value=tda_num_defecto, key="bitacora_num")
+            st.markdown("**N° Sucursal en SAP/Inventario:**")
+            st.info(f"🏪 {tda_num_defecto}")
+            
+        # Asignamos el valor directamente a la variable para que el sistema lo use
+        tienda_numero = tda_num_defecto
 
         st.info(f"**Encargado(a) detectado(a):** {encargado_actual}")
             
