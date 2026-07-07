@@ -38,6 +38,7 @@ def obtener_imagen_base64(ruta_imagen):
 # --- ESTILO GLOBAL INTERACTIVO Y TEMA ---
 st.markdown("""
     <style>
+    /* CSS para ocultar el padding superior de Streamlit y dar sensación de App */
     .block-container { padding-top: 3rem; padding-bottom: 2rem; max-width: 1300px; }
     
     .footer {
@@ -61,6 +62,7 @@ st.markdown("""
     .kpi-value { font-size: 24px; color: #E30613; font-weight: bold; margin: 5px 0; }
     .kpi-delta { font-size: 15px; font-weight: bold; }
 
+    /* ESTILOS DEL NUEVO LOBBY CORPORATIVO */
     .lobby-header { text-align: center; margin-bottom: 40px; position: relative; }
     .lobby-header h1 { font-family: 'Arial Black', sans-serif; font-size: 45px; color: white; margin: 10px 0 0 0; line-height: 1.1; letter-spacing: -1px; }
     .lobby-header h2 { font-family: 'Arial', sans-serif; font-size: 20px; color: #E30613; margin-top: 5px; font-weight: bold; letter-spacing: 2px; }
@@ -77,11 +79,12 @@ st.markdown("""
     .action-texts h3 { font-size: 22px; font-weight: bold; color: white; margin: 0 0 5px 0; }
     .action-texts p { font-size: 15px; color: #94a3b8; margin: 0; }
     
+    /* Botones de acción integrados a las tarjetas */
     div[data-testid="column"]:nth-child(1) button { background-color: #E30613 !important; color: white !important; font-weight: bold !important; height: 50px !important; border-radius: 0 0 12px 12px !important; border: 1px solid #334155 !important; border-top: none !important; width: 100% !important; font-size: 16px !important; margin-top: -16px !important; transition: all 0.3s; }
     div[data-testid="column"]:nth-child(2) button { background-color: #E30613 !important; color: white !important; font-weight: bold !important; height: 50px !important; border-radius: 0 0 12px 12px !important; border: 1px solid #334155 !important; border-top: none !important; width: 100% !important; font-size: 16px !important; margin-top: -16px !important; transition: all 0.3s; }
     div[data-testid="column"] button:hover { background-color: #b9000b !important; }
     </style>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
 # --- CONFIGURACIÓN CENTRALIZADA DE GOOGLE ---
 scope = [
@@ -527,34 +530,59 @@ elif st.session_state.vista_actual == 'Login_Estrategico':
         st.markdown("</div>", unsafe_allow_html=True)
 
 # ==============================================================================
-# PANTALLA 3: MÓDULO OPERATIVO (Las 9 Pestañas Originales)
+# PANTALLA 3: MÓDULO OPERATIVO OPTIMIZADO
 # ==============================================================================
 elif st.session_state.vista_actual == 'Operativo':
+
     # Barra superior de navegación rápida
     col_nav1, col_nav2 = st.columns([4, 1])
+
     with col_nav1:
-        st.markdown("<h2 style='color: #E30613; margin-top: 0;'>Panel de Operación Comercial</h2>", unsafe_allow_html=True)
+        st.markdown(
+            "<h2 style='color: #E30613; margin-top: 0;'>"
+            "Panel de Operación Comercial"
+            "</h2>",
+            unsafe_allow_html=True
+        )
+
     with col_nav2:
-        if st.button("← Volver al Menú Principal", use_container_width=True):
+        if st.button(
+            "← Volver al Menú Principal",
+            use_container_width=True,
+            key="volver_menu_operativo"
+        ):
             st.session_state.vista_actual = 'Inicio'
             st.rerun()
-            
+
     st.write("---")
 
-    tab_desempeno, tab_comparativo, tab_top20_tda, tab_top20_zona, tab_rating, tab_nivelacion, tab_bitacora, tab_ruta, tab_capacitacion = st.tabs([
-        "📊 Desempeño Comercial", 
+    # --------------------------------------------------------------------------
+    # NAVEGACIÓN OPERATIVA
+    # --------------------------------------------------------------------------
+    modulos_operativos = [
+        "📊 Desempeño Comercial",
         "📈 Comparativo Mensual",
-        "👟 Top 20 Tiendas", 
-        "🌍 Top 20 Zona", 
+        "👟 Top 20 Tiendas",
+        "🌍 Top 20 Zona",
         "🏆 Rating Comercial",
         "🔄 Nivelación de Stock",
-        "📝 Bitácora", 
-        "🧭 Ruta Cliente", 
+        "📝 Bitácora",
+        "🧭 Ruta Cliente",
         "🎓 Capacitación"
-    ])
+    ]
+
+    modulo_activo = st.radio(
+        "Selecciona módulo operativo:",
+        options=modulos_operativos,
+        horizontal=True,
+        key="navegacion_operativa",
+        label_visibility="collapsed"
+    )
+
+    st.markdown("---")
 
     # --- PESTAÑA 1: DESEMPEÑO COMERCIAL ---
-    with tab_desempeno:
+    if modulo_activo == "📊 Desempeño Comercial":
         st.subheader("📊 DESEMPEÑO COMERCIAL")
         fecha_act = obtener_fecha_actualizacion(archivo_conv)
         st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
@@ -585,7 +613,7 @@ elif st.session_state.vista_actual == 'Operativo':
                 st.table(ranking.style.apply(color_semaforo, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))            
 
     # --- PESTAÑA 2: COMPARATIVO MENSUAL ---
-    with tab_comparativo:
+    elif modulo_activo == "📈 Comparativo Mensual":
         st.subheader("📈 Análisis Comparativo de Calzado Mensual")
         fecha_act = obtener_fecha_actualizacion(archivo_comp)
         st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
@@ -732,7 +760,7 @@ elif st.session_state.vista_actual == 'Operativo':
                             st.error("❌ Clave incorrecta. Acceso denegado para el envío.")
 
     # --- PESTAÑAS 3 Y 4: DESPLIEGUE DE RANKINGS DE MODELOS ---
-    with tab_top20_tda:
+    elif modulo_activo == "👟 Top 20 Tiendas":
         st.subheader("👟 TOP 20 TIENDA")
         if archivo_modelos:
             df_m = pd.read_excel(archivo_modelos) if archivo_modelos.endswith('.xlsx') else pd.read_csv(archivo_modelos)
@@ -771,7 +799,7 @@ elif st.session_state.vista_actual == 'Operativo':
         else:
             st.warning("⚠️ Archivo de Modelos no encontrado.")
 
-    with tab_top20_zona:
+    elif modulo_activo == "🌍 Top 20 Zona":
         st.subheader("🌍 Consolidado Zona Occidente")
         if archivo_modelos:
             # Re-cargamos para evitar problemas de variables no definidas si salta directamente aquí
@@ -788,6 +816,11 @@ elif st.session_state.vista_actual == 'Operativo':
             fecha_act = obtener_fecha_actualizacion(archivo_modelos)
             st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
             
+            def resaltar_top_5(data):
+                estilo = pd.DataFrame('', index=data.index, columns=data.columns)
+                estilo.iloc[0:5, :] = 'background-color: #d1e7dd; color: #0f5132; font-weight: bold'
+                return estilo
+
             df_z = df_m.groupby(col_m)[col_p].sum().reset_index()
             top_z = df_z.sort_values(by=col_p, ascending=False).head(20).reset_index(drop=True)
             top_z.columns = ['MODELO', 'PARES VENDIDOS']
@@ -796,7 +829,7 @@ elif st.session_state.vista_actual == 'Operativo':
             st.warning("⚠️ Archivo de Modelos no encontrado.")
 
     # --- PESTAÑA 5: RATING COMERCIAL ---
-    with tab_rating:
+    elif modulo_activo == "🏆 Rating Comercial":
         try:
             with st.spinner("Actualizando Liga de Campeones en tiempo real..."):
                 df_conv_r = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
@@ -1039,7 +1072,7 @@ elif st.session_state.vista_actual == 'Operativo':
             st.error(f"Error al cargar el Rating: {e}")
 
     # --- PESTAÑA 6: NIVELACIÓN DE STOCK ---
-    with tab_nivelacion:
+    elif modulo_activo == "🔄 Nivelación de Stock":
         st.markdown("<h2 style='color: #B22222;'>📈 Monitor de Nivelación Flexi Occidente</h2>", unsafe_allow_html=True)
         fecha_act = obtener_fecha_actualizacion("Ventas.xlsx")
         st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
@@ -1091,7 +1124,7 @@ elif st.session_state.vista_actual == 'Operativo':
             st.warning("Archivos de ventas o tallas no encontrados localmente.")
 
     # --- PESTAÑA 7: BITÁCORA ---
-    with tab_bitacora:
+    elif modulo_activo == "📝 Bitácora":
         st.subheader("📝 Registro de Incidencias Operativas")
         df_tiendas = cargar_tiendas()
         
@@ -1174,7 +1207,7 @@ elif st.session_state.vista_actual == 'Operativo':
                     st.error(f"❌ Error al intentar guardar en Google Sheets: {e}")
 
     # --- PESTAÑA 8: RUTA DEL CLIENTE ---
-    with tab_ruta:
+    elif modulo_activo == "🧭 Ruta Cliente":
         st.subheader("🧭 Protocolo Operativo en Piso de Venta")
         nombre_imagen = "RC Zona Occidente.png"
         if os.path.exists(nombre_imagen):
@@ -1183,7 +1216,7 @@ elif st.session_state.vista_actual == 'Operativo':
             st.warning("⚠️ La imagen 'RC Zona Occidente.png' aún no se encuentra en GitHub.")
 
     # --- PESTAÑA 9: CAPACITACIÓN ---
-    with tab_capacitacion:
+    elif modulo_activo == "🎓 Capacitación":
         st.markdown("## 🎓 Centro de Capacitación y Desarrollo Operativo")
         st.write("Bienvenido al espacio interactivo para el fortalecimiento del sentido de pertenencia y alineación comercial de la Zona Occidente.")
         
