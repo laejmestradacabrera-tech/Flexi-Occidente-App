@@ -631,6 +631,7 @@ elif st.session_state.vista_actual == 'Operativo':
             c_tipo = next((c for c in df_op.columns if 'tipo' in c.lower() or 'concepto' in c.lower()), None)
             
             if c_prs_op and c_imp_op:
+                # CREAMOS LA BASE FILTRADA PRINCIPAL PARA LA TABLA Y LOS CORREOS
                 df_op_display = df_op.copy()
                 df_op_display[c_tda_op] = df_op_display[c_tda_op].astype(str).str.strip()
                 df_op_display = df_op_display[~df_op_display[c_tda_op].str.contains('3004|3015', na=False)]
@@ -705,7 +706,7 @@ elif st.session_state.vista_actual == 'Operativo':
                             if not confirmar_envio:
                                 st.warning("⚠️ Debes marcar la casilla de confirmación para habilitar el envío masivo.")
                             else:
-                                # 1. Preparamos DataFrames globales para no leer los archivos 19 veces
+                                # 1. Preparamos DataFrames globales
                                 df_tdas_envio = cargar_tiendas()
                                 df_tdas_envio.columns = df_tdas_envio.columns.astype(str).str.strip().str.upper()
                                 col_id_tda_envio = next((c for c in df_tdas_envio.columns if c in ['TIENDA', 'SUCURSAL', 'NUMERO', 'ID']), df_tdas_envio.columns[0])
@@ -719,45 +720,57 @@ elif st.session_state.vista_actual == 'Operativo':
                                     col_tkt_real = next((c for c in df_c_envio.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
                                     df_c_envio['CONVERSIÓN'] = df_c_envio[col_conv_real].apply(lambda x: x*100 if x < 1 else x)
                                     df_c_envio['TICKET PROMEDIO'] = df_c_envio[col_tkt_real]
+                                    
+                                    # [CORRECCIÓN APLICADA 1]: EXTRACCIÓN DE NÚMERO DE TIENDA
+                                    df_c_envio['TIENDA_ID'] = df_c_envio[col_tda_c].astype(str).str.extract(r'(\d+)', expand=False)
 
                                 # 2. Barras de estado UI
                                 progress_bar = st.progress(0)
                                 status_text = st.empty()
                                 success_count = 0
+                                omitted_count = 0 # Contador para tiendas que no cruzan
                                 
                                 total_tiendas = len(df_tdas_envio)
                                 
-                                # 3. Iniciamos el Bucle sobre todas las tiendas de CORREO DE TIENDAS.xlsx
+                                # 3. Iniciamos el Bucle sobre todas las tiendas
                                 for idx, row_tda in df_tdas_envio.iterrows():
                                     tda_raw = str(row_tda[col_id_tda_envio])
                                     match = re.search(r'\d+', tda_raw)
                                     if not match:
-                                        continue # Si no encuentra un número válido, salta.
+                                        continue
                                         
                                     tienda_obj = match.group()
                                     
-                                    # Extraer el correo de la base o poner fallback por seguridad
                                     correo_oficial = str(row_tda[col_correo_envio]).strip() if col_correo_envio else "fleoutgdl@divec-flexi.com"
                                     if correo_oficial.lower() == 'nan' or not correo_oficial:
                                         correo_oficial = "fleoutgdl@divec-flexi.com"
 
-                                    status_text.text(f"Procesando y enviando reporte a Tienda {tienda_obj}...")
+                                    status_text.text(f"Procesando reporte para Tienda {tienda_obj}...")
 
                                     # Cálculo de variables por tienda
                                     conv_actual = 0.0
                                     tkt_actual = 0.0
+                                    encontrado_kpi = False # Flag para validar envío
+
                                     if archivo_conv and 'df_c_envio' in locals():
-                                        # ¡NUEVA LÓGICA DE BÚSQUEDA EXACTA! -> astype(str).str.strip() == str().strip()
-                                        fila_c = df_c_envio[df_c_envio[col_tda_c].astype(str).str.strip() == str(tienda_obj).strip()]
+                                        # [CORRECCIÓN APLICADA 2]: BÚSQUEDA EXACTA USANDO EL ID EXTRAÍDO
+                                        fila_c = df_c_envio[df_c_envio['TIENDA_ID'] == str(tienda_obj).strip()]
                                         if not fila_c.empty:
                                             conv_actual = float(fila_c.iloc[0]['CONVERSIÓN'])
                                             tkt_actual = float(fila_c.iloc[0]['TICKET PROMEDIO'])
+                                            encontrado_kpi = True
+                                            
+                                    # [CORRECCIÓN APLICADA 3]: BLOQUEO SI NO HAY KPIs
+                                    if not encontrado_kpi:
+                                        omitted_count += 1
+                                        progress_bar.progress((idx + 1) / total_tiendas)
+                                        continue
 
                                     faltan_pares_calc = 0
                                     faltan_pesos_calc = 0.0
-                                    if archivo_comp and c_prs_op and c_imp_op:
-                                        # ¡NUEVA LÓGICA DE BÚSQUEDA EXACTA PARA COMPARATIVO!
-                                        df_filtrado_env = df_op[df_op[c_tda_op].astype(str).str.strip() == str(tienda_obj).strip()]
+                                    if archivo_comp and c_prs_op and c_imp_op and 'df_op_display' in locals():
+                                        # [CORRECCIÓN APLICADA 4]: BASE FILTRADA Y BÚSQUEDA EXACTA
+                                        df_filtrado_env = df_op_display[df_op_display[c_tda_op].astype(str).str.strip() == str(tienda_obj).strip()]
                                         if not df_filtrado_env.empty:
                                             res_env = df_filtrado_env.groupby(c_ano)[[c_prs_op, c_imp_op]].sum()
                                             
@@ -769,7 +782,8 @@ elif st.session_state.vista_actual == 'Operativo':
                                             faltan_pares_calc = pares_2025 - pares_2026
                                             faltan_pesos_calc = pesos_2025 - pesos_2026
 
-                                    # Enviar correo llamando a la función y pasándole el destinatario dinámico
+                                    # Enviar correo llamando a la función
+                                    status_text.text(f"Enviando correo a Tienda {tienda_obj}...")
                                     resultado_alerta = enviar_correo_ejecutivo(
                                         tienda_objetivo=tienda_obj, 
                                         conversion=conv_actual, 
@@ -787,8 +801,11 @@ elif st.session_state.vista_actual == 'Operativo':
                                     # Update UI
                                     progress_bar.progress((idx + 1) / total_tiendas)
                                     
-                                status_text.text("Completado.")
-                                st.success(f"✅ ¡Operación exitosa! Se enviaron reportes ejecutivos a {success_count} sucursales.")
+                                status_text.text("Operación finalizada.")
+                                if omitted_count > 0:
+                                    st.success(f"✅ Se enviaron reportes a {success_count} sucursales. Se omitieron {omitted_count} tiendas por falta de KPIs en los archivos fuente.")
+                                else:
+                                    st.success(f"✅ ¡Operación exitosa! Se enviaron reportes ejecutivos a {success_count} sucursales.")
                         else:
                             st.error("❌ Clave incorrecta. Acceso denegado para el envío masivo.")
 
