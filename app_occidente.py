@@ -747,7 +747,8 @@ elif st.session_state.vista_actual == 'Operativo':
                                     conv_actual = 0.0
                                     tkt_actual = 0.0
                                     if archivo_conv and 'df_c_envio' in locals():
-                                        fila_c = df_c_envio[df_c_envio[col_tda_c].astype(str).str.contains(tienda_obj, na=False)]
+                                        # ¡NUEVA LÓGICA DE BÚSQUEDA EXACTA! -> astype(str).str.strip() == str().strip()
+                                        fila_c = df_c_envio[df_c_envio[col_tda_c].astype(str).str.strip() == str(tienda_obj).strip()]
                                         if not fila_c.empty:
                                             conv_actual = float(fila_c.iloc[0]['CONVERSIÓN'])
                                             tkt_actual = float(fila_c.iloc[0]['TICKET PROMEDIO'])
@@ -755,8 +756,8 @@ elif st.session_state.vista_actual == 'Operativo':
                                     faltan_pares_calc = 0
                                     faltan_pesos_calc = 0.0
                                     if archivo_comp and c_prs_op and c_imp_op:
-                                        # Utilizamos df_op que ya está filtrado por año
-                                        df_filtrado_env = df_op[df_op[c_tda_op].str.contains(tienda_obj, na=False)]
+                                        # ¡NUEVA LÓGICA DE BÚSQUEDA EXACTA PARA COMPARATIVO!
+                                        df_filtrado_env = df_op[df_op[c_tda_op].astype(str).str.strip() == str(tienda_obj).strip()]
                                         if not df_filtrado_env.empty:
                                             res_env = df_filtrado_env.groupby(c_ano)[[c_prs_op, c_imp_op]].sum()
                                             
