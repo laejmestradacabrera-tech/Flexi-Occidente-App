@@ -631,27 +631,52 @@ elif st.session_state.vista_actual == 'Operativo':
             c_tipo = next((c for c in df_op.columns if 'tipo' in c.lower() or 'concepto' in c.lower()), None)
             
             if c_prs_op and c_imp_op:
-                # CREAMOS LA BASE FILTRADA PRINCIPAL PARA LA TABLA Y LOS CORREOS
+                # 1. BASE MAESTRA NORMALIZADA (Una sola vez)
                 df_op_display = df_op.copy()
-                df_op_display[c_tda_op] = df_op_display[c_tda_op].astype(str).str.strip()
-                df_op_display = df_op_display[~df_op_display[c_tda_op].str.contains('3004|3015', na=False)]
+                
+                # Extraemos el ID numérico limpio
+                df_op_display['TIENDA_ID'] = df_op_display[c_tda_op].astype(str).str.extract(r'(\d+)', expand=False)
+                
+                # Excluimos tiendas de prueba (3004, 3015) basándonos en el ID limpio
+                df_op_display = df_op_display[~df_op_display['TIENDA_ID'].isin(['3004', '3015'])]
+                
+                # Filtros comerciales
                 if c_prov:
                     df_op_display = df_op_display[~df_op_display[c_prov].astype(str).str.strip().isin(['415', '426', '427'])]
                 if c_tipo:
                     df_op_display = df_op_display[~df_op_display[c_tipo].astype(str).str.contains('BOLSA|REUSABLE|BOLSO', case=False, na=False)]
                 
-                resumen = df_op_display.groupby([c_tda_op, c_ano])[[c_prs_op, c_imp_op]].sum().unstack(fill_value=0)
-                resumen.columns = ['Pares 2025', 'Pares 2026', 'Pesos 2025', 'Pesos 2026']
-                resumen = resumen.reset_index()
-                resumen.columns = ['TIENDA', 'PARES 2025', 'PARES 2026', 'PESOS 2025', 'PESOS 2026']
+                # Normalizamos Año y KPIs
+                df_op_display['ANIO_ID'] = pd.to_numeric(df_op_display[c_ano], errors='coerce').astype('Int64')
+                df_op_display[c_prs_op] = pd.to_numeric(df_op_display[c_prs_op], errors='coerce').fillna(0)
+                df_op_display[c_imp_op] = pd.to_numeric(df_op_display[c_imp_op], errors='coerce').fillna(0)
                 
-                resumen['VAR PARES %'] = ((resumen['PARES 2026'] - resumen['PARES 2025']) / resumen['PARES 2025']) * 100
-                resumen['VAR PESOS %'] = ((resumen['PESOS 2026'] - resumen['PESOS 2025']) / resumen['PESOS 2025']) * 100
+                # 2. ÚNICO RESUMEN OFICIAL POR TIENDA Y AÑO
+                resumen_maestro = df_op_display.groupby(['TIENDA_ID', 'ANIO_ID'])[[c_prs_op, c_imp_op]].sum().reset_index()
                 
-                tot_p25, tot_p26 = resumen['PARES 2025'].sum(), resumen['PARES 2026'].sum()
-                tot_w25, tot_w26 = resumen['PESOS 2025'].sum(), resumen['PESOS 2026'].sum()
-                var_p_global = ((tot_p26 - tot_p25) / tot_p25) * 100
-                var_w_global = ((tot_w26 - tot_w25) / tot_w25) * 100
+                # 3. CONSTRUCCIÓN SEGURA DE LA TABLA UI
+                tabla_pivot = resumen_maestro.pivot(index='TIENDA_ID', columns='ANIO_ID', values=[c_prs_op, c_imp_op]).fillna(0)
+                
+                # Aplanar las columnas del pivot
+                tabla_pivot.columns = [f"{col[0]}_{col[1]}" for col in tabla_pivot.columns]
+                
+                col_prs_25 = f"{c_prs_op}_2025"
+                col_prs_26 = f"{c_prs_op}_2026"
+                col_imp_25 = f"{c_imp_op}_2025"
+                col_imp_26 = f"{c_imp_op}_2026"
+                
+                # Garantizar que las columnas existan aunque falte un año en los datos
+                for c in [col_prs_25, col_prs_26, col_imp_25, col_imp_26]:
+                    if c not in tabla_pivot.columns:
+                        tabla_pivot[c] = 0
+                
+                # Calcular totales globales para los KPIs superiores
+                tot_p25 = tabla_pivot[col_prs_25].sum()
+                tot_p26 = tabla_pivot[col_prs_26].sum()
+                tot_w25 = tabla_pivot[col_imp_25].sum()
+                tot_w26 = tabla_pivot[col_imp_26].sum()
+                var_p_global = ((tot_p26 - tot_p25) / tot_p25 * 100) if tot_p25 > 0 else 0
+                var_w_global = ((tot_w26 - tot_w25) / tot_w25 * 100) if tot_w25 > 0 else 0
                 
                 c1, c2 = st.columns(2)
                 with c1:
@@ -676,7 +701,17 @@ elif st.session_state.vista_actual == 'Operativo':
                     """, unsafe_allow_html=True)
                 
                 st.write("<br>", unsafe_allow_html=True)
-                tabla_comp = resumen[['TIENDA', 'PARES 2025', 'PARES 2026', 'VAR PARES %', 'PESOS 2025', 'PESOS 2026', 'VAR PESOS %']].sort_values(by='VAR PARES %', ascending=False).reset_index(drop=True)
+                
+                # Formatear la tabla final UI
+                tabla_comp = pd.DataFrame({
+                    'TIENDA': tabla_pivot.index,
+                    'PARES 2025': tabla_pivot[col_prs_25],
+                    'PARES 2026': tabla_pivot[col_prs_26],
+                    'VAR PARES %': ((tabla_pivot[col_prs_26] - tabla_pivot[col_prs_25]) / tabla_pivot[col_prs_25].replace(0, 1)) * 100,
+                    'PESOS 2025': tabla_pivot[col_imp_25],
+                    'PESOS 2026': tabla_pivot[col_imp_26],
+                    'VAR PESOS %': ((tabla_pivot[col_imp_26] - tabla_pivot[col_imp_25]) / tabla_pivot[col_imp_25].replace(0, 1)) * 100
+                }).sort_values(by='VAR PARES %', ascending=False).reset_index(drop=True)
                 
                 def color_variacion(val):
                     if isinstance(val, (int, float)):
@@ -706,7 +741,7 @@ elif st.session_state.vista_actual == 'Operativo':
                             if not confirmar_envio:
                                 st.warning("⚠️ Debes marcar la casilla de confirmación para habilitar el envío masivo.")
                             else:
-                                # 1. Preparamos DataFrames globales
+                                # 1. Preparamos DataFrames de Conversión Globalmente
                                 df_tdas_envio = cargar_tiendas()
                                 df_tdas_envio.columns = df_tdas_envio.columns.astype(str).str.strip().str.upper()
                                 col_id_tda_envio = next((c for c in df_tdas_envio.columns if c in ['TIENDA', 'SUCURSAL', 'NUMERO', 'ID']), df_tdas_envio.columns[0])
@@ -718,10 +753,11 @@ elif st.session_state.vista_actual == 'Operativo':
                                     col_tda_c = next((c for c in df_c_envio.columns if 'Tienda' in c or 'TIENDA' in c), df_c_envio.columns[0])
                                     col_conv_real = next((c for c in df_c_envio.columns if 'Conv' in c and 'Actual' in c), None)
                                     col_tkt_real = next((c for c in df_c_envio.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
+                                    
                                     df_c_envio['CONVERSIÓN'] = df_c_envio[col_conv_real].apply(lambda x: x*100 if x < 1 else x)
                                     df_c_envio['TICKET PROMEDIO'] = df_c_envio[col_tkt_real]
                                     
-                                    # [CORRECCIÓN APLICADA 1]: EXTRACCIÓN DE NÚMERO DE TIENDA
+                                    # EXTRAER ID NUMÉRICO DE CONVERSIÓN
                                     df_c_envio['TIENDA_ID'] = df_c_envio[col_tda_c].astype(str).str.extract(r'(\d+)', expand=False)
 
                                 # 2. Barras de estado UI
@@ -732,7 +768,7 @@ elif st.session_state.vista_actual == 'Operativo':
                                 
                                 total_tiendas = len(df_tdas_envio)
                                 
-                                # 3. Iniciamos el Bucle sobre todas las tiendas
+                                # 3. Bucle sobre todas las tiendas usando las BASES MAESTRAS
                                 for idx, row_tda in df_tdas_envio.iterrows():
                                     tda_raw = str(row_tda[col_id_tda_envio])
                                     match = re.search(r'\d+', tda_raw)
@@ -747,20 +783,19 @@ elif st.session_state.vista_actual == 'Operativo':
 
                                     status_text.text(f"Procesando reporte para Tienda {tienda_obj}...")
 
-                                    # Cálculo de variables por tienda
                                     conv_actual = 0.0
                                     tkt_actual = 0.0
-                                    encontrado_kpi = False # Flag para validar envío
+                                    encontrado_kpi = False
 
+                                    # CRUCE DE CONVERSIÓN CON LLAVE LIMPIA
                                     if archivo_conv and 'df_c_envio' in locals():
-                                        # [CORRECCIÓN APLICADA 2]: BÚSQUEDA EXACTA USANDO EL ID EXTRAÍDO
-                                        fila_c = df_c_envio[df_c_envio['TIENDA_ID'] == str(tienda_obj).strip()]
+                                        fila_c = df_c_envio[df_c_envio['TIENDA_ID'] == tienda_obj]
                                         if not fila_c.empty:
                                             conv_actual = float(fila_c.iloc[0]['CONVERSIÓN'])
                                             tkt_actual = float(fila_c.iloc[0]['TICKET PROMEDIO'])
                                             encontrado_kpi = True
                                             
-                                    # [CORRECCIÓN APLICADA 3]: BLOQUEO SI NO HAY KPIs
+                                    # BLOQUEO SI NO HAY KPIs
                                     if not encontrado_kpi:
                                         omitted_count += 1
                                         progress_bar.progress((idx + 1) / total_tiendas)
@@ -768,21 +803,21 @@ elif st.session_state.vista_actual == 'Operativo':
 
                                     faltan_pares_calc = 0
                                     faltan_pesos_calc = 0.0
-                                    if archivo_comp and c_prs_op and c_imp_op and 'df_op_display' in locals():
-                                        # [CORRECCIÓN APLICADA 4]: BASE FILTRADA Y BÚSQUEDA EXACTA
-                                        df_filtrado_env = df_op_display[df_op_display[c_tda_op].astype(str).str.strip() == str(tienda_obj).strip()]
-                                        if not df_filtrado_env.empty:
-                                            res_env = df_filtrado_env.groupby(c_ano)[[c_prs_op, c_imp_op]].sum()
-                                            
-                                            pares_2025 = int(res_env.get(c_prs_op).get(2025, 0)) if 2025 in res_env.index else 0
-                                            pares_2026 = int(res_env.get(c_prs_op).get(2026, 0)) if 2026 in res_env.index else 0
-                                            pesos_2025 = float(res_env.get(c_imp_op).get(2025, 0.0)) if 2025 in res_env.index else 0.0
-                                            pesos_2026 = float(res_env.get(c_imp_op).get(2026, 0.0)) if 2026 in res_env.index else 0.0
-                                            
-                                            faltan_pares_calc = pares_2025 - pares_2026
-                                            faltan_pesos_calc = pesos_2025 - pesos_2026
+                                    
+                                    # CONSULTA A LA BASE MAESTRA DE COMPARATIVO
+                                    datos_tienda = resumen_maestro[resumen_maestro['TIENDA_ID'] == tienda_obj]
+                                    
+                                    if not datos_tienda.empty:
+                                        # Extraemos explícitamente 2025 y 2026
+                                        pares_2025 = int(datos_tienda[datos_tienda['ANIO_ID'] == 2025][c_prs_op].sum())
+                                        pares_2026 = int(datos_tienda[datos_tienda['ANIO_ID'] == 2026][c_prs_op].sum())
+                                        pesos_2025 = float(datos_tienda[datos_tienda['ANIO_ID'] == 2025][c_imp_op].sum())
+                                        pesos_2026 = float(datos_tienda[datos_tienda['ANIO_ID'] == 2026][c_imp_op].sum())
+                                        
+                                        faltan_pares_calc = pares_2025 - pares_2026
+                                        faltan_pesos_calc = pesos_2025 - pesos_2026
 
-                                    # Enviar correo llamando a la función
+                                    # Enviar correo
                                     status_text.text(f"Enviando correo a Tienda {tienda_obj}...")
                                     resultado_alerta = enviar_correo_ejecutivo(
                                         tienda_objetivo=tienda_obj, 
@@ -798,7 +833,6 @@ elif st.session_state.vista_actual == 'Operativo':
                                     if "✅" in resultado_alerta:
                                         success_count += 1
                                         
-                                    # Update UI
                                     progress_bar.progress((idx + 1) / total_tiendas)
                                     
                                 status_text.text("Operación finalizada.")
