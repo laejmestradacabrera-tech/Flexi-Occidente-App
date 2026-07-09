@@ -1398,13 +1398,14 @@ elif st.session_state.vista_actual == 'Estrategico':
             
     st.write("---")
 
-    # NUEVAS PESTAÑAS ESTRATÉGICAS
-    tab_monitor, tab_impacto, tab_demanda, tab_nivelacion_intel, tab_macro = st.tabs([
+    # NUEVAS PESTAÑAS ESTRATÉGICAS (Se agregó la pestaña de Visita)
+    tab_monitor, tab_impacto, tab_visita, tab_demanda, tab_nivelacion_intel, tab_macro = st.tabs([
         "📡 Monitor Estratégico", 
-        "💰 Impacto Financiero por quiebre", 
-        "📊 Diagnóstico de Demanda", 
+        "💰 Impacto Financiero",
+        "🤝 Preparación de Visita", 
+        "📊 Diagnóstico Demanda", 
         "🧠 Nivelación Inteligente", 
-        "🌍 Correlación Macroeconómica (INPC)"
+        "🌍 Correlación Macro"
     ])
     
     with tab_monitor:
@@ -1500,6 +1501,157 @@ elif st.session_state.vista_actual == 'Estrategico':
                         st.warning("No hay suficientes registros en la bitácora para proyectar.")
                 except Exception as e:
                     st.error(f"Error procesando el cruce de datos: {e}")
+
+    # =================================================================================
+    # NUEVA PESTAÑA: PREPARACIÓN DE VISITA EN CAMPO
+    # =================================================================================
+    with tab_visita:
+        st.markdown("## 🤝 Expediente de Visita y Compromisos")
+        st.write("Herramienta de cruce en tiempo real para direccionar la supervisión en tienda de forma objetiva.")
+        
+        # 1. Carga segura y aislada de datos para no depender de variables de otras pestañas
+        df_tdas_visita = cargar_tiendas()
+        if not df_tdas_visita.empty and 'NOMBRE' in df_tdas_visita.columns:
+            tienda_seleccionada = st.selectbox("🎯 Selecciona la Sucursal a Visitar:", sorted(df_tdas_visita['NOMBRE'].unique()))
+            
+            if st.button("Generar Expediente de Visita", type="primary"):
+                with st.spinner("Cruzando KPIs en tiempo real..."):
+                    # Extraer ID numérico de la tienda seleccionada
+                    fila_tda = df_tdas_visita[df_tdas_visita['NOMBRE'] == tienda_seleccionada].iloc[0]
+                    col_id = next((c for c in df_tdas_visita.columns if c.strip().upper() in ['TIENDA', 'SUCURSAL', 'NUMERO', 'ID']), df_tdas_visita.columns[0])
+                    tda_raw = str(fila_tda[col_id])
+                    match = re.search(r'\d+', tda_raw)
+                    tienda_obj = match.group() if match else "-1"
+                    encargada_obj = str(fila_tda.get('ENCARGADO', 'Encargada'))
+                    
+                    # Variables por defecto
+                    v_conv, v_tkt, v_alcance, v_quiebres, v_rating = 0.0, 0.0, 0.0, 0, 0
+                    
+                    # A. Extraer Conversión y Ticket
+                    if archivo_conv:
+                        df_c = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
+                        df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
+                        col_tda_c = next((c for c in df_c.columns if 'Tienda' in c or 'TIENDA' in c), df_c.columns[0])
+                        col_cv = next((c for c in df_c.columns if 'Conv' in c and 'Actual' in c), None)
+                        col_tk = next((c for c in df_c.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
+                        
+                        df_c['TIENDA_ID'] = df_c[col_tda_c].astype(str).str.extract(r'(\d+)', expand=False)
+                        fila_c = df_c[df_c['TIENDA_ID'] == tienda_obj]
+                        if not fila_c.empty:
+                            v_conv = float(fila_c.iloc[0][col_cv])
+                            v_conv = v_conv * 100 if v_conv < 1 else v_conv
+                            v_tkt = float(fila_c.iloc[0][col_tk])
+                    
+                    # B. Extraer Alcance (Comparativo)
+                    if archivo_comp:
+                        df_op = pd.read_excel(archivo_comp) if archivo_comp.endswith('.xlsx') else pd.read_csv(archivo_comp)
+                        c_ano = next((c for c in df_op.columns if 'año' in c.lower() or 'ano' in c.lower()), df_op.columns[0])
+                        c_tda_op = next((c for c in df_op.columns if 'tienda' in c.lower() or 'sucursal' in c.lower()), df_op.columns[2])
+                        c_prs = next((c for c in df_op.columns if 'pares' in c.lower() or 'cant' in c.lower()), None)
+                        c_prov = next((c for c in df_op.columns if 'prov' in c.lower()), None)
+                        c_tipo = next((c for c in df_op.columns if 'tipo' in c.lower() or 'concepto' in c.lower()), None) # INCLUIDO PARA BOLSO
+                        
+                        df_op['TIENDA_ID'] = df_op[c_tda_op].astype(str).str.extract(r'(\d+)', expand=False)
+                        df_op = df_op[df_op['TIENDA_ID'] == tienda_obj]
+                        if c_prov: df_op = df_op[~df_op[c_prov].astype(str).str.strip().isin(['415', '426', '427'])]
+                        if c_tipo: df_op = df_op[~df_op[c_tipo].astype(str).str.contains('BOLSA|REUSABLE|BOLSO', case=False, na=False)]
+                        
+                        df_op['ANIO_ID'] = pd.to_numeric(df_op[c_ano], errors='coerce').astype('Int64')
+                        df_op[c_prs] = pd.to_numeric(df_op[c_prs], errors='coerce').fillna(0)
+                        
+                        pares_25 = df_op[df_op['ANIO_ID'] == 2025][c_prs].sum()
+                        pares_26 = df_op[df_op['ANIO_ID'] == 2026][c_prs].sum()
+                        v_alcance = (pares_26 / pares_25 * 100) if pares_25 > 0 else 0.0
+
+                    # C. Extraer Quiebres (Top 20)
+                    cargar_archivos_locales()
+                    if 'df_ventas' in st.session_state and 'df_tallas' in st.session_state:
+                        df_v = st.session_state.df_ventas
+                        df_t = st.session_state.df_tallas
+                        df_v['tienda_int'] = pd.to_numeric(df_v['Tienda'].astype(str).str.extract(r'(\d+)', expand=False), errors='coerce').fillna(-1)
+                        df_tienda_v = df_v[(df_v['tienda_int'] == int(tienda_obj)) & (~df_v['Proveedor'].isin([415, 426, 427]))]
+                        
+                        modelos_quebrados = set()
+                        if not df_tienda_v.empty:
+                            top_20 = df_tienda_v.groupby('Modelo')['Vtas'].sum().nlargest(20).index
+                            df_top = df_tienda_v[df_tienda_v['Modelo'].isin(top_20)]
+                            
+                            for _, row in df_top.iterrows():
+                                dpto = str(row.get('Departamento', '')).strip().lower()
+                                tallas_row = df_t[df_t['Valor'].astype(str).str.strip().str.lower() == dpto]
+                                if not tallas_row.empty:
+                                    for i in range(1, 16):
+                                        ex_val, p_val = row.get(f'ex{i}', 0), row.get(f'p{i}', 0)
+                                        if (pd.isna(ex_val) or ex_val == 0) and (pd.isna(p_val) or p_val == 0):
+                                            talla_fisica = tallas_row.iloc[0].get(f'ex{i}')
+                                            if pd.notna(talla_fisica) and str(talla_fisica).strip() != '':
+                                                t_str = str(talla_fisica).strip()
+                                                if dpto == 'caballero' and ('305' in t_str or t_str == '30.5'): continue 
+                                                modelos_quebrados.add(row['Modelo'])
+                                                break
+                        v_quiebres = len(modelos_quebrados)
+
+                    # D. Cálculo Final del Rating
+                    pts_tkt = 35 if v_tkt >= 1.29 else 25 if v_tkt >= 1.25 else 10 if v_tkt >= 1.20 else 5
+                    pts_conv = 35 if v_conv >= 10.9 else 25 if v_conv >= 10.5 else 10 if v_conv >= 10.0 else 5
+                    pts_alc = 20 if v_alcance >= 100 else 10 if v_alcance >= 95 else 5
+                    pts_qui = 10 if v_quiebres <= 5 else 5 if v_quiebres <= 10 else 0
+                    bono = 5 if v_alcance >= 105 else 0
+                    v_rating = pts_tkt + pts_conv + pts_alc + pts_qui + bono
+
+                    # 2. Despliegue Visual del Diagnóstico
+                    st.markdown("---")
+                    
+                    # Semáforo de Visita
+                    color_bg = "#dcfce7" if v_rating >= 85 else "#fef08a" if v_rating >= 75 else "#fee2e2"
+                    color_text = "#166534" if v_rating >= 85 else "#854d0e" if v_rating >= 75 else "#991b1b"
+                    tipo_visita = "🌟 Visita de Mantenimiento y Reconocimiento" if v_rating >= 85 else "📈 Visita de Desarrollo (Ajuste de Estrategia)" if v_rating >= 75 else "🚨 Visita Crítica (Supervisión Estricta)"
+                    
+                    st.markdown(f"<div style='background-color: {color_bg}; color: {color_text}; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px;'><strong>{tipo_visita}</strong><br>Puntaje Actual: {v_rating} pts</div>", unsafe_allow_html=True)
+                    
+                    c1, c2, c3, c4 = st.columns(4)
+                    c1.metric("Conversión", f"{v_conv:.2f}%", f"{v_conv - 10.9:.2f}% vs Meta" if v_conv > 0 else "")
+                    c2.metric("Ticket Promedio", f"{v_tkt:.2f}", f"{v_tkt - 1.29:.2f} vs Meta" if v_tkt > 0 else "")
+                    c3.metric("Alcance Histórico", f"{v_alcance:.1f}%")
+                    c4.metric("Quiebres Detectados", f"{v_quiebres} Mod.", delta_color="inverse")
+                    
+                    st.markdown("---")
+                    st.markdown("### 📋 Instrucción Compromiso Autogenerada")
+                    st.caption("Texto listo para ser enviado por WhatsApp o correo al finalizar la visita y dejar evidencia formal.")
+                    
+                    # 3. Motor Generador del Texto de Compromiso
+                    compromisos = []
+                    if v_conv < 10.9:
+                        compromisos.append("👠 **Mejora en Conversión:** Implementar clínicas de abordaje al cliente en piso y ejecutar cierres de venta efectivos en el área de probadores para alcanzar la meta del 10.9%.")
+                    if v_tkt < 1.29:
+                        compromisos.append("🛍️ **Impulso al Ticket Promedio:** Fomentar agresivamente el ofrecimiento del segundo par o producto de impulso (accesorio) en caja para lograr el objetivo de 1.29 unidades.")
+                    if v_alcance < 100:
+                        compromisos.append("🚀 **Recuperación de Volumen:** Activar el enfoque comercial sobre los modelos del Top 20 de la Zona para igualar y superar el desplazamiento de pares respecto al año anterior.")
+                    if v_quiebres > 5:
+                        compromisos.append("📦 **Gestión de Quiebres:** Garantizar el reporte oportuno en la Bitácora sobre faltantes de Tallas Extremas para gestionar la nivelación y evitar fuga de capital.")
+                    
+                    if not compromisos:
+                        compromisos.append("⭐ **Sostenimiento de Excelencia:** Mantener la estricta disciplina en los procesos de venta actuales, protegiendo los KPIs que hoy mantienen a la sucursal en el nivel de excelencia.")
+
+                    texto_viñetas = "\n".join([f"- {c}" for c in compromisos])
+                    fecha_hoy = (datetime.datetime.utcnow() - datetime.timedelta(hours=6)).strftime("%d/%m/%Y")
+                    
+                    texto_final = f"""Estimada {encargada_obj},
+
+Con base en la supervisión operativa del día de hoy ({fecha_hoy}), establecemos los siguientes compromisos ejecutivos para la sucursal {tienda_seleccionada}, alineados a su desempeño actual ({v_rating} pts de Rating):
+
+{texto_viñetas}
+
+Queda bajo su responsabilidad el seguimiento de estas directrices con su equipo de asesores para nuestra próxima evaluación.
+
+Atentamente,
+LAE. José Martín Estrada Cabrera
+Gerencia Comercial Zona Occidente
+"""
+                    st.text_area("Copia el siguiente mensaje:", value=texto_final, height=350)
+        else:
+            st.warning("No se pudo cargar la base de tiendas.")
+
         
     with tab_demanda:
         st.subheader("📊 Diagnóstico de Demanda")
