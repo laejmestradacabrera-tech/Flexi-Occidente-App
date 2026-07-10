@@ -1526,6 +1526,8 @@ elif st.session_state.vista_actual == 'Estrategico':
                     
                     # Variables por defecto
                     v_conv, v_tkt, v_alcance, v_quiebres, v_rating = 0.0, 0.0, 0.0, 0, 0
+                    v_faltan_pares = 0
+                    v_faltan_pesos = 0.0
                     
                     # A. Extraer Conversión y Ticket
                     if archivo_conv:
@@ -1542,7 +1544,7 @@ elif st.session_state.vista_actual == 'Estrategico':
                             v_conv = v_conv * 100 if v_conv < 1 else v_conv
                             v_tkt = float(fila_c.iloc[0][col_tk])
                     
-                    # B. Extraer Alcance (Comparativo)
+                    # B. Extraer Alcance (Comparativo) y Brecha en Pares/Pesos
                     if archivo_comp:
                         df_op = pd.read_excel(archivo_comp) if archivo_comp.endswith('.xlsx') else pd.read_csv(archivo_comp)
                         c_ano = next((c for c in df_op.columns if 'año' in c.lower() or 'ano' in c.lower()), df_op.columns[0])
@@ -1550,6 +1552,7 @@ elif st.session_state.vista_actual == 'Estrategico':
                         c_prs = next((c for c in df_op.columns if 'pares' in c.lower() or 'cant' in c.lower()), None)
                         c_prov = next((c for c in df_op.columns if 'prov' in c.lower()), None)
                         c_tipo = next((c for c in df_op.columns if 'tipo' in c.lower() or 'concepto' in c.lower()), None) # INCLUIDO PARA BOLSO
+                        c_imp = next((c for c in df_op.columns if 'importe' in c.lower() or 'peso' in c.lower() or 'monto' in c.lower()), None)
                         
                         df_op['TIENDA_ID'] = df_op[c_tda_op].astype(str).str.extract(r'(\d+)', expand=False)
                         df_op = df_op[df_op['TIENDA_ID'] == tienda_obj]
@@ -1558,10 +1561,19 @@ elif st.session_state.vista_actual == 'Estrategico':
                         
                         df_op['ANIO_ID'] = pd.to_numeric(df_op[c_ano], errors='coerce').astype('Int64')
                         df_op[c_prs] = pd.to_numeric(df_op[c_prs], errors='coerce').fillna(0)
+                        if c_imp:
+                            df_op[c_imp] = pd.to_numeric(df_op[c_imp], errors='coerce').fillna(0)
                         
                         pares_25 = df_op[df_op['ANIO_ID'] == 2025][c_prs].sum()
                         pares_26 = df_op[df_op['ANIO_ID'] == 2026][c_prs].sum()
                         v_alcance = (pares_26 / pares_25 * 100) if pares_25 > 0 else 0.0
+                        
+                        pesos_25 = df_op[df_op['ANIO_ID'] == 2025][c_imp].sum() if c_imp else 0.0
+                        pesos_26 = df_op[df_op['ANIO_ID'] == 2026][c_imp].sum() if c_imp else 0.0
+                        
+                        # Cálculo de faltantes usando la misma resta validada de los correos
+                        v_faltan_pares = int(pares_25 - pares_26)
+                        v_faltan_pesos = float(pesos_25 - pesos_26)
 
                     # C. Extraer Quiebres (Top 20)
                     cargar_archivos_locales()
@@ -1615,6 +1627,18 @@ elif st.session_state.vista_actual == 'Estrategico':
                     c3.metric("Alcance Histórico", f"{v_alcance:.1f}%")
                     c4.metric("Quiebres Detectados", f"{v_quiebres} Mod.", delta_color="inverse")
                     
+                    st.markdown("#### 📊 Reto Acumulado vs Histórico")
+                    c_pares, c_pesos = st.columns(2)
+                    if v_faltan_pares > 0:
+                        c_pares.metric("Brecha en Pares", f"Faltan {v_faltan_pares:,.0f} pares", "- Por debajo del histórico", delta_color="inverse")
+                    else:
+                        c_pares.metric("Brecha en Pares", f"A favor: {abs(v_faltan_pares):,.0f} pares", "+ Superando histórico")
+                        
+                    if v_faltan_pesos > 0:
+                        c_pesos.metric("Brecha en Ingresos", f"Faltan ${v_faltan_pesos:,.2f}", "- Por debajo del histórico", delta_color="inverse")
+                    else:
+                        c_pesos.metric("Brecha en Ingresos", f"A favor: ${abs(v_faltan_pesos):,.2f}", "+ Superando histórico")
+
                     st.markdown("---")
                     st.markdown("### 📋 Instrucción Compromiso Autogenerada")
                     st.caption("Texto listo para ser enviado por WhatsApp o correo al finalizar la visita y dejar evidencia formal.")
@@ -1625,8 +1649,17 @@ elif st.session_state.vista_actual == 'Estrategico':
                         compromisos.append("👠 **Mejora en Conversión:** Implementar clínicas de abordaje al cliente en piso y ejecutar cierres de venta efectivos en el área de probadores para alcanzar la meta del 10.9%.")
                     if v_tkt < 1.29:
                         compromisos.append("🛍️ **Impulso al Ticket Promedio:** Fomentar agresivamente el ofrecimiento del segundo par o producto de impulso (accesorio) en caja para lograr el objetivo de 1.29 unidades.")
+                    
+                    # Mantenemos la instrucción original que te gustó
                     if v_alcance < 100:
                         compromisos.append("🚀 **Recuperación de Volumen:** Activar el enfoque comercial sobre los modelos del Top 20 de la Zona para igualar y superar el desplazamiento de pares respecto al año anterior.")
+                    
+                    # Agregamos la nueva instrucción de precisión numérica solicitada
+                    if v_faltan_pares > 0:
+                        compromisos.append(f"🎯 **Cierre de Brecha Matemática:** El objetivo exacto y obligatorio para empatar el crecimiento histórico requiere desplazar **{v_faltan_pares:,.0f} pares** adicionales, lo que representará un ingreso recuperado de **${v_faltan_pesos:,.2f} MXN**.")
+                    elif v_faltan_pares < 0:
+                        compromisos.append(f"🏆 **Expansión Comercial:** Reconocemos el superávit de **+{abs(v_faltan_pares):,.0f} pares** (${abs(v_faltan_pesos):,.2f} MXN) frente al histórico. El compromiso es mantener esta aceleración y proteger el liderazgo comercial de la sucursal.")
+
                     if v_quiebres > 5:
                         compromisos.append("📦 **Gestión de Quiebres:** Garantizar el reporte oportuno en la Bitácora sobre faltantes de Tallas Extremas para gestionar la nivelación y evitar fuga de capital.")
                     
@@ -1648,7 +1681,7 @@ Atentamente,
 LAE. José Martín Estrada Cabrera
 Gerencia Comercial Zona Occidente
 """
-                    st.text_area("Copia el siguiente mensaje:", value=texto_final, height=350)
+                    st.text_area("Copia el siguiente mensaje:", value=texto_final, height=380)
         else:
             st.warning("No se pudo cargar la base de tiendas.")
 
