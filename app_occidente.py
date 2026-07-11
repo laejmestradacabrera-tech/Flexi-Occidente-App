@@ -1528,6 +1528,8 @@ elif st.session_state.vista_actual == 'Estrategico':
                     v_conv, v_tkt, v_alcance, v_quiebres, v_rating = 0.0, 0.0, 0.0, 0, 0
                     v_faltan_pares = 0
                     v_faltan_pesos = 0.0
+                    v_total_modelos = 0
+                    v_modelos_desfogue = 0
                     
                     # A. Extraer Conversión y Ticket
                     if archivo_conv:
@@ -1575,16 +1577,30 @@ elif st.session_state.vista_actual == 'Estrategico':
                         v_faltan_pares = int(pares_25 - pares_26)
                         v_faltan_pesos = float(pesos_25 - pesos_26)
 
-                    # C. Extraer Quiebres (Top 20)
+                    # C. Extraer Quiebres, Modelos Totales y Desfogue
                     cargar_archivos_locales()
                     if 'df_ventas' in st.session_state and 'df_tallas' in st.session_state:
-                        df_v = st.session_state.df_ventas
+                        df_v = st.session_state.df_ventas.copy()
                         df_t = st.session_state.df_tallas
                         df_v['tienda_int'] = pd.to_numeric(df_v['Tienda'].astype(str).str.extract(r'(\d+)', expand=False), errors='coerce').fillna(-1)
-                        df_tienda_v = df_v[(df_v['tienda_int'] == int(tienda_obj)) & (~df_v['Proveedor'].isin([415, 426, 427]))]
+                        df_tienda_v = df_v[(df_v['tienda_int'] == int(tienda_obj)) & (~df_v['Proveedor'].isin([415, 426, 427]))].copy()
                         
                         modelos_quebrados = set()
                         if not df_tienda_v.empty:
+                            # ---> NUEVAS MÉTRICAS: TOTAL MODELOS Y DESFOGUE <---
+                            v_total_modelos = df_tienda_v['Modelo'].nunique()
+                            
+                            # Identificar columnas de existencias (ex1 a ex15) y convertirlas a números
+                            ex_cols = [f'ex{i}' for i in range(1, 16) if f'ex{i}' in df_tienda_v.columns]
+                            for col in ex_cols:
+                                df_tienda_v[col] = pd.to_numeric(df_tienda_v[col], errors='coerce').fillna(0)
+                            
+                            # Sumar las existencias por modelo
+                            stock_por_modelo = df_tienda_v.groupby('Modelo')[ex_cols].sum().sum(axis=1)
+                            # Contar cuántos modelos tienen entre 1 y 3 pares en total
+                            v_modelos_desfogue = len(stock_por_modelo[(stock_por_modelo >= 1) & (stock_por_modelo <= 3)])
+                            # ---> FIN NUEVAS MÉTRICAS <---
+                            
                             top_20 = df_tienda_v.groupby('Modelo')['Vtas'].sum().nlargest(20).index
                             df_top = df_tienda_v[df_tienda_v['Modelo'].isin(top_20)]
                             
@@ -1639,6 +1655,15 @@ elif st.session_state.vista_actual == 'Estrategico':
                     else:
                         c_pesos.metric("Brecha en Ingresos", f"A favor: ${abs(v_faltan_pesos):,.2f}", "+ Superando histórico")
 
+                    # ---> NUEVA SECCIÓN VISUAL DE INVENTARIO <---
+                    st.markdown("#### 📦 Análisis de Inventario y Catálogo")
+                    c_cat, c_desf = st.columns(2)
+                    c_cat.metric("Catálogo Activo", f"{v_total_modelos} Modelos", "En piso de venta")
+                    if v_modelos_desfogue > 0:
+                        c_desf.metric("Candidatos a Desfogue", f"{v_modelos_desfogue} Modelos", "Con 1 a 3 pares totales", delta_color="inverse")
+                    else:
+                        c_desf.metric("Candidatos a Desfogue", "0 Modelos", "Inventario sano", delta_color="normal")
+
                     st.markdown("---")
                     st.markdown("### 📋 Instrucción Compromiso Autogenerada")
                     st.caption("Texto listo para ser enviado por WhatsApp o correo al finalizar la visita y dejar evidencia formal.")
@@ -1654,14 +1679,18 @@ elif st.session_state.vista_actual == 'Estrategico':
                     if v_alcance < 100:
                         compromisos.append("🚀 **Recuperación de Volumen:** Activar el enfoque comercial sobre los modelos del Top 20 de la Zona para igualar y superar el desplazamiento de pares respecto al año anterior.")
                     
-                    # Agregamos la nueva instrucción de precisión numérica solicitada
+                    # Agregamos la instrucción de precisión numérica
                     if v_faltan_pares > 0:
                         compromisos.append(f"🎯 **Cierre de Brecha Matemática:** El objetivo exacto y obligatorio para empatar el crecimiento histórico requiere desplazar **{v_faltan_pares:,.0f} pares** adicionales, lo que representará un ingreso recuperado de **${v_faltan_pesos:,.2f} MXN**.")
                     elif v_faltan_pares < 0:
                         compromisos.append(f"🏆 **Expansión Comercial:** Reconocemos el superávit de **+{abs(v_faltan_pares):,.0f} pares** (${abs(v_faltan_pesos):,.2f} MXN) frente al histórico. El compromiso es mantener esta aceleración y proteger el liderazgo comercial de la sucursal.")
 
                     if v_quiebres > 5:
-                        compromisos.append("📦 **Gestión de Quiebres:** Garantizar el reporte oportuno en la Bitácora sobre faltantes de Tallas Extremas para gestionar la nivelación y evitar fuga de capital.")
+                        compromisos.append("⚠️ **Gestión de Quiebres:** Garantizar el reporte oportuno en la Bitácora sobre faltantes de Tallas Extremas para gestionar la nivelación y evitar fuga de capital.")
+                    
+                    # ---> NUEVO COMPROMISO DE DESFOGUE <---
+                    if v_modelos_desfogue > 0:
+                        compromisos.append(f"📦 **Depuración de Inventario (Desfogue):** Se detectaron **{v_modelos_desfogue} modelos** con inventario marginal (1 a 3 pares totales). El compromiso es generar el reporte de transferencia a sucursales Outlet antes del cierre de semana para liberar espacio de bodega y concentrar la labor de venta en el catálogo de alta rotación.")
                     
                     if not compromisos:
                         compromisos.append("⭐ **Sostenimiento de Excelencia:** Mantener la estricta disciplina en los procesos de venta actuales, protegiendo los KPIs que hoy mantienen a la sucursal en el nivel de excelencia.")
@@ -1681,7 +1710,7 @@ Atentamente,
 LAE. José Martín Estrada Cabrera
 Gerencia Comercial Zona Occidente
 """
-                    st.text_area("Copia el siguiente mensaje:", value=texto_final, height=380)
+                    st.text_area("Copia el siguiente mensaje:", value=texto_final, height=450)
         else:
             st.warning("No se pudo cargar la base de tiendas.")
 
