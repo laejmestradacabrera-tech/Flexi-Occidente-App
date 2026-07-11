@@ -1587,16 +1587,18 @@ elif st.session_state.vista_actual == 'Estrategico':
                         
                         modelos_quebrados = set()
                         if not df_tienda_v.empty:
-                            # ---> NUEVAS MÉTRICAS: TOTAL MODELOS Y DESFOGUE <---
-                            v_total_modelos = df_tienda_v['Modelo'].nunique()
-                            
                             # Identificar columnas de existencias (ex1 a ex15) y convertirlas a números
                             ex_cols = [f'ex{i}' for i in range(1, 16) if f'ex{i}' in df_tienda_v.columns]
                             for col in ex_cols:
                                 df_tienda_v[col] = pd.to_numeric(df_tienda_v[col], errors='coerce').fillna(0)
                             
-                            # Sumar las existencias por modelo
+                            # Sumar las existencias totales por cada modelo
                             stock_por_modelo = df_tienda_v.groupby('Modelo')[ex_cols].sum().sum(axis=1)
+                            
+                            # ---> NUEVAS MÉTRICAS: TOTAL MODELOS (SOLO CON STOCK) Y DESFOGUE <---
+                            # Contar solo los modelos que tienen más de 0 pares físicos en la tienda
+                            v_total_modelos = len(stock_por_modelo[stock_por_modelo > 0])
+                            
                             # Contar cuántos modelos tienen entre 1 y 3 pares en total
                             v_modelos_desfogue = len(stock_por_modelo[(stock_por_modelo >= 1) & (stock_por_modelo <= 3)])
                             # ---> FIN NUEVAS MÉTRICAS <---
