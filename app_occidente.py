@@ -1435,6 +1435,16 @@ elif st.session_state.vista_actual == 'Estrategico':
         st.subheader("💰 Impacto Financiero por quiebre")
         st.write("Proyección estadística de fugas de capital basada en el monitoreo de piso de venta.")
         
+        # ---> NUEVO: PARÁMETROS DEL SIMULADOR DIRECTIVO <---
+        st.markdown("### 🎛️ Parámetros del Simulador Directivo")
+        col_sim1, col_sim2 = st.columns(2)
+        with col_sim1:
+            venta_muestra = st.number_input("Venta Acumulada de la Muestra (Piloto) $:", min_value=0.0, value=5200000.0, step=10000.0)
+        with col_sim2:
+            venta_empresa = st.number_input("Venta Total de la Empresa (Nacional) $:", min_value=0.0, value=123000000.0, step=100000.0)
+        st.write("<br>", unsafe_allow_html=True)
+        # ---> FIN NUEVO <---
+        
         if st.button("Ejecutar Motor de Proyección", type="primary"):
             with st.spinner("Procesando y cruzando datos de la base maestra..."):
                 try:
@@ -1475,19 +1485,50 @@ elif st.session_state.vista_actual == 'Estrategico':
                         perdida_real = df_quiebres[col_precio].sum()
                         proyeccion_total = perdida_real * factor_proyeccion
                         
+                        # ---> NUEVO: CÁLCULOS DE SHARE Y PROYECCIÓN NACIONAL <---
+                        share_decimal = (venta_muestra / venta_empresa) if venta_empresa > 0 else 0
+                        share_porcentaje = share_decimal * 100
+                        proyeccion_nacional = (perdida_real / share_decimal) if share_decimal > 0 else 0
+                        # ---> FIN NUEVO <---
+
                         # 3. Despliegue de Resultados Ejecutivos
                         st.markdown("---")
+                        st.markdown("#### 📍 Proyección a Nivel Zona Occidente")
                         col1, col2, col3 = st.columns(3)
                         
-                        col1.metric("Cobertura Piloto", f"{tiendas_piloto} de {total_tiendas} Tdas", f"{int((tiendas_piloto/total_tiendas)*100)}% de Operación")
-                        col2.metric("Venta Perdida (Real)", f"${perdida_real:,.2f}", f"{len(df_quiebres)} quiebres validados", delta_color="inverse")
-                        col3.metric("Proyección Zona (19 Tdas)", f"${proyeccion_total:,.2f}", f"Factor de Expansión: {factor_proyeccion:.2f}x", delta_color="off")
+                        col1.metric("Cobertura Piloto", f"{tiendas_piloto} de {total_tiendas} Tdas", f"{int((tiendas_piloto/total_tiendas)*100)}% de Operación Zona")
+                        col2.metric("Venta Perdida (Real Piloto)", f"${perdida_real:,.2f}", f"{len(df_quiebres)} quiebres validados", delta_color="inverse")
+                        col3.metric("Proyección Zona (19 Tdas)", f"${proyeccion_total:,.2f}", f"Factor Expansión: {factor_proyeccion:.2f}x", delta_color="off")
                         
+                        # ---> NUEVO: DESPLIEGUE VISUAL NACIONAL <---
+                        st.markdown("---")
+                        st.markdown("#### 🌍 Proyección de Impacto Nacional (Ponderado por Share)")
+                        col_nat1, col_nat2 = st.columns(2)
+                        
+                        with col_nat1:
+                            st.markdown(f"""
+                                <div class="kpi-box" style="background-color: #1e293b; border-color: #334155;">
+                                    <div class="kpi-title" style="color: #94a3b8;">Share de la Muestra</div>
+                                    <div class="kpi-value" style="color: #fbbf24; font-size: 32px;">{share_porcentaje:.2f}%</div>
+                                    <div class="kpi-delta" style="color: #cbd5e1; font-weight: normal;">Participación en la Venta Total</div>
+                                </div>
+                            """, unsafe_allow_html=True)
+
+                        with col_nat2:
+                            st.markdown(f"""
+                                <div class="kpi-box" style="background-color: #1e293b; border-color: #deff9a; box-shadow: 0 0 15px rgba(222,255,154,0.1);">
+                                    <div class="kpi-title" style="color: #deff9a;">Fuga de Capital Proyectada (Empresa)</div>
+                                    <div class="kpi-value" style="color: white; font-size: 36px;">${proyeccion_nacional:,.2f}</div>
+                                    <div class="kpi-delta" style="color: #cbd5e1; font-weight: normal;">Proyección matemática exacta</div>
+                                </div>
+                            """, unsafe_allow_html=True)
+                        # ---> FIN NUEVO <---
+
                         st.markdown("---")
                         c_graf, c_tab = st.columns([2, 1])
                         
                         with c_graf:
-                            st.write("### 🏢 Fuga de Capital por Sucursal")
+                            st.write("### 🏢 Fuga de Capital por Sucursal Piloto")
                             impacto_tda = df_quiebres.groupby(col_tienda)[col_precio].sum().sort_values(ascending=False)
                             st.bar_chart(impacto_tda)
                             
