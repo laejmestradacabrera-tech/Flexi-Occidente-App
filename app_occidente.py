@@ -1439,9 +1439,9 @@ elif st.session_state.vista_actual == 'Estrategico':
         st.markdown("### 🎛️ Parámetros del Simulador Directivo")
         col_sim1, col_sim2 = st.columns(2)
         with col_sim1:
-            venta_muestra = st.number_input("Venta Acumulada de la Muestra (Piloto) $:", min_value=0.0, value=5200000.0, step=10000.0)
+            venta_muestra = st.number_input("Venta Acumulada de la Muestra (Piloto) $:", min_value=0.0, value=2276150.0, step=10000.0)
         with col_sim2:
-            venta_empresa = st.number_input("Venta Total de la Empresa (Nacional) $:", min_value=0.0, value=123000000.0, step=100000.0)
+            venta_empresa = st.number_input("Venta Total de la Empresa (Nacional) $:", min_value=0.0, value=40125942.0, step=100000.0)
         st.write("<br>", unsafe_allow_html=True)
         # ---> FIN NUEVO <---
         
@@ -1620,6 +1620,10 @@ elif st.session_state.vista_actual == 'Estrategico':
 
                     # C. Extraer Quiebres, Modelos Totales y Desfogue
                     cargar_archivos_locales()
+                    
+                    v_pares_transito = 0
+                    v_modelos_transito = 0
+                    
                     if 'df_ventas' in st.session_state and 'df_tallas' in st.session_state:
                         df_v = st.session_state.df_ventas.copy()
                         df_t = st.session_state.df_tallas
@@ -1628,9 +1632,11 @@ elif st.session_state.vista_actual == 'Estrategico':
                         
                         modelos_quebrados = set()
                         if not df_tienda_v.empty:
-                            # Identificar columnas de existencias (ex1 a ex15) y convertirlas a números
+                            # Identificar columnas de existencias (ex1 a ex15) y pedidos (p1 a p15) y convertirlas a números
                             ex_cols = [f'ex{i}' for i in range(1, 16) if f'ex{i}' in df_tienda_v.columns]
-                            for col in ex_cols:
+                            p_cols = [f'p{i}' for i in range(1, 16) if f'p{i}' in df_tienda_v.columns]
+                            
+                            for col in ex_cols + p_cols:
                                 df_tienda_v[col] = pd.to_numeric(df_tienda_v[col], errors='coerce').fillna(0)
                             
                             # Sumar las existencias totales por cada modelo
@@ -1646,6 +1652,13 @@ elif st.session_state.vista_actual == 'Estrategico':
                             
                             top_20 = df_tienda_v.groupby('Modelo')['Vtas'].sum().nlargest(20).index
                             df_top = df_tienda_v[df_tienda_v['Modelo'].isin(top_20)]
+                            
+                            # ---> NUEVO: CÁLCULO DE PEDIDOS EN TRÁNSITO PARA EL TOP 20 <---
+                            if not df_top.empty:
+                                pedidos_por_modelo = df_top.groupby('Modelo')[p_cols].sum().sum(axis=1)
+                                v_pares_transito = int(pedidos_por_modelo.sum())
+                                v_modelos_transito = len(pedidos_por_modelo[pedidos_por_modelo > 0])
+                            # ---> FIN NUEVO <---
                             
                             for _, row in df_top.iterrows():
                                 dpto = str(row.get('Departamento', '')).strip().lower()
@@ -1698,14 +1711,19 @@ elif st.session_state.vista_actual == 'Estrategico':
                     else:
                         c_pesos.metric("Brecha en Ingresos", f"A favor: ${abs(v_faltan_pesos):,.2f}", "+ Superando histórico")
 
-                    # ---> NUEVA SECCIÓN VISUAL DE INVENTARIO <---
+                    # ---> SECCIÓN VISUAL DE INVENTARIO ACTUALIZADA A 3 COLUMNAS <---
                     st.markdown("#### 📦 Análisis de Inventario y Catálogo")
-                    c_cat, c_desf = st.columns(2)
+                    c_cat, c_desf, c_trans = st.columns(3)
                     c_cat.metric("Catálogo Activo", f"{v_total_modelos} Modelos", "En piso de venta")
+                    
                     if v_modelos_desfogue > 0:
                         c_desf.metric("Candidatos a Desfogue", f"{v_modelos_desfogue} Modelos", "Con 1 a 3 pares totales", delta_color="inverse")
                     else:
                         c_desf.metric("Candidatos a Desfogue", "0 Modelos", "Inventario sano", delta_color="normal")
+                        
+                    # Agregamos la nueva métrica de Tránsito
+                    c_trans.metric("🚚 Resurtido (Top 20)", f"{v_pares_transito} Pares en tránsito", f"Para {v_modelos_transito} modelos estrella", delta_color="normal" if v_pares_transito > 0 else "off")
+                    # ---> FIN ACTUALIZACIÓN <---
 
                     st.markdown("---")
                     st.markdown("### 📋 Instrucción Compromiso Autogenerada")
@@ -1731,7 +1749,7 @@ elif st.session_state.vista_actual == 'Estrategico':
                     if v_quiebres > 5:
                         compromisos.append("⚠️ **Gestión de Quiebres:** Garantizar el reporte oportuno en la Bitácora sobre faltantes de Tallas Extremas para gestionar la nivelación y evitar fuga de capital.")
                     
-                    # ---> NUEVO COMPROMISO DE DESFOGUE <---
+                    # ---> COMPROMISO DE DESFOGUE <---
                     if v_modelos_desfogue > 0:
                         compromisos.append(f"📦 **Depuración de Inventario (Desfogue):** Se detectaron **{v_modelos_desfogue} modelos** con inventario marginal (1 a 3 pares totales). El compromiso es generar el reporte de transferencia a sucursales Outlet antes del cierre de semana para liberar espacio de bodega y concentrar la labor de venta en el catálogo de alta rotación.")
                     
