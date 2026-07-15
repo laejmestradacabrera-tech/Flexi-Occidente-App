@@ -1725,6 +1725,17 @@ elif st.session_state.vista_actual == 'Estrategico':
                     c_trans.metric("🚚 Resurtido (Top 20)", f"{v_pares_transito} Pares en tránsito", f"Para {v_modelos_transito} modelos estrella", delta_color="normal" if v_pares_transito > 0 else "off")
                     # ---> FIN ACTUALIZACIÓN <---
 
+                    # ---> NUEVA PERSIANA DE DETALLE DE DESFOGUE <---
+                    if v_modelos_desfogue > 0 and 'stock_por_modelo' in locals():
+                        with st.expander("📦 Ver detalle de modelos para desfogue (1 a 3 pares totales)"):
+                            df_desfogue = stock_por_modelo[(stock_por_modelo >= 1) & (stock_por_modelo <= 3)].reset_index()
+                            df_desfogue.columns = ['Modelo a Desfogar', 'Pares Físicos (Total)']
+                            # Ordenamos de 1 par a 3 pares para que vea primero los más urgentes de sacar
+                            df_desfogue = df_desfogue.sort_values(by='Pares Físicos (Total)', ascending=True).reset_index(drop=True)
+                            df_desfogue.index += 1 # Para que el listado inicie en 1
+                            st.table(df_desfogue)
+                    # ---> FIN NUEVA PERSIANA <---
+
                     # ---> NUEVA PERSIANA DE DETALLE DE TRÁNSITO <---
                     if v_pares_transito > 0 and 'pedidos_por_modelo' in locals():
                         with st.expander("⬇️ Ver detalle de modelos en tránsito (Top 20)"):
