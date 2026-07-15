@@ -1725,6 +1725,16 @@ elif st.session_state.vista_actual == 'Estrategico':
                     c_trans.metric("🚚 Resurtido (Top 20)", f"{v_pares_transito} Pares en tránsito", f"Para {v_modelos_transito} modelos estrella", delta_color="normal" if v_pares_transito > 0 else "off")
                     # ---> FIN ACTUALIZACIÓN <---
 
+                    # ---> NUEVA PERSIANA DE DETALLE DE TRÁNSITO <---
+                    if v_pares_transito > 0 and 'pedidos_por_modelo' in locals():
+                        with st.expander("⬇️ Ver detalle de modelos en tránsito (Top 20)"):
+                            df_en_camino = pedidos_por_modelo[pedidos_por_modelo > 0].reset_index()
+                            df_en_camino.columns = ['Modelo Estrella', 'Pares en Camino']
+                            df_en_camino = df_en_camino.sort_values(by='Pares en Camino', ascending=False).reset_index(drop=True)
+                            df_en_camino.index += 1 # Para que el listado inicie en 1
+                            st.table(df_en_camino)
+                    # ---> FIN NUEVA PERSIANA <---
+
                     st.markdown("---")
                     st.markdown("### 📋 Instrucción Compromiso Autogenerada")
                     st.caption("Texto listo para ser enviado por WhatsApp o correo al finalizar la visita y dejar evidencia formal.")
