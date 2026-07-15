@@ -1466,7 +1466,7 @@ elif st.session_state.vista_actual == 'Estrategico':
             
     st.write("---")
 
-    # NUEVAS PESTAÑAS ESTRATÉGICAS (Se agregó la pestaña de Visita)
+    # NUEVAS PESTAÑAS ESTRATÉGICAS
     tab_monitor, tab_impacto, tab_visita, tab_demanda, tab_nivelacion_intel, tab_macro = st.tabs([
         "📡 Monitor Estratégico", 
         "💰 Impacto Financiero",
@@ -1612,7 +1612,7 @@ elif st.session_state.vista_actual == 'Estrategico':
                     st.error(f"Error procesando el cruce de datos: {e}")
 
     # =================================================================================
-    # NUEVA PESTAÑA: PREPARACIÓN DE VISITA EN CAMPO
+    # PESTAÑA: PREPARACIÓN DE VISITA EN CAMPO (ACTUALIZADA Y BLINDADA)
     # =================================================================================
     with tab_visita:
         st.markdown("## 🤝 Expediente de Visita y Compromisos")
@@ -1635,25 +1635,38 @@ elif st.session_state.vista_actual == 'Estrategico':
                     
                     # Variables por defecto
                     v_conv, v_tkt, v_alcance, v_quiebres, v_rating = 0.0, 0.0, 0.0, 0, 0
+                    v_conv_ant, v_tkt_ant = 0.0, 0.0
                     v_faltan_pares = 0
                     v_faltan_pesos = 0.0
                     v_total_modelos = 0
                     v_modelos_desfogue = 0
                     
-                    # A. Extraer Conversión y Ticket
+                    # A. Extraer Conversión y Ticket (Incluyendo 2025)
                     if archivo_conv:
                         df_c = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
                         df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
                         col_tda_c = next((c for c in df_c.columns if 'Tienda' in c or 'TIENDA' in c), df_c.columns[0])
+                        
                         col_cv = next((c for c in df_c.columns if 'Conv' in c and 'Actual' in c), None)
-                        col_tk = next((c for c in df_c.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
+                        col_tk = next((c for c in df_c.columns if 'Ticket' in c and 'Actual' in c), None)
+                        if not col_tk: col_tk = next((c for c in df_c.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
+                        
+                        col_cv_ant = next((c for c in df_c.columns if 'Conv' in c and 'Anterior' in c), None)
+                        col_tk_ant = next((c for c in df_c.columns if 'Ticket' in c and 'Anterior' in c), None)
                         
                         df_c['TIENDA_ID'] = df_c[col_tda_c].astype(str).str.extract(r'(\d+)', expand=False)
                         fila_c = df_c[df_c['TIENDA_ID'] == tienda_obj]
                         if not fila_c.empty:
-                            v_conv = float(fila_c.iloc[0][col_cv])
-                            v_conv = v_conv * 100 if v_conv < 1 else v_conv
-                            v_tkt = float(fila_c.iloc[0][col_tk])
+                            if col_cv:
+                                v_conv = float(fila_c.iloc[0][col_cv])
+                                v_conv = v_conv * 100 if v_conv < 1 else v_conv
+                            if col_tk:
+                                v_tkt = float(fila_c.iloc[0][col_tk])
+                            if col_cv_ant:
+                                v_conv_ant = float(fila_c.iloc[0][col_cv_ant])
+                                v_conv_ant = v_conv_ant * 100 if v_conv_ant < 1 else v_conv_ant
+                            if col_tk_ant:
+                                v_tkt_ant = float(fila_c.iloc[0][col_tk_ant])
                     
                     # B. Extraer Alcance (Comparativo) y Brecha en Pares/Pesos
                     if archivo_comp:
@@ -1762,10 +1775,69 @@ elif st.session_state.vista_actual == 'Estrategico':
                     st.markdown(f"<div style='background-color: {color_bg}; color: {color_text}; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px;'><strong>{tipo_visita}</strong><br>Puntaje Actual: {v_rating} pts</div>", unsafe_allow_html=True)
                     
                     c1, c2, c3, c4 = st.columns(4)
-                    c1.metric("Conversión", f"{v_conv:.2f}%", f"{v_conv - 10.9:.2f}% vs Meta" if v_conv > 0 else "")
-                    c2.metric("Ticket Promedio", f"{v_tkt:.2f}", f"{v_tkt - 1.29:.2f} vs Meta" if v_tkt > 0 else "")
-                    c3.metric("Alcance Histórico", f"{v_alcance:.1f}%")
-                    c4.metric("Quiebres Detectados", f"{v_quiebres} Mod.", delta_color="inverse")
+                    
+                    # Renderizado HTML para Conversión con doble indicador
+                    if v_conv > 0:
+                        dif_meta_cv = v_conv - 10.9
+                        color_meta_cv = "#155724" if dif_meta_cv >= 0 else "#721c24"
+                        arrow_meta_cv = "↑" if dif_meta_cv >= 0 else "↓"
+                        
+                        dif_ant_cv = v_conv - v_conv_ant
+                        color_ant_cv = "#155724" if dif_ant_cv >= 0 else "#721c24"
+                        arrow_ant_cv = "↑" if dif_ant_cv >= 0 else "↓"
+                        texto_ant_cv = f"2025: {v_conv_ant:.2f}%" if v_conv_ant > 0 else "2025: S/D"
+                        
+                        html_cv = f"""
+                        <div style="border: 1px solid rgba(49, 51, 63, 0.2); border-radius: 0.5rem; padding: calc(1rem - 1px); background-color: #ffffff; height: 100%;">
+                            <label style="font-size: 14px; color: rgb(49, 51, 63); margin-bottom: 0.25rem;">Conversión</label>
+                            <div style="font-size: 1.8rem; font-weight: 600; color: rgb(49, 51, 63); padding-bottom: 0.25rem;">{v_conv:.2f}%</div>
+                            <div style="font-size: 14px; color: {color_meta_cv}; font-weight: 500;">{arrow_meta_cv} {abs(dif_meta_cv):.2f}% vs Meta</div>
+                            <div style="font-size: 13px; color: {color_ant_cv}; font-weight: 500; margin-top: 2px;">{arrow_ant_cv} {abs(dif_ant_cv):.2f}% vs {texto_ant_cv}</div>
+                        </div>
+                        """
+                        c1.markdown(html_cv, unsafe_allow_html=True)
+                    else:
+                        c1.metric("Conversión", f"{v_conv:.2f}%")
+
+                    # Renderizado HTML para Ticket con doble indicador
+                    if v_tkt > 0:
+                        dif_meta_tk = v_tkt - 1.29
+                        color_meta_tk = "#155724" if dif_meta_tk >= 0 else "#721c24"
+                        arrow_meta_tk = "↑" if dif_meta_tk >= 0 else "↓"
+                        
+                        dif_ant_tk = v_tkt - v_tkt_ant
+                        color_ant_tk = "#155724" if dif_ant_tk >= 0 else "#721c24"
+                        arrow_ant_tk = "↑" if dif_ant_tk >= 0 else "↓"
+                        texto_ant_tk = f"2025: {v_tkt_ant:.2f}" if v_tkt_ant > 0 else "2025: S/D"
+                        
+                        html_tk = f"""
+                        <div style="border: 1px solid rgba(49, 51, 63, 0.2); border-radius: 0.5rem; padding: calc(1rem - 1px); background-color: #ffffff; height: 100%;">
+                            <label style="font-size: 14px; color: rgb(49, 51, 63); margin-bottom: 0.25rem;">Ticket Promedio</label>
+                            <div style="font-size: 1.8rem; font-weight: 600; color: rgb(49, 51, 63); padding-bottom: 0.25rem;">{v_tkt:.2f}</div>
+                            <div style="font-size: 14px; color: {color_meta_tk}; font-weight: 500;">{arrow_meta_tk} {abs(dif_meta_tk):.2f} vs Meta</div>
+                            <div style="font-size: 13px; color: {color_ant_tk}; font-weight: 500; margin-top: 2px;">{arrow_ant_tk} {abs(dif_ant_tk):.2f} vs {texto_ant_tk}</div>
+                        </div>
+                        """
+                        c2.markdown(html_tk, unsafe_allow_html=True)
+                    else:
+                        c2.metric("Ticket Promedio", f"{v_tkt:.2f}")
+
+                    # Aplicar mismo contenedor para c3 y c4 para que mantengan la misma altura visual
+                    html_c3 = f"""
+                    <div style="border: 1px solid rgba(49, 51, 63, 0.2); border-radius: 0.5rem; padding: calc(1rem - 1px); background-color: #ffffff; height: 100%;">
+                        <label style="font-size: 14px; color: rgb(49, 51, 63); margin-bottom: 0.25rem;">Alcance Histórico</label>
+                        <div style="font-size: 1.8rem; font-weight: 600; color: rgb(49, 51, 63); padding-bottom: 0.25rem;">{v_alcance:.1f}%</div>
+                    </div>
+                    """
+                    c3.markdown(html_c3, unsafe_allow_html=True)
+
+                    html_c4 = f"""
+                    <div style="border: 1px solid rgba(49, 51, 63, 0.2); border-radius: 0.5rem; padding: calc(1rem - 1px); background-color: #ffffff; height: 100%;">
+                        <label style="font-size: 14px; color: rgb(49, 51, 63); margin-bottom: 0.25rem;">Quiebres Detectados</label>
+                        <div style="font-size: 1.8rem; font-weight: 600; color: rgb(49, 51, 63); padding-bottom: 0.25rem;">{v_quiebres} Mod.</div>
+                    </div>
+                    """
+                    c4.markdown(html_c4, unsafe_allow_html=True)
                     
                     st.markdown("#### 📊 Reto Acumulado vs Histórico")
                     c_pares, c_pesos = st.columns(2)
