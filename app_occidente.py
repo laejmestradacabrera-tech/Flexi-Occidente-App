@@ -2081,33 +2081,31 @@ Gerencia Comercial Zona Occidente
                         df_traspasos = pd.DataFrame(traspasos_sugeridos)
                         st.success(f"✅ ¡Análisis completado! Se encontraron {len(df_traspasos)} oportunidades de rescate de capital bajo las reglas estrictas de negocio.")
                         
-                        # Diseño Visual Llamativo con HTML Customizado
-                        html_tabla = """
-                        <div style="overflow-x:auto;">
-                        <table style="width:100%; border-collapse: collapse; font-family: sans-serif; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
-                            <thead>
-                                <tr style="background-color: #E30613; color: white; text-transform: uppercase; font-size: 13px;">
-                                    <th style="padding: 12px 15px; border: 1px solid #b9000b; text-align: left;">Origen (Donador)</th>
-                                    <th style="padding: 12px 15px; border: 1px solid #b9000b; text-align: left;">Destino (Receptor)</th>
-                                    <th style="padding: 12px 15px; border: 1px solid #b9000b; text-align: center;">Modelo</th>
-                                    <th style="padding: 12px 15px; border: 1px solid #b9000b; text-align: center;">Talla</th>
-                                    <th style="padding: 12px 15px; border: 1px solid #b9000b; text-align: center;">Cant.</th>
-                                    <th style="padding: 12px 15px; border: 1px solid #b9000b; text-align: left;">Lógica del Sistema</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                        """
+                        # Diseño Visual Llamativo con HTML Customizado (Alineado a la izquierda sin tabulaciones para evitar problemas de renderizado Markdown)
+                        html_tabla = "<div style='overflow-x:auto;'>\n"
+                        html_tabla += "<table style='width:100%; border-collapse: collapse; font-family: sans-serif; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);'>\n"
+                        html_tabla += "<thead>\n"
+                        html_tabla += "<tr style='background-color: #E30613; color: white; text-transform: uppercase; font-size: 13px;'>\n"
+                        html_tabla += "<th style='padding: 12px 15px; border: 1px solid #b9000b; text-align: left;'>Origen (Donador)</th>\n"
+                        html_tabla += "<th style='padding: 12px 15px; border: 1px solid #b9000b; text-align: left;'>Destino (Receptor)</th>\n"
+                        html_tabla += "<th style='padding: 12px 15px; border: 1px solid #b9000b; text-align: center;'>Modelo</th>\n"
+                        html_tabla += "<th style='padding: 12px 15px; border: 1px solid #b9000b; text-align: center;'>Talla</th>\n"
+                        html_tabla += "<th style='padding: 12px 15px; border: 1px solid #b9000b; text-align: center;'>Cant.</th>\n"
+                        html_tabla += "<th style='padding: 12px 15px; border: 1px solid #b9000b; text-align: left;'>Lógica del Sistema</th>\n"
+                        html_tabla += "</tr>\n"
+                        html_tabla += "</thead>\n"
+                        html_tabla += "<tbody>\n"
+                        
                         for _, row in df_traspasos.iterrows():
-                            html_tabla += f"""
-                                <tr style="border-bottom: 1px solid #e2e8f0; background-color: white; transition: background-color 0.2s;">
-                                    <td style="padding: 12px 15px; background-color: #fee2e2; color: #991b1b; font-weight: bold; border-right: 1px solid #e2e8f0;">🏪 {row['ORIGEN (Donador)']}</td>
-                                    <td style="padding: 12px 15px; background-color: #d1fae5; color: #166534; font-weight: bold; border-right: 1px solid #e2e8f0;">🎯 {row['DESTINO (Receptor)']}</td>
-                                    <td style="padding: 12px 15px; text-align: center; font-weight: bold; color: #1e293b;">{row['MODELO']}</td>
-                                    <td style="padding: 12px 15px; text-align: center; color: #475569;">{row['TALLA']}</td>
-                                    <td style="padding: 12px 15px; text-align: center; background-color: #fef08a; color: #854d0e; font-size: 16px; font-weight: 900; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;">{row['CANTIDAD']}</td>
-                                    <td style="padding: 12px 15px; font-size: 12px; color: #64748b;">{row['JUSTIFICACIÓN']}</td>
-                                </tr>
-                            """
+                            html_tabla += f"<tr style='border-bottom: 1px solid #e2e8f0; background-color: white; transition: background-color 0.2s;'>\n"
+                            html_tabla += f"<td style='padding: 12px 15px; background-color: #fee2e2; color: #991b1b; font-weight: bold; border-right: 1px solid #e2e8f0;'>🏪 {row['ORIGEN (Donador)']}</td>\n"
+                            html_tabla += f"<td style='padding: 12px 15px; background-color: #d1fae5; color: #166534; font-weight: bold; border-right: 1px solid #e2e8f0;'>🎯 {row['DESTINO (Receptor)']}</td>\n"
+                            html_tabla += f"<td style='padding: 12px 15px; text-align: center; font-weight: bold; color: #1e293b;'>{row['MODELO']}</td>\n"
+                            html_tabla += f"<td style='padding: 12px 15px; text-align: center; color: #475569;'>{row['TALLA']}</td>\n"
+                            html_tabla += f"<td style='padding: 12px 15px; text-align: center; background-color: #fef08a; color: #854d0e; font-size: 16px; font-weight: 900; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;'>{row['CANTIDAD']}</td>\n"
+                            html_tabla += f"<td style='padding: 12px 15px; font-size: 12px; color: #64748b;'>{row['JUSTIFICACIÓN']}</td>\n"
+                            html_tabla += "</tr>\n"
+                            
                         html_tabla += "</tbody></table></div>"
                         
                         st.markdown(html_tabla, unsafe_allow_html=True)
