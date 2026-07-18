@@ -1983,6 +1983,23 @@ Gerencia Comercial Zona Occidente
                     df_v = st.session_state.df_ventas.copy()
                     df_t = st.session_state.df_tallas.copy()
 
+                    # Mapeo de Tiendas (IDs a Nombres)
+                    df_tiendas_map = cargar_tiendas()
+                    df_tiendas_map.columns = df_tiendas_map.columns.astype(str).str.strip().str.upper()
+                    col_id = next((c for c in df_tiendas_map.columns if c in ['TIENDA', 'SUCURSAL', 'NUMERO', 'ID']), df_tiendas_map.columns[0])
+                    col_nom = next((c for c in df_tiendas_map.columns if c in ['NOMBRE']), df_tiendas_map.columns[1] if len(df_tiendas_map.columns)>1 else df_tiendas_map.columns[0])
+
+                    tiendas_dict = {}
+                    for _, r in df_tiendas_map.iterrows():
+                        try:
+                            t_id = int(re.search(r'\d+', str(r[col_id])).group())
+                            tiendas_dict[t_id] = str(r[col_nom]).strip()
+                        except: pass
+                    
+                    def get_tienda_nombre(t_id):
+                        nom = tiendas_dict.get(t_id, "Sucursal")
+                        return f"{t_id} - {nom}"
+
                     # 1. Limpieza y preparación de la base
                     df_v['tienda_int'] = pd.to_numeric(df_v['Tienda'].astype(str).str.extract(r'(\d+)', expand=False), errors='coerce').fillna(-1).astype(int)
                     # Filtramos: Solo tiendas válidas, excluimos proveedores 415/426/427 y excluimos tiendas de prueba
@@ -2047,13 +2064,16 @@ Gerencia Comercial Zona Occidente
                                         df_donadores = df_donadores.sort_values(by=col_ex, ascending=False)
                                         mejor_donador = df_donadores.iloc[0]
 
+                                        origen_nom = get_tienda_nombre(mejor_donador['tienda_int'])
+                                        destino_nom = get_tienda_nombre(tda_receptor)
+
                                         traspasos_sugeridos.append({
-                                            'ORIGEN (Donador)': f"Sucursal {mejor_donador['tienda_int']}",
-                                            'DESTINO (Receptor)': f"Sucursal {tda_receptor}",
+                                            'ORIGEN (Donador)': origen_nom,
+                                            'DESTINO (Receptor)': destino_nom,
                                             'MODELO': row_mod_rec['Modelo'],
                                             'TALLA': str(talla_real).strip(),
                                             'CANTIDAD': 1,
-                                            'JUSTIFICACIÓN': f"Receptor (Top 20, Sin Stock). Donador (Ventas: {int(mejor_donador['Vtas'])}, Stock Físico: {int(mejor_donador[col_ex])})"
+                                            'JUSTIFICACIÓN': f"Receptor (Top 20, Sin Stock). Donador (Ventas: {int(mejor_donador['Vtas'])}, Stock: {int(mejor_donador[col_ex])})"
                                         })
 
                     # 3. Presentación de Resultados
@@ -2061,7 +2081,36 @@ Gerencia Comercial Zona Occidente
                         df_traspasos = pd.DataFrame(traspasos_sugeridos)
                         st.success(f"✅ ¡Análisis completado! Se encontraron {len(df_traspasos)} oportunidades de rescate de capital bajo las reglas estrictas de negocio.")
                         
-                        st.dataframe(df_traspasos, use_container_width=True)
+                        # Diseño Visual Llamativo con HTML Customizado
+                        html_tabla = """
+                        <div style="overflow-x:auto;">
+                        <table style="width:100%; border-collapse: collapse; font-family: sans-serif; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                            <thead>
+                                <tr style="background-color: #E30613; color: white; text-transform: uppercase; font-size: 13px;">
+                                    <th style="padding: 12px 15px; border: 1px solid #b9000b; text-align: left;">Origen (Donador)</th>
+                                    <th style="padding: 12px 15px; border: 1px solid #b9000b; text-align: left;">Destino (Receptor)</th>
+                                    <th style="padding: 12px 15px; border: 1px solid #b9000b; text-align: center;">Modelo</th>
+                                    <th style="padding: 12px 15px; border: 1px solid #b9000b; text-align: center;">Talla</th>
+                                    <th style="padding: 12px 15px; border: 1px solid #b9000b; text-align: center;">Cant.</th>
+                                    <th style="padding: 12px 15px; border: 1px solid #b9000b; text-align: left;">Lógica del Sistema</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                        """
+                        for _, row in df_traspasos.iterrows():
+                            html_tabla += f"""
+                                <tr style="border-bottom: 1px solid #e2e8f0; background-color: white; transition: background-color 0.2s;">
+                                    <td style="padding: 12px 15px; background-color: #fee2e2; color: #991b1b; font-weight: bold; border-right: 1px solid #e2e8f0;">🏪 {row['ORIGEN (Donador)']}</td>
+                                    <td style="padding: 12px 15px; background-color: #d1fae5; color: #166534; font-weight: bold; border-right: 1px solid #e2e8f0;">🎯 {row['DESTINO (Receptor)']}</td>
+                                    <td style="padding: 12px 15px; text-align: center; font-weight: bold; color: #1e293b;">{row['MODELO']}</td>
+                                    <td style="padding: 12px 15px; text-align: center; color: #475569;">{row['TALLA']}</td>
+                                    <td style="padding: 12px 15px; text-align: center; background-color: #fef08a; color: #854d0e; font-size: 16px; font-weight: 900; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;">{row['CANTIDAD']}</td>
+                                    <td style="padding: 12px 15px; font-size: 12px; color: #64748b;">{row['JUSTIFICACIÓN']}</td>
+                                </tr>
+                            """
+                        html_tabla += "</tbody></table></div>"
+                        
+                        st.markdown(html_tabla, unsafe_allow_html=True)
 
                         pdf_bytes = generar_reporte_traspaso_masivo_pdf(df_traspasos)
                         st.write("<br>", unsafe_allow_html=True)
