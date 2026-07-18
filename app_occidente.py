@@ -129,6 +129,7 @@ def obtener_fecha_actualizacion(nombre_archivo):
     except Exception:
         return "Fecha no disponible"
 
+@st.cache_data
 def cargar_tiendas():
     nombre_archivo = "CORREO DE TIENDAS.xlsx"
     try:
@@ -205,14 +206,13 @@ def validar_captura_stock(tienda_id, modelo, talla_input, df_ventas, df_tallas):
                                         return False, f"⛔ CAPTURA BLOQUEADA: El sistema registra {int(existencia_num)} par(es) de la talla {talla_buscada_str} (Modelo {modelo_buscado}) físicamente en la sucursal {tda_buscada}."
                                     else:
                                         st.write(f"✅ La existencia es {existencia_num}. Permitiendo captura (Quiebre válido).")
-                                else:
-                                    st.write(f"❌ **ERROR:** La columna [{col_ex}] NO existe en el archivo Ventas.xlsx")
+                            else:
+                                st.write(f"❌ **ERROR:** La columna [{col_ex}] NO existe en el archivo Ventas.xlsx")
         return True, ""
     except Exception as e:
         st.error(f"Error interno en validación: {e}")
         return True, ""
 
-# Modificada para aceptar el destinatario dinámico
 def enviar_correo_ejecutivo(tienda_objetivo, conversion, ticket, meta_conv, meta_tkt, faltan_pares, faltan_pesos, correo_destinatario="fleoutgdl@divec-flexi.com"):
     logro_conv = conversion >= meta_conv
     logro_ticket = ticket >= meta_tkt
@@ -222,7 +222,6 @@ def enviar_correo_ejecutivo(tienda_objetivo, conversion, ticket, meta_conv, meta
     try:
         remitente = st.secrets["CORREO_REMITENTE"]
         password = st.secrets["CORREO_PASSWORD"]
-        # Usamos el destinatario dinámico extraído del Excel
         destinatario = correo_destinatario 
         
         asunto = f"🚀 Desempeño Comercial y Reto Acumulado - Tienda {tienda_objetivo}"
@@ -419,6 +418,67 @@ def generar_reporte_desfogue_pdf(df_desfogue, nombre_sucursal):
     pdf.cell(90, 5, "Gerente Comercial", 0, 1, 'C')
     return bytes(pdf.output(dest='S').encode('latin1'))
 
+def generar_reporte_traspaso_masivo_pdf(df_traspasos):
+    hora_mexico = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
+    fecha_actual = hora_mexico.strftime("%d/%m/%Y")    
+    pdf = FPDF(orientation='L', unit='mm', format='Letter') # Formato Horizontal para que quepa bien
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    
+    pdf.set_font("Arial", 'B', 16)
+    pdf.set_text_color(227, 6, 19)
+    pdf.cell(0, 8, "FLEXI - ZONA OCCIDENTE", ln=True, align="C")
+    
+    pdf.set_font("Arial", 'B', 12)
+    pdf.set_text_color(50, 50, 50)
+    pdf.cell(0, 8, "ORDEN GERENCIAL DE TRASPASOS (ROBIN HOOD)", ln=True, align="C")
+    pdf.line(10, 28, 265, 28)
+    pdf.ln(8)
+    
+    pdf.set_font("Arial", '', 10)
+    pdf.cell(40, 6, "Fecha de Emisión:", 0, 0)
+    pdf.cell(60, 6, fecha_actual, 0, 0)
+    pdf.cell(35, 6, "Gerente Comercial:", 0, 0)
+    pdf.cell(60, 6, "LAE. Jose Martin Estrada Cabrera", 0, 1)
+    pdf.ln(8)
+    
+    # Encabezados de tabla
+    pdf.set_font("Arial", 'B', 9)
+    pdf.set_fill_color(227, 6, 19)
+    pdf.set_text_color(255, 255, 255)
+    pdf.cell(10, 8, "#", 1, 0, 'C', fill=True)
+    pdf.cell(35, 8, "TIENDA ORIGEN", 1, 0, 'C', fill=True)
+    pdf.cell(35, 8, "TIENDA DESTINO", 1, 0, 'C', fill=True)
+    pdf.cell(30, 8, "MODELO", 1, 0, 'C', fill=True)
+    pdf.cell(20, 8, "TALLA", 1, 0, 'C', fill=True)
+    pdf.cell(15, 8, "CANT.", 1, 0, 'C', fill=True)
+    pdf.cell(110, 8, "JUSTIFICACIÓN / FIRMAS", 1, 1, 'C', fill=True)
+    
+    pdf.set_font("Arial", '', 8)
+    pdf.set_text_color(0, 0, 0)
+    for i, row in df_traspasos.iterrows():
+        pos = i + 1
+        origen = str(row['ORIGEN (Donador)'])
+        destino = str(row['DESTINO (Receptor)'])
+        modelo = str(row['MODELO'])
+        talla = str(row['TALLA'])
+        cant = str(row['CANTIDAD'])
+        
+        pdf.cell(10, 8, str(pos), 1, 0, 'C')
+        pdf.cell(35, 8, origen, 1, 0, 'C')
+        pdf.cell(35, 8, destino, 1, 0, 'C')
+        pdf.cell(30, 8, modelo, 1, 0, 'C')
+        pdf.cell(20, 8, talla, 1, 0, 'C')
+        pdf.cell(15, 8, cant, 1, 0, 'C')
+        pdf.cell(110, 8, "_____________________  /  _____________________", 1, 1, 'C')
+        
+    pdf.ln(10)
+    pdf.set_font("Arial", 'I', 9)
+    pdf.set_text_color(80, 80, 80)
+    pdf.multi_cell(0, 5, "NOTA ESTRATÉGICA: Los traspasos listados en este documento tienen CARÁCTER OBLIGATORIO. Fueron calculados por el sistema identificando quiebres en tiendas donde el modelo es Top 20 en ventas, y sustrayendo inventario de sucursales donde el modelo registra 1 o cero ventas en los últimos 60 días, teniendo al menos 2 pares físicos. El objetivo es capitalizar la demanda comprobada y evitar fugas de capital.")
+    
+    return bytes(pdf.output(dest='S').encode('latin1'))
+
 # Carga de archivos variables
 archivo_conv = buscar_archivo('Conversion')
 archivo_modelos = buscar_archivo('Venta_Modelos')
@@ -492,7 +552,7 @@ if st.session_state.vista_actual == 'Inicio':
     html_lobby = f"""
     <div style="{bg_css} background-size: cover; background-position: center; border-radius: 16px; padding: 50px 40px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); position: relative; margin-top: 20px;">
         <div style="position: absolute; top: 30px; right: 40px; text-align: right; color: white; font-size: 13px;">
-            <p style="margin:0;"><span style="color: #E30613; font-weight:bold;">Versión</span> 2.0</p>
+            <p style="margin:0;"><span style="color: #E30613; font-weight:bold;">Versión</span> 2.5</p>
             <p style="margin:0;">Zona Occidente</p>
         </div>
         <div class="lobby-header">
@@ -1503,7 +1563,6 @@ elif st.session_state.vista_actual == 'Estrategico':
         st.subheader("💰 Impacto Financiero por quiebre")
         st.write("Proyección estadística de fugas de capital basada en el monitoreo de piso de venta.")
         
-        # ---> NUEVO: PARÁMETROS DEL SIMULADOR DIRECTIVO <---
         st.markdown("### 🎛️ Parámetros del Simulador Directivo")
         col_sim1, col_sim2 = st.columns(2)
         with col_sim1:
@@ -1511,7 +1570,6 @@ elif st.session_state.vista_actual == 'Estrategico':
         with col_sim2:
             venta_empresa = st.number_input("Venta Total de la Empresa (Nacional) $:", min_value=0.0, value=40125942.0, step=100000.0)
         st.write("<br>", unsafe_allow_html=True)
-        # ---> FIN NUEVO <---
         
         if st.button("Ejecutar Motor de Proyección", type="primary"):
             with st.spinner("Procesando y cruzando datos de la base maestra..."):
@@ -1528,38 +1586,31 @@ elif st.session_state.vista_actual == 'Estrategico':
                         df_bitacora = pd.DataFrame(datos[1:], columns=datos[0])
                         df_bitacora.columns = df_bitacora.columns.str.strip()
                         
-                        # Mapeo dinámico de columnas por seguridad
                         col_incidencia = next((c for c in df_bitacora.columns if 'Incidencia' in c or 'Factor' in c), df_bitacora.columns[3])
                         col_status = next((c for c in df_bitacora.columns if 'Status' in c or 'Validacion' in c), df_bitacora.columns[-1])
                         col_precio = next((c for c in df_bitacora.columns if 'Precio' in c), df_bitacora.columns[-2])
                         col_tienda = next((c for c in df_bitacora.columns if 'Tienda' in c), df_bitacora.columns[1])
                         col_modelo = next((c for c in df_bitacora.columns if 'Modelo' in c), df_bitacora.columns[-4])
                         
-                        # 1. Filtramos solo Faltantes que estén VALIDADOS
                         df_quiebres = df_bitacora[
                             (df_bitacora[col_incidencia].astype(str).str.contains("Faltante", case=False, na=False)) & 
                             (df_bitacora[col_status].astype(str).str.upper() == "VALIDADO")
                         ].copy()
                         
-                        # Convertimos precio a número para poder sumar
                         df_quiebres[col_precio] = pd.to_numeric(df_quiebres[col_precio], errors='coerce').fillna(0)
                         
-                        # 2. Cálculos de Proyección
-                        tiendas_piloto = df_quiebres[col_tienda].nunique() # Ahora cuenta solo tiendas con faltantes validados
-                        if tiendas_piloto == 0: tiendas_piloto = 1 # Para evitar división por cero
+                        tiendas_piloto = df_quiebres[col_tienda].nunique() 
+                        if tiendas_piloto == 0: tiendas_piloto = 1
                         total_tiendas = 19
                         factor_proyeccion = total_tiendas / tiendas_piloto
                         
                         perdida_real = df_quiebres[col_precio].sum()
                         proyeccion_total = perdida_real * factor_proyeccion
                         
-                        # ---> NUEVO: CÁLCULOS DE SHARE Y PROYECCIÓN NACIONAL <---
                         share_decimal = (venta_muestra / venta_empresa) if venta_empresa > 0 else 0
                         share_porcentaje = share_decimal * 100
                         proyeccion_nacional = (perdida_real / share_decimal) if share_decimal > 0 else 0
-                        # ---> FIN NUEVO <---
 
-                        # 3. Despliegue de Resultados Ejecutivos
                         st.markdown("---")
                         st.markdown("#### 📍 Proyección a Nivel Zona Occidente")
                         col1, col2, col3 = st.columns(3)
@@ -1568,7 +1619,6 @@ elif st.session_state.vista_actual == 'Estrategico':
                         col2.metric("Venta Perdida (Real Piloto)", f"${perdida_real:,.2f}", f"{len(df_quiebres)} quiebres validados", delta_color="inverse")
                         col3.metric("Proyección Zona (19 Tdas)", f"${proyeccion_total:,.2f}", f"Factor Expansión: {factor_proyeccion:.2f}x", delta_color="off")
                         
-                        # ---> NUEVO: DESPLIEGUE VISUAL NACIONAL <---
                         st.markdown("---")
                         st.markdown("#### 🌍 Proyección de Impacto Nacional (Ponderado por Share)")
                         col_nat1, col_nat2 = st.columns(2)
@@ -1590,7 +1640,6 @@ elif st.session_state.vista_actual == 'Estrategico':
                                     <div class="kpi-delta" style="color: #cbd5e1; font-weight: normal;">Proyección matemática exacta</div>
                                 </div>
                             """, unsafe_allow_html=True)
-                        # ---> FIN NUEVO <---
 
                         st.markdown("---")
                         c_graf, c_tab = st.columns([2, 1])
@@ -1612,20 +1661,18 @@ elif st.session_state.vista_actual == 'Estrategico':
                     st.error(f"Error procesando el cruce de datos: {e}")
 
     # =================================================================================
-    # PESTAÑA: PREPARACIÓN DE VISITA EN CAMPO (ACTUALIZADA Y BLINDADA)
+    # PESTAÑA: PREPARACIÓN DE VISITA EN CAMPO
     # =================================================================================
     with tab_visita:
         st.markdown("## 🤝 Expediente de Visita y Compromisos")
         st.write("Herramienta de cruce en tiempo real para direccionar la supervisión en tienda de forma objetiva.")
         
-        # 1. Carga segura y aislada de datos para no depender de variables de otras pestañas
         df_tdas_visita = cargar_tiendas()
         if not df_tdas_visita.empty and 'NOMBRE' in df_tdas_visita.columns:
             tienda_seleccionada = st.selectbox("🎯 Selecciona la Sucursal a Visitar:", sorted(df_tdas_visita['NOMBRE'].unique()))
             
             if st.button("Generar Expediente de Visita", type="primary"):
                 with st.spinner("Cruzando KPIs en tiempo real..."):
-                    # Extraer ID numérico de la tienda seleccionada
                     fila_tda = df_tdas_visita[df_tdas_visita['NOMBRE'] == tienda_seleccionada].iloc[0]
                     col_id = next((c for c in df_tdas_visita.columns if c.strip().upper() in ['TIENDA', 'SUCURSAL', 'NUMERO', 'ID']), df_tdas_visita.columns[0])
                     tda_raw = str(fila_tda[col_id])
@@ -1633,7 +1680,6 @@ elif st.session_state.vista_actual == 'Estrategico':
                     tienda_obj = match.group() if match else "-1"
                     encargada_obj = str(fila_tda.get('ENCARGADO', 'Encargada'))
                     
-                    # Variables por defecto
                     v_conv, v_tkt, v_alcance, v_quiebres, v_rating = 0.0, 0.0, 0.0, 0, 0
                     v_conv_ant, v_tkt_ant = 0.0, 0.0
                     v_faltan_pares = 0
@@ -1641,7 +1687,6 @@ elif st.session_state.vista_actual == 'Estrategico':
                     v_total_modelos = 0
                     v_modelos_desfogue = 0
                     
-                    # A. Extraer Conversión y Ticket (Incluyendo 2025)
                     if archivo_conv:
                         df_c = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
                         df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
@@ -1668,14 +1713,13 @@ elif st.session_state.vista_actual == 'Estrategico':
                             if col_tk_ant:
                                 v_tkt_ant = float(fila_c.iloc[0][col_tk_ant])
                     
-                    # B. Extraer Alcance (Comparativo) y Brecha en Pares/Pesos
                     if archivo_comp:
                         df_op = pd.read_excel(archivo_comp) if archivo_comp.endswith('.xlsx') else pd.read_csv(archivo_comp)
                         c_ano = next((c for c in df_op.columns if 'año' in c.lower() or 'ano' in c.lower()), df_op.columns[0])
                         c_tda_op = next((c for c in df_op.columns if 'tienda' in c.lower() or 'sucursal' in c.lower()), df_op.columns[2])
                         c_prs = next((c for c in df_op.columns if 'pares' in c.lower() or 'cant' in c.lower()), None)
                         c_prov = next((c for c in df_op.columns if 'prov' in c.lower()), None)
-                        c_tipo = next((c for c in df_op.columns if 'tipo' in c.lower() or 'concepto' in c.lower()), None) # INCLUIDO PARA BOLSO
+                        c_tipo = next((c for c in df_op.columns if 'tipo' in c.lower() or 'concepto' in c.lower()), None)
                         c_imp = next((c for c in df_op.columns if 'importe' in c.lower() or 'peso' in c.lower() or 'monto' in c.lower()), None)
                         
                         df_op['TIENDA_ID'] = df_op[c_tda_op].astype(str).str.extract(r'(\d+)', expand=False)
@@ -1695,11 +1739,9 @@ elif st.session_state.vista_actual == 'Estrategico':
                         pesos_25 = df_op[df_op['ANIO_ID'] == 2025][c_imp].sum() if c_imp else 0.0
                         pesos_26 = df_op[df_op['ANIO_ID'] == 2026][c_imp].sum() if c_imp else 0.0
                         
-                        # Cálculo de faltantes usando la misma resta validada de los correos
                         v_faltan_pares = int(pares_25 - pares_26)
                         v_faltan_pesos = float(pesos_25 - pesos_26)
 
-                    # C. Extraer Quiebres, Modelos Totales y Desfogue
                     cargar_archivos_locales()
                     
                     v_pares_transito = 0
@@ -1713,33 +1755,24 @@ elif st.session_state.vista_actual == 'Estrategico':
                         
                         modelos_quebrados = set()
                         if not df_tienda_v.empty:
-                            # Identificar columnas de existencias (ex1 a ex15) y pedidos (p1 a p15) y convertirlas a números
                             ex_cols = [f'ex{i}' for i in range(1, 16) if f'ex{i}' in df_tienda_v.columns]
                             p_cols = [f'p{i}' for i in range(1, 16) if f'p{i}' in df_tienda_v.columns]
                             
                             for col in ex_cols + p_cols:
                                 df_tienda_v[col] = pd.to_numeric(df_tienda_v[col], errors='coerce').fillna(0)
                             
-                            # Sumar las existencias totales por cada modelo
                             stock_por_modelo = df_tienda_v.groupby('Modelo')[ex_cols].sum().sum(axis=1)
                             
-                            # ---> NUEVAS MÉTRICAS: TOTAL MODELOS (SOLO CON STOCK) Y DESFOGUE <---
-                            # Contar solo los modelos que tienen más de 0 pares físicos en la tienda
                             v_total_modelos = len(stock_por_modelo[stock_por_modelo > 0])
-                            
-                            # Contar cuántos modelos tienen entre 1 y 3 pares en total
                             v_modelos_desfogue = len(stock_por_modelo[(stock_por_modelo >= 1) & (stock_por_modelo <= 3)])
-                            # ---> FIN NUEVAS MÉTRICAS <---
                             
                             top_20 = df_tienda_v.groupby('Modelo')['Vtas'].sum().nlargest(20).index
                             df_top = df_tienda_v[df_tienda_v['Modelo'].isin(top_20)]
                             
-                            # ---> NUEVO: CÁLCULO DE PEDIDOS EN TRÁNSITO PARA EL TOP 20 <---
                             if not df_top.empty:
                                 pedidos_por_modelo = df_top.groupby('Modelo')[p_cols].sum().sum(axis=1)
                                 v_pares_transito = int(pedidos_por_modelo.sum())
                                 v_modelos_transito = len(pedidos_por_modelo[pedidos_por_modelo > 0])
-                            # ---> FIN NUEVO <---
                             
                             for _, row in df_top.iterrows():
                                 dpto = str(row.get('Departamento', '')).strip().lower()
@@ -1756,7 +1789,6 @@ elif st.session_state.vista_actual == 'Estrategico':
                                                 break
                         v_quiebres = len(modelos_quebrados)
 
-                    # D. Cálculo Final del Rating
                     pts_tkt = 35 if v_tkt >= 1.29 else 25 if v_tkt >= 1.25 else 10 if v_tkt >= 1.20 else 5
                     pts_conv = 35 if v_conv >= 10.9 else 25 if v_conv >= 10.5 else 10 if v_conv >= 10.0 else 5
                     pts_alc = 20 if v_alcance >= 100 else 10 if v_alcance >= 95 else 5
@@ -1764,10 +1796,8 @@ elif st.session_state.vista_actual == 'Estrategico':
                     bono = 5 if v_alcance >= 105 else 0
                     v_rating = pts_tkt + pts_conv + pts_alc + pts_qui + bono
 
-                    # 2. Despliegue Visual del Diagnóstico
                     st.markdown("---")
                     
-                    # Semáforo de Visita
                     color_bg = "#dcfce7" if v_rating >= 85 else "#fef08a" if v_rating >= 75 else "#fee2e2"
                     color_text = "#166534" if v_rating >= 85 else "#854d0e" if v_rating >= 75 else "#991b1b"
                     tipo_visita = "🌟 Visita de Mantenimiento y Reconocimiento" if v_rating >= 85 else "📈 Visita de Desarrollo (Ajuste de Estrategia)" if v_rating >= 75 else "🚨 Visita Crítica (Supervisión Estricta)"
@@ -1776,7 +1806,6 @@ elif st.session_state.vista_actual == 'Estrategico':
                     
                     c1, c2, c3, c4 = st.columns(4)
                     
-                    # Renderizado HTML para Conversión con doble indicador
                     if v_conv > 0:
                         dif_meta_cv = v_conv - 10.9
                         color_meta_cv = "#155724" if dif_meta_cv >= 0 else "#721c24"
@@ -1799,7 +1828,6 @@ elif st.session_state.vista_actual == 'Estrategico':
                     else:
                         c1.metric("Conversión", f"{v_conv:.2f}%")
 
-                    # Renderizado HTML para Ticket con doble indicador
                     if v_tkt > 0:
                         dif_meta_tk = v_tkt - 1.29
                         color_meta_tk = "#155724" if dif_meta_tk >= 0 else "#721c24"
@@ -1822,7 +1850,6 @@ elif st.session_state.vista_actual == 'Estrategico':
                     else:
                         c2.metric("Ticket Promedio", f"{v_tkt:.2f}")
 
-                    # Aplicar mismo contenedor para c3 y c4 para que mantengan la misma altura visual
                     html_c3 = f"""
                     <div style="border: 1px solid rgba(49, 51, 63, 0.2); border-radius: 0.5rem; padding: calc(1rem - 1px); background-color: #ffffff; height: 100%;">
                         <label style="font-size: 14px; color: rgb(49, 51, 63); margin-bottom: 0.25rem;">Alcance Histórico</label>
@@ -1851,7 +1878,6 @@ elif st.session_state.vista_actual == 'Estrategico':
                     else:
                         c_pesos.metric("Brecha en Ingresos", f"A favor: ${abs(v_faltan_pesos):,.2f}", "+ Superando histórico")
 
-                    # ---> SECCIÓN VISUAL DE INVENTARIO ACTUALIZADA A 3 COLUMNAS <---
                     st.markdown("#### 📦 Análisis de Inventario y Catálogo")
                     c_cat, c_desf, c_trans = st.columns(3)
                     c_cat.metric("Catálogo Activo", f"{v_total_modelos} Modelos", "En piso de venta")
@@ -1861,18 +1887,14 @@ elif st.session_state.vista_actual == 'Estrategico':
                     else:
                         c_desf.metric("Candidatos a Desfogue", "0 Modelos", "Inventario sano", delta_color="normal")
                         
-                    # Agregamos la nueva métrica de Tránsito
                     c_trans.metric("🚚 Resurtido (Top 20)", f"{v_pares_transito} Pares en tránsito", f"Para {v_modelos_transito} modelos estrella", delta_color="normal" if v_pares_transito > 0 else "off")
-                    # ---> FIN ACTUALIZACIÓN <---
 
-                    # ---> NUEVA PERSIANA DE DETALLE DE DESFOGUE <---
                     if v_modelos_desfogue > 0 and 'stock_por_modelo' in locals():
                         with st.expander("📦 Ver detalle de modelos para desfogue (1 a 3 pares totales)"):
                             df_desfogue = stock_por_modelo[(stock_por_modelo >= 1) & (stock_por_modelo <= 3)].reset_index()
                             df_desfogue.columns = ['Modelo a Desfogar', 'Pares Físicos (Total)']
-                            # Ordenamos de 1 par a 3 pares para que vea primero los más urgentes de sacar
                             df_desfogue = df_desfogue.sort_values(by='Pares Físicos (Total)', ascending=True).reset_index(drop=True)
-                            df_desfogue.index += 1 # Para que el listado inicie en 1
+                            df_desfogue.index += 1
                             st.table(df_desfogue)
                             
                             st.write("<br>", unsafe_allow_html=True)
@@ -1885,34 +1907,28 @@ elif st.session_state.vista_actual == 'Estrategico':
                                 type="primary",
                                 key=f"desfogue_download_{tienda_obj}"
                             )
-                    # ---> FIN NUEVA PERSIANA <---
 
-                    # ---> NUEVA PERSIANA DE DETALLE DE TRÁNSITO <---
                     if v_pares_transito > 0 and 'pedidos_por_modelo' in locals():
                         with st.expander("⬇️ Ver detalle de modelos en tránsito (Top 20)"):
                             df_en_camino = pedidos_por_modelo[pedidos_por_modelo > 0].reset_index()
                             df_en_camino.columns = ['Modelo Estrella', 'Pares en Camino']
                             df_en_camino = df_en_camino.sort_values(by='Pares en Camino', ascending=False).reset_index(drop=True)
-                            df_en_camino.index += 1 # Para que el listado inicie en 1
+                            df_en_camino.index += 1
                             st.table(df_en_camino)
-                    # ---> FIN NUEVA PERSIANA <---
 
                     st.markdown("---")
                     st.markdown("### 📋 Instrucción Compromiso Autogenerada")
                     st.caption("Texto listo para ser enviado por WhatsApp o correo al finalizar la visita y dejar evidencia formal.")
                     
-                    # 3. Motor Generador del Texto de Compromiso
                     compromisos = []
                     if v_conv < 10.9:
                         compromisos.append("👠 **Mejora en Conversión:** Implementar clínicas de abordaje al cliente en piso y ejecutar cierres de venta efectivos en el área de probadores para alcanzar la meta del 10.9%.")
                     if v_tkt < 1.29:
                         compromisos.append("🛍️ **Impulso al Ticket Promedio:** Fomentar agresivamente el ofrecimiento del segundo par o producto de impulso (accesorio) en caja para lograr el objetivo de 1.29 unidades.")
                     
-                    # Mantenemos la instrucción original que te gustó
                     if v_alcance < 100:
                         compromisos.append("🚀 **Recuperación de Volumen:** Activar el enfoque comercial sobre los modelos del Top 20 de la Zona para igualar y superar el desplazamiento de pares respecto al año anterior.")
                     
-                    # Agregamos la instrucción de precisión numérica
                     if v_faltan_pares > 0:
                         compromisos.append(f"🎯 **Cierre de Brecha Matemática:** El objetivo exacto y obligatorio para empatar el crecimiento histórico requiere desplazar **{v_faltan_pares:,.0f} pares** adicionales, lo que representará un ingreso recuperado de **${v_faltan_pesos:,.2f} MXN**.")
                     elif v_faltan_pares < 0:
@@ -1921,7 +1937,6 @@ elif st.session_state.vista_actual == 'Estrategico':
                     if v_quiebres > 5:
                         compromisos.append("⚠️ **Gestión de Quiebres:** Garantizar el reporte oportuno en la Bitácora sobre faltantes de Tallas Extremas para gestionar la nivelación y evitar fuga de capital.")
                     
-                    # ---> COMPROMISO DE DESFOGUE <---
                     if v_modelos_desfogue > 0:
                         compromisos.append(f"📦 **Depuración de Inventario (Desfogue):** Se detectaron **{v_modelos_desfogue} modelos** con inventario marginal (1 a 3 pares totales). El compromiso es generar el reporte de transferencia a sucursales Outlet antes del cierre de semana para liberar espacio de bodega y concentrar la labor de venta en el catálogo de alta rotación.")
                     
@@ -1947,18 +1962,128 @@ Gerencia Comercial Zona Occidente
         else:
             st.warning("No se pudo cargar la base de tiendas.")
 
-        
+    # =================================================================================
+    # PESTAÑA: DIAGNÓSTICO DE DEMANDA
+    # =================================================================================
     with tab_demanda:
         st.subheader("📊 Diagnóstico de Demanda")
-        st.info("Módulo en construcción. Análisis multivariable de factores...")
+        st.info("Módulo en fase de diseño. Próximamente: Análisis multivariable predictivo.")
         
+    # =================================================================================
+    # PESTAÑA: NIVELACIÓN INTELIGENTE (EL GOL DE ORO)
+    # =================================================================================
     with tab_nivelacion_intel:
-        st.subheader("🧠 Nivelación Inteligente")
-        st.info("Módulo en construcción. Algoritmos de sugerencia de stock...")
+        st.subheader("🧠 Simulador de Traspasos (Efecto Robin Hood)")
+        st.write("Identificación automática de pares inmovilizados para cubrir quiebres absolutos de modelos estrella.")
         
+        if st.button("🚀 Ejecutar Algoritmo de Nivelación", type="primary"):
+            cargar_archivos_locales()
+            if 'df_ventas' in st.session_state and 'df_tallas' in st.session_state:
+                with st.spinner("Analizando matrices de inventario y ventas (Últimos 60 días)..."):
+                    df_v = st.session_state.df_ventas.copy()
+                    df_t = st.session_state.df_tallas.copy()
+
+                    # 1. Limpieza y preparación de la base
+                    df_v['tienda_int'] = pd.to_numeric(df_v['Tienda'].astype(str).str.extract(r'(\d+)', expand=False), errors='coerce').fillna(-1).astype(int)
+                    # Filtramos: Solo tiendas válidas, excluimos proveedores 415/426/427 y excluimos tiendas de prueba
+                    df_v = df_v[(df_v['tienda_int'] > 0) & (~df_v['Proveedor'].isin([415, 426, 427])) & (~df_v['tienda_int'].isin([3004, 3015]))]
+                    
+                    df_v['Vtas'] = pd.to_numeric(df_v['Vtas'], errors='coerce').fillna(0)
+                    df_v['Modelo_cln'] = df_v['Modelo'].astype(str).str.strip().str.upper()
+
+                    # Convertir todas las columnas ex y p a numéricas de forma segura
+                    for i in range(1, 16):
+                        if f'ex{i}' in df_v.columns: df_v[f'ex{i}'] = pd.to_numeric(df_v[f'ex{i}'], errors='coerce').fillna(0)
+                        if f'p{i}' in df_v.columns: df_v[f'p{i}'] = pd.to_numeric(df_v[f'p{i}'], errors='coerce').fillna(0)
+
+                    df_t['Valor_cln'] = df_t.iloc[:, 0].astype(str).str.strip().str.lower()
+
+                    traspasos_sugeridos = []
+                    tiendas_list = df_v['tienda_int'].unique()
+
+                    # 2. Motor de Emparejamiento
+                    for tda_receptor in tiendas_list:
+                        df_receptor = df_v[df_v['tienda_int'] == tda_receptor]
+                        
+                        # RECEPTOR: Obtenemos sus Top 20 modelos (demanda comprobada)
+                        top_modelos = df_receptor[df_receptor['Vtas'] > 0].groupby('Modelo_cln')['Vtas'].sum().nlargest(20).index
+
+                        for modelo in top_modelos:
+                            # Fila del modelo estrella en la tienda receptora
+                            row_mod_rec = df_receptor[df_receptor['Modelo_cln'] == modelo].iloc[0]
+                            dpto = str(row_mod_rec.get('Departamento', '')).strip().lower()
+
+                            tallas_row = df_t[df_t['Valor_cln'] == dpto]
+                            if tallas_row.empty: continue
+
+                            # Barrido por cada una de las 15 columnas de tallas
+                            for i in range(1, 16):
+                                col_ex = f'ex{i}'
+                                col_p = f'p{i}'
+                                if col_ex not in row_mod_rec or col_p not in row_mod_rec: continue
+
+                                ex_rec = row_mod_rec[col_ex]
+                                p_rec = row_mod_rec[col_p]
+                                talla_real = tallas_row.iloc[0].get(col_ex, '')
+
+                                if pd.isna(talla_real) or str(talla_real).strip() == '': continue
+                                
+                                # REGLA DE NEGOCIO: Excluir 30.5 de Caballero
+                                if dpto == 'caballero' and ('305' in str(talla_real) or '30.5' == str(talla_real)): continue
+
+                                # REGLA RECEPTOR: Stock físico = 0 y Tránsito = 0
+                                if ex_rec == 0 and p_rec == 0:
+                                    
+                                    # BUSCAR DONADOR
+                                    df_donadores = df_v[
+                                        (df_v['Modelo_cln'] == modelo) & 
+                                        (df_v['tienda_int'] != tda_receptor) & 
+                                        (df_v['Vtas'] <= 1) & 
+                                        (df_v[col_ex] >= 2)
+                                    ].copy()
+
+                                    if not df_donadores.empty:
+                                        # Ordenamos para quitarle el zapato al que tenga mayor existencia (minimiza impacto al donador)
+                                        df_donadores = df_donadores.sort_values(by=col_ex, ascending=False)
+                                        mejor_donador = df_donadores.iloc[0]
+
+                                        traspasos_sugeridos.append({
+                                            'ORIGEN (Donador)': f"Sucursal {mejor_donador['tienda_int']}",
+                                            'DESTINO (Receptor)': f"Sucursal {tda_receptor}",
+                                            'MODELO': row_mod_rec['Modelo'],
+                                            'TALLA': str(talla_real).strip(),
+                                            'CANTIDAD': 1,
+                                            'JUSTIFICACIÓN': f"Receptor (Top 20, Sin Stock). Donador (Ventas: {int(mejor_donador['Vtas'])}, Stock Físico: {int(mejor_donador[col_ex])})"
+                                        })
+
+                    # 3. Presentación de Resultados
+                    if traspasos_sugeridos:
+                        df_traspasos = pd.DataFrame(traspasos_sugeridos)
+                        st.success(f"✅ ¡Análisis completado! Se encontraron {len(df_traspasos)} oportunidades de rescate de capital bajo las reglas estrictas de negocio.")
+                        
+                        st.dataframe(df_traspasos, use_container_width=True)
+
+                        pdf_bytes = generar_reporte_traspaso_masivo_pdf(df_traspasos)
+                        st.write("<br>", unsafe_allow_html=True)
+                        st.download_button(
+                            label="📄 Descargar Órdenes de Traspaso (PDF Oficial)",
+                            data=pdf_bytes,
+                            file_name=f"Ordenes_Traspaso_Robin_Hood.pdf",
+                            mime="application/pdf",
+                            type="primary",
+                            key="btn_descarga_traspasos"
+                        )
+                    else:
+                        st.info("No se encontraron oportunidades de traspaso que cumplan con la regla estricta (Top Venta quebrado vs Zapato Estancado >= 2). ¡El inventario de la Zona está equilibrado!")
+            else:
+                st.warning("⚠️ No se encontraron los archivos locales (Ventas.xlsx, Valores de tallas.xlsx) necesarios para ejecutar el algoritmo Robin Hood.")
+
+    # =================================================================================
+    # PESTAÑA: CORRELACIÓN MACRO
+    # =================================================================================
     with tab_macro:
         st.subheader("🌍 Correlación Macroeconómica (INPC)")
-        st.info("Módulo en construcción. Cruzando ticket promedio vs inflación...")
+        st.info("Módulo en fase de diseño. Próximamente: Cruce de inflación vs ticket promedio.")
 
 # --- PIE DE PÁGINA (ESTÁTICO Y SIEMPRE VISIBLE) ---
 st.markdown("""
