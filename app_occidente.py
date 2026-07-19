@@ -431,7 +431,7 @@ def generar_reporte_traspaso_masivo_pdf(df_traspasos):
     
     pdf.set_font("Arial", 'B', 12)
     pdf.set_text_color(50, 50, 50)
-    pdf.cell(0, 8, "ORDEN GERENCIAL DE TRASPASOS (ROBIN HOOD)", ln=True, align="C")
+    pdf.cell(0, 8, "ORDEN GERENCIAL DE NIVELACIÓN DE INVENTARIO", ln=True, align="C")
     pdf.line(10, 28, 265, 28)
     pdf.ln(8)
     
@@ -447,35 +447,35 @@ def generar_reporte_traspaso_masivo_pdf(df_traspasos):
     pdf.set_fill_color(227, 6, 19)
     pdf.set_text_color(255, 255, 255)
     pdf.cell(10, 8, "#", 1, 0, 'C', fill=True)
-    pdf.cell(35, 8, "TIENDA ORIGEN", 1, 0, 'C', fill=True)
-    pdf.cell(35, 8, "TIENDA DESTINO", 1, 0, 'C', fill=True)
+    pdf.cell(45, 8, "TIENDA ORIGEN", 1, 0, 'C', fill=True)
+    pdf.cell(45, 8, "TIENDA DESTINO", 1, 0, 'C', fill=True)
     pdf.cell(30, 8, "MODELO", 1, 0, 'C', fill=True)
     pdf.cell(20, 8, "TALLA", 1, 0, 'C', fill=True)
     pdf.cell(15, 8, "CANT.", 1, 0, 'C', fill=True)
-    pdf.cell(110, 8, "JUSTIFICACIÓN / FIRMAS", 1, 1, 'C', fill=True)
+    pdf.cell(90, 8, "JUSTIFICACIÓN / FIRMAS", 1, 1, 'C', fill=True)
     
     pdf.set_font("Arial", '', 8)
     pdf.set_text_color(0, 0, 0)
     for i, row in df_traspasos.iterrows():
         pos = i + 1
-        origen = str(row['ORIGEN (Donador)'])
-        destino = str(row['DESTINO (Receptor)'])
+        origen = str(row['ORIGEN'])
+        destino = str(row['DESTINO'])
         modelo = str(row['MODELO'])
         talla = str(row['TALLA'])
         cant = str(row['CANTIDAD'])
         
         pdf.cell(10, 8, str(pos), 1, 0, 'C')
-        pdf.cell(35, 8, origen, 1, 0, 'C')
-        pdf.cell(35, 8, destino, 1, 0, 'C')
+        pdf.cell(45, 8, origen, 1, 0, 'C')
+        pdf.cell(45, 8, destino, 1, 0, 'C')
         pdf.cell(30, 8, modelo, 1, 0, 'C')
         pdf.cell(20, 8, talla, 1, 0, 'C')
         pdf.cell(15, 8, cant, 1, 0, 'C')
-        pdf.cell(110, 8, "_____________________  /  _____________________", 1, 1, 'C')
+        pdf.cell(90, 8, "_____________________  /  _____________________", 1, 1, 'C')
         
     pdf.ln(10)
     pdf.set_font("Arial", 'I', 9)
     pdf.set_text_color(80, 80, 80)
-    pdf.multi_cell(0, 5, "NOTA ESTRATÉGICA: Los traspasos listados en este documento tienen CARÁCTER OBLIGATORIO. Fueron calculados por el sistema identificando quiebres en tiendas donde el modelo es Top 20 en ventas, y sustrayendo inventario de sucursales donde el modelo registra 1 o cero ventas en los últimos 60 días, teniendo al menos 2 pares físicos. El objetivo es capitalizar la demanda comprobada y evitar fugas de capital.")
+    pdf.multi_cell(0, 5, "NOTA ESTRATÉGICA: Los traspasos listados en este documento tienen CARÁCTER OBLIGATORIO. Fueron calculados por el sistema identificando quiebres en tiendas donde el modelo es Top 30 en ventas, y sustrayendo inventario de sucursales donde el modelo registra 1 o cero ventas en los últimos 60 días, teniendo al menos 2 pares físicos. El objetivo es capitalizar la demanda comprobada y evitar fugas de capital.")
     
     return bytes(pdf.output(dest='S').encode('latin1'))
 
@@ -1532,7 +1532,7 @@ elif st.session_state.vista_actual == 'Estrategico':
         "💰 Impacto Financiero",
         "🤝 Preparación de Visita", 
         "📊 Diagnóstico Demanda", 
-        "🧠 Nivelación Inteligente", 
+        "📦 Nivelación Inteligente", 
         "🌍 Correlación Macro"
     ])
     
@@ -1973,7 +1973,7 @@ Gerencia Comercial Zona Occidente
     # PESTAÑA: NIVELACIÓN INTELIGENTE (EL GOL DE ORO)
     # =================================================================================
     with tab_nivelacion_intel:
-        st.subheader("🧠 Simulador de Traspasos (Efecto Robin Hood)")
+        st.subheader("📦 Nivelación Inteligente de Inventario")
         st.write("Identificación automática de pares inmovilizados para cubrir quiebres absolutos de modelos estrella.")
         
         if st.button("🚀 Ejecutar Algoritmo de Nivelación", type="primary"):
@@ -2022,8 +2022,8 @@ Gerencia Comercial Zona Occidente
                     for tda_receptor in tiendas_list:
                         df_receptor = df_v[df_v['tienda_int'] == tda_receptor]
                         
-                        # RECEPTOR: Obtenemos sus Top 20 modelos (demanda comprobada)
-                        top_modelos = df_receptor[df_receptor['Vtas'] > 0].groupby('Modelo_cln')['Vtas'].sum().nlargest(20).index
+                        # RECEPTOR: Obtenemos sus Top 30 modelos (demanda comprobada)
+                        top_modelos = df_receptor[df_receptor['Vtas'] > 0].groupby('Modelo_cln')['Vtas'].sum().nlargest(30).index
 
                         for modelo in top_modelos:
                             # Fila del modelo estrella en la tienda receptora
@@ -2060,20 +2060,22 @@ Gerencia Comercial Zona Occidente
                                     ].copy()
 
                                     if not df_donadores.empty:
-                                        # Ordenamos para quitarle el zapato al que tenga mayor existencia (minimiza impacto al donador)
-                                        df_donadores = df_donadores.sort_values(by=col_ex, ascending=False)
+                                        # ORDENAMIENTO DE DOS NIVELES: 
+                                        # 1ero: Menor venta (prioriza los de 0 ventas sobre los de 1 venta).
+                                        # 2do: Mayor stock (protege a las tiendas que tienen menos inventario).
+                                        df_donadores = df_donadores.sort_values(by=['Vtas', col_ex], ascending=[True, False])
                                         mejor_donador = df_donadores.iloc[0]
 
                                         origen_nom = get_tienda_nombre(mejor_donador['tienda_int'])
                                         destino_nom = get_tienda_nombre(tda_receptor)
 
                                         traspasos_sugeridos.append({
-                                            'ORIGEN (Donador)': origen_nom,
-                                            'DESTINO (Receptor)': destino_nom,
+                                            'ORIGEN': origen_nom,
+                                            'DESTINO': destino_nom,
                                             'MODELO': row_mod_rec['Modelo'],
                                             'TALLA': str(talla_real).strip(),
                                             'CANTIDAD': 1,
-                                            'JUSTIFICACIÓN': f"Receptor (Top 20, Sin Stock). Donador (Ventas: {int(mejor_donador['Vtas'])}, Stock: {int(mejor_donador[col_ex])})"
+                                            'JUSTIFICACIÓN': f"Destino (Top 30, Sin Stock). Origen (Ventas: {int(mejor_donador['Vtas'])}, Stock: {int(mejor_donador[col_ex])})"
                                         })
 
                     # 3. Presentación de Resultados
@@ -2086,8 +2088,8 @@ Gerencia Comercial Zona Occidente
                         html_tabla += "<table style='width:100%; border-collapse: collapse; font-family: sans-serif; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);'>\n"
                         html_tabla += "<thead>\n"
                         html_tabla += "<tr style='background-color: #E30613; color: white; text-transform: uppercase; font-size: 13px;'>\n"
-                        html_tabla += "<th style='padding: 12px 15px; border: 1px solid #b9000b; text-align: left;'>Origen (Donador)</th>\n"
-                        html_tabla += "<th style='padding: 12px 15px; border: 1px solid #b9000b; text-align: left;'>Destino (Receptor)</th>\n"
+                        html_tabla += "<th style='padding: 12px 15px; border: 1px solid #b9000b; text-align: left;'>Sucursal Origen</th>\n"
+                        html_tabla += "<th style='padding: 12px 15px; border: 1px solid #b9000b; text-align: left;'>Sucursal Destino</th>\n"
                         html_tabla += "<th style='padding: 12px 15px; border: 1px solid #b9000b; text-align: center;'>Modelo</th>\n"
                         html_tabla += "<th style='padding: 12px 15px; border: 1px solid #b9000b; text-align: center;'>Talla</th>\n"
                         html_tabla += "<th style='padding: 12px 15px; border: 1px solid #b9000b; text-align: center;'>Cant.</th>\n"
@@ -2098,8 +2100,8 @@ Gerencia Comercial Zona Occidente
                         
                         for _, row in df_traspasos.iterrows():
                             html_tabla += f"<tr style='border-bottom: 1px solid #e2e8f0; background-color: white; transition: background-color 0.2s;'>\n"
-                            html_tabla += f"<td style='padding: 12px 15px; background-color: #fee2e2; color: #991b1b; font-weight: bold; border-right: 1px solid #e2e8f0;'>🏪 {row['ORIGEN (Donador)']}</td>\n"
-                            html_tabla += f"<td style='padding: 12px 15px; background-color: #d1fae5; color: #166534; font-weight: bold; border-right: 1px solid #e2e8f0;'>🎯 {row['DESTINO (Receptor)']}</td>\n"
+                            html_tabla += f"<td style='padding: 12px 15px; background-color: #fee2e2; color: #991b1b; font-weight: bold; border-right: 1px solid #e2e8f0;'>🏪 {row['ORIGEN']}</td>\n"
+                            html_tabla += f"<td style='padding: 12px 15px; background-color: #d1fae5; color: #166534; font-weight: bold; border-right: 1px solid #e2e8f0;'>🎯 {row['DESTINO']}</td>\n"
                             html_tabla += f"<td style='padding: 12px 15px; text-align: center; font-weight: bold; color: #1e293b;'>{row['MODELO']}</td>\n"
                             html_tabla += f"<td style='padding: 12px 15px; text-align: center; color: #475569;'>{row['TALLA']}</td>\n"
                             html_tabla += f"<td style='padding: 12px 15px; text-align: center; background-color: #fef08a; color: #854d0e; font-size: 16px; font-weight: 900; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;'>{row['CANTIDAD']}</td>\n"
@@ -2115,7 +2117,7 @@ Gerencia Comercial Zona Occidente
                         st.download_button(
                             label="📄 Descargar Órdenes de Traspaso (PDF Oficial)",
                             data=pdf_bytes,
-                            file_name=f"Ordenes_Traspaso_Robin_Hood.pdf",
+                            file_name="Ordenes_Nivelacion_Inventario.pdf",
                             mime="application/pdf",
                             type="primary",
                             key="btn_descarga_traspasos"
@@ -2123,7 +2125,7 @@ Gerencia Comercial Zona Occidente
                     else:
                         st.info("No se encontraron oportunidades de traspaso que cumplan con la regla estricta (Top Venta quebrado vs Zapato Estancado >= 2). ¡El inventario de la Zona está equilibrado!")
             else:
-                st.warning("⚠️ No se encontraron los archivos locales (Ventas.xlsx, Valores de tallas.xlsx) necesarios para ejecutar el algoritmo Robin Hood.")
+                st.warning("⚠️ No se encontraron los archivos locales (Ventas.xlsx, Valores de tallas.xlsx) necesarios para ejecutar el algoritmo de nivelación.")
 
     # =================================================================================
     # PESTAÑA: CORRELACIÓN MACRO
