@@ -421,7 +421,7 @@ def generar_reporte_desfogue_pdf(df_desfogue, nombre_sucursal):
 def generar_reporte_traspaso_masivo_pdf(df_traspasos):
     hora_mexico = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
     fecha_actual = hora_mexico.strftime("%d/%m/%Y")    
-    pdf = FPDF(orientation='L', unit='mm', format='Letter') # Formato Horizontal para que quepa bien
+    pdf = FPDF(orientation='L', unit='mm', format='Letter') 
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
     
@@ -442,7 +442,6 @@ def generar_reporte_traspaso_masivo_pdf(df_traspasos):
     pdf.cell(60, 6, "LAE. Jose Martin Estrada Cabrera", 0, 1)
     pdf.ln(8)
     
-    # Encabezados de tabla
     pdf.set_font("Arial", 'B', 9)
     pdf.set_fill_color(227, 6, 19)
     pdf.set_text_color(255, 255, 255)
@@ -660,7 +659,7 @@ elif st.session_state.vista_actual == 'Login_Estrategico':
         st.markdown("</div>", unsafe_allow_html=True)
 
 # ==============================================================================
-# PANTALLA 3: MÓDULO OPERATIVO OPTIMIZADO
+# PANTALLA 3: MÓDULO OPERATIVO OPTIMIZADO (VISTA SUCURSALES)
 # ==============================================================================
 elif st.session_state.vista_actual == 'Operativo':
 
@@ -687,11 +686,10 @@ elif st.session_state.vista_actual == 'Operativo':
     st.write("---")
 
     # --------------------------------------------------------------------------
-    # NAVEGACIÓN OPERATIVA
+    # NAVEGACIÓN OPERATIVA (Sin "Comparativo Mensual")
     # --------------------------------------------------------------------------
     modulos_operativos = [
         "📊 Desempeño Comercial",
-        "📈 Comparativo Mensual",
         "👟 Top 20 Tiendas",
         "🌍 Top 20 Zona",
         "🏆 Rating Comercial",
@@ -742,235 +740,6 @@ elif st.session_state.vista_actual == 'Operativo':
 
                 st.table(ranking.style.apply(color_semaforo, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))            
 
-    # --- PESTAÑA 2: COMPARATIVO MENSUAL ---
-    elif modulo_activo == "📈 Comparativo Mensual":
-        st.subheader("📈 Análisis Comparativo de Calzado Mensual")
-        fecha_act = obtener_fecha_actualizacion(archivo_comp)
-        st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
-        
-        if archivo_comp:
-            df_op = pd.read_excel(archivo_comp) if archivo_comp.endswith('.xlsx') else pd.read_csv(archivo_comp)
-            
-            c_ano = next((c for c in df_op.columns if 'año' in c.lower() or 'ano' in c.lower()), df_op.columns[0])
-            c_tda_op = next((c for c in df_op.columns if 'tienda' in c.lower() or 'sucursal' in c.lower()), df_op.columns[2])
-            c_prs_op = next((c for c in df_op.columns if 'pares' in c.lower() or 'cant' in c.lower()), None)
-            c_imp_op = next((c for c in df_op.columns if 'importe' in c.lower() or 'peso' in c.lower() or 'monto' in c.lower()), None)
-            c_prov = next((c for c in df_op.columns if 'prov' in c.lower()), None)
-            c_tipo = next((c for c in df_op.columns if 'tipo' in c.lower() or 'concepto' in c.lower()), None)
-            
-            if c_prs_op and c_imp_op:
-                # 1. BASE MAESTRA NORMALIZADA (Una sola vez)
-                df_op_display = df_op.copy()
-                
-                # Extraemos el ID numérico limpio
-                df_op_display['TIENDA_ID'] = df_op_display[c_tda_op].astype(str).str.extract(r'(\d+)', expand=False)
-                
-                # Excluimos tiendas de prueba (3004, 3015) basándonos en el ID limpio
-                df_op_display = df_op_display[~df_op_display['TIENDA_ID'].isin(['3004', '3015'])]
-                
-                # Filtros comerciales
-                if c_prov:
-                    df_op_display = df_op_display[~df_op_display[c_prov].astype(str).str.strip().isin(['415', '426', '427'])]
-                if c_tipo:
-                    df_op_display = df_op_display[~df_op_display[c_tipo].astype(str).str.contains('BOLSA|REUSABLE|BOLSO', case=False, na=False)]
-                
-                # Normalizamos Año y KPIs
-                df_op_display['ANIO_ID'] = pd.to_numeric(df_op_display[c_ano], errors='coerce').astype('Int64')
-                df_op_display[c_prs_op] = pd.to_numeric(df_op_display[c_prs_op], errors='coerce').fillna(0)
-                df_op_display[c_imp_op] = pd.to_numeric(df_op_display[c_imp_op], errors='coerce').fillna(0)
-                
-                # 2. ÚNICO RESUMEN OFICIAL POR TIENDA Y AÑO
-                resumen_maestro = df_op_display.groupby(['TIENDA_ID', 'ANIO_ID'])[[c_prs_op, c_imp_op]].sum().reset_index()
-                
-                # 3. CONSTRUCCIÓN SEGURA DE LA TABLA UI
-                tabla_pivot = resumen_maestro.pivot(index='TIENDA_ID', columns='ANIO_ID', values=[c_prs_op, c_imp_op]).fillna(0)
-                
-                # Aplanar las columnas del pivot
-                tabla_pivot.columns = [f"{col[0]}_{col[1]}" for col in tabla_pivot.columns]
-                
-                col_prs_25 = f"{c_prs_op}_2025"
-                col_prs_26 = f"{c_prs_op}_2026"
-                col_imp_25 = f"{c_imp_op}_2025"
-                col_imp_26 = f"{c_imp_op}_2026"
-                
-                # Garantizar que las columnas existan aunque falte un año en los datos
-                for c in [col_prs_25, col_prs_26, col_imp_25, col_imp_26]:
-                    if c not in tabla_pivot.columns:
-                        tabla_pivot[c] = 0
-                
-                # Calcular totales globales para los KPIs superiores
-                tot_p25 = tabla_pivot[col_prs_25].sum()
-                tot_p26 = tabla_pivot[col_prs_26].sum()
-                tot_w25 = tabla_pivot[col_imp_25].sum()
-                tot_w26 = tabla_pivot[col_imp_26].sum()
-                var_p_global = ((tot_p26 - tot_p25) / tot_p25 * 100) if tot_p25 > 0 else 0
-                var_w_global = ((tot_w26 - tot_w25) / tot_w25 * 100) if tot_w25 > 0 else 0
-                
-                c1, c2 = st.columns(2)
-                with c1:
-                    signo_p = "+" if var_p_global >= 0 else ""
-                    col_p = "#155724" if var_p_global >= 0 else "#721c24"
-                    st.markdown(f"""
-                        <div class="kpi-box">
-                            <div class="kpi-title">📦 Total Pares Zona Occidente</div>
-                            <div class="kpi-value">{tot_p26:,.0f} Pares</div>
-                            <div class="kpi-delta" style="color: {col_p};">Variación: {signo_p}{var_p_global:.2f}% vs 2025</div>
-                        </div>
-                    """, unsafe_allow_html=True)
-                with c2:
-                    signo_w = "+" if var_w_global >= 0 else ""
-                    col_w = "#155724" if var_w_global >= 0 else "#721c24"
-                    st.markdown(f"""
-                        <div class="kpi-box">
-                            <div class="kpi-title">💰 Total Ventas ($) Zona Occidente</div>
-                            <div class="kpi-value">${tot_w26:,.2f} MXN</div>
-                            <div class="kpi-delta" style="color: {col_w};">Variación: {signo_w}{var_w_global:.2f}% vs 2025</div>
-                        </div>
-                    """, unsafe_allow_html=True)
-                
-                st.write("<br>", unsafe_allow_html=True)
-                
-                # Formatear la tabla final UI
-                tabla_comp = pd.DataFrame({
-                    'TIENDA': tabla_pivot.index,
-                    'PARES 2025': tabla_pivot[col_prs_25],
-                    'PARES 2026': tabla_pivot[col_prs_26],
-                    'VAR PARES %': ((tabla_pivot[col_prs_26] - tabla_pivot[col_prs_25]) / tabla_pivot[col_prs_25].replace(0, 1)) * 100,
-                    'PESOS 2025': tabla_pivot[col_imp_25],
-                    'PESOS 2026': tabla_pivot[col_imp_26],
-                    'VAR PESOS %': ((tabla_pivot[col_imp_26] - tabla_pivot[col_imp_25]) / tabla_pivot[col_imp_25].replace(0, 1)) * 100
-                }).sort_values(by='VAR PARES %', ascending=False).reset_index(drop=True)
-                
-                def color_variacion(val):
-                    if isinstance(val, (int, float)):
-                        color = '#d4edda' if val >= 0 else '#f8d7da'
-                        texto = '#155724' if val >= 0 else '#721c24'
-                        return f'background-color: {color}; color: {texto}; font-weight: bold;'
-                    return ''
-
-                st.table(tabla_comp.style.map(color_variacion, subset=['VAR PARES %', 'VAR PESOS %']).format({
-                    'PARES 2025': '{:,.0f}', 'PARES 2026': '{:,.0f}', 'VAR PARES %': '{:+.2f}%',
-                    'PESOS 2025': '${:,.2f}', 'PESOS 2026': '${:,.2f}', 'VAR PESOS %': '{:+.2f}%'
-                }))
-                
-                st.write("<br>", unsafe_allow_html=True)
-                st.markdown("---")
-                
-                # SECCIÓN DE ENVÍO MASIVO ("BOTÓN NUCLEAR")
-                st.markdown("### 📧 Plataforma de Comunicación Ejecutiva")
-                col_clave, col_boton = st.columns([1, 2])
-                with col_clave:
-                    password_input = st.text_input("Clave de autorización:", type="password", key="comp_clave")
-                    confirmar_envio = st.checkbox("Confirmo el envío masivo a toda la Zona Occidente.", key="confirmar_envio")
-                with col_boton:
-                    st.write("<br>", unsafe_allow_html=True)
-                    if st.button("🚀 ENVIAR REPORTE A TODAS LAS TIENDAS", type="primary", key="comp_btn_masivo", use_container_width=True):
-                        if password_input == "T5604b":
-                            if not confirmar_envio:
-                                st.warning("⚠️ Debes marcar la casilla de confirmación para habilitar el envío masivo.")
-                            else:
-                                # 1. Preparamos DataFrames de Conversión Globalmente
-                                df_tdas_envio = cargar_tiendas()
-                                df_tdas_envio.columns = df_tdas_envio.columns.astype(str).str.strip().str.upper()
-                                col_id_tda_envio = next((c for c in df_tdas_envio.columns if c in ['TIENDA', 'SUCURSAL', 'NUMERO', 'ID']), df_tdas_envio.columns[0])
-                                col_correo_envio = next((c for c in df_tdas_envio.columns if 'CORREO' in c or 'EMAIL' in c), None)
-
-                                if archivo_conv:
-                                    df_c_envio = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
-                                    df_c_envio = df_c_envio[~df_c_envio.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
-                                    col_tda_c = next((c for c in df_c_envio.columns if 'Tienda' in c or 'TIENDA' in c), df_c_envio.columns[0])
-                                    col_conv_real = next((c for c in df_c_envio.columns if 'Conv' in c and 'Actual' in c), None)
-                                    col_tkt_real = next((c for c in df_c_envio.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
-                                    
-                                    df_c_envio['CONVERSIÓN'] = df_c_envio[col_conv_real].apply(lambda x: x*100 if x < 1 else x)
-                                    df_c_envio['TICKET PROMEDIO'] = df_c_envio[col_tkt_real]
-                                    
-                                    # EXTRAER ID NUMÉRICO DE CONVERSIÓN
-                                    df_c_envio['TIENDA_ID'] = df_c_envio[col_tda_c].astype(str).str.extract(r'(\d+)', expand=False)
-
-                                # 2. Barras de estado UI
-                                progress_bar = st.progress(0)
-                                status_text = st.empty()
-                                success_count = 0
-                                omitted_count = 0 # Contador para tiendas que no cruzan
-                                
-                                total_tiendas = len(df_tdas_envio)
-                                
-                                # 3. Bucle sobre todas las tiendas usando las BASES MAESTRAS
-                                for idx, row_tda in df_tdas_envio.iterrows():
-                                    tda_raw = str(row_tda[col_id_tda_envio])
-                                    match = re.search(r'\d+', tda_raw)
-                                    if not match:
-                                        continue
-                                        
-                                    tienda_obj = match.group()
-                                    
-                                    correo_oficial = str(row_tda[col_correo_envio]).strip() if col_correo_envio else "fleoutgdl@divec-flexi.com"
-                                    if correo_oficial.lower() == 'nan' or not correo_oficial:
-                                        correo_oficial = "fleoutgdl@divec-flexi.com"
-
-                                    status_text.text(f"Procesando reporte para Tienda {tienda_obj}...")
-
-                                    conv_actual = 0.0
-                                    tkt_actual = 0.0
-                                    encontrado_kpi = False
-
-                                    # CRUCE DE CONVERSIÓN CON LLAVE LIMPIA
-                                    if archivo_conv and 'df_c_envio' in locals():
-                                        fila_c = df_c_envio[df_c_envio['TIENDA_ID'] == tienda_obj]
-                                        if not fila_c.empty:
-                                            conv_actual = float(fila_c.iloc[0]['CONVERSIÓN'])
-                                            tkt_actual = float(fila_c.iloc[0]['TICKET PROMEDIO'])
-                                            encontrado_kpi = True
-                                            
-                                    # BLOQUEO SI NO HAY KPIs
-                                    if not encontrado_kpi:
-                                        omitted_count += 1
-                                        progress_bar.progress((idx + 1) / total_tiendas)
-                                        continue
-
-                                    faltan_pares_calc = 0
-                                    faltan_pesos_calc = 0.0
-                                    
-                                    # CONSULTA A LA BASE MAESTRA DE COMPARATIVO
-                                    datos_tienda = resumen_maestro[resumen_maestro['TIENDA_ID'] == tienda_obj]
-                                    
-                                    if not datos_tienda.empty:
-                                        # Extraemos explícitamente 2025 y 2026
-                                        pares_2025 = int(datos_tienda[datos_tienda['ANIO_ID'] == 2025][c_prs_op].sum())
-                                        pares_2026 = int(datos_tienda[datos_tienda['ANIO_ID'] == 2026][c_prs_op].sum())
-                                        pesos_2025 = float(datos_tienda[datos_tienda['ANIO_ID'] == 2025][c_imp_op].sum())
-                                        pesos_2026 = float(datos_tienda[datos_tienda['ANIO_ID'] == 2026][c_imp_op].sum())
-                                        
-                                        faltan_pares_calc = pares_2025 - pares_2026
-                                        faltan_pesos_calc = pesos_2025 - pesos_2026
-
-                                    # Enviar correo
-                                    status_text.text(f"Enviando correo a Tienda {tienda_obj}...")
-                                    resultado_alerta = enviar_correo_ejecutivo(
-                                        tienda_objetivo=tienda_obj, 
-                                        conversion=conv_actual, 
-                                        ticket=tkt_actual, 
-                                        meta_conv=10.9, 
-                                        meta_tkt=1.29, 
-                                        faltan_pares=faltan_pares_calc, 
-                                        faltan_pesos=faltan_pesos_calc,
-                                        correo_destinatario=correo_oficial
-                                    )
-                                    
-                                    if "✅" in resultado_alerta:
-                                        success_count += 1
-                                        
-                                    progress_bar.progress((idx + 1) / total_tiendas)
-                                    
-                                status_text.text("Operación finalizada.")
-                                if omitted_count > 0:
-                                    st.success(f"✅ Se enviaron reportes a {success_count} sucursales. Se omitieron {omitted_count} tiendas por falta de KPIs en los archivos fuente.")
-                                else:
-                                    st.success(f"✅ ¡Operación exitosa! Se enviaron reportes ejecutivos a {success_count} sucursales.")
-                        else:
-                            st.error("❌ Clave incorrecta. Acceso denegado para el envío masivo.")
-
     # --- PESTAÑAS 3 Y 4: DESPLIEGUE DE RANKINGS DE MODELOS ---
     elif modulo_activo == "👟 Top 20 Tiendas":
         st.subheader("👟 TOP 20 TIENDA")
@@ -1014,7 +783,6 @@ elif st.session_state.vista_actual == 'Operativo':
     elif modulo_activo == "🌍 Top 20 Zona":
         st.subheader("🌍 Consolidado Zona Occidente")
         if archivo_modelos:
-            # Re-cargamos para evitar problemas de variables no definidas si salta directamente aquí
             df_m = pd.read_excel(archivo_modelos) if archivo_modelos.endswith('.xlsx') else pd.read_csv(archivo_modelos)
             col_m = next((c for c in df_m.columns if c.lower() in ['clave', 'modelo', 'estilo']), df_m.columns[1])
             col_p = next((c for c in df_m.columns if 'pares' in c.lower() or 'cantidad' in c.lower() or 'venta' in c.lower()), df_m.columns[2])
@@ -1526,13 +1294,14 @@ elif st.session_state.vista_actual == 'Estrategico':
             
     st.write("---")
 
-    # NUEVAS PESTAÑAS ESTRATÉGICAS
-    tab_monitor, tab_impacto, tab_visita, tab_demanda, tab_nivelacion_intel, tab_macro = st.tabs([
+    # NUEVAS PESTAÑAS ESTRATÉGICAS - ORDEN ESTABLECIDO
+    tab_monitor, tab_impacto, tab_comparativo, tab_visita, tab_nivelacion_intel, tab_demanda, tab_macro = st.tabs([
         "📡 Monitor Estratégico", 
         "💰 Impacto Financiero",
+        "📈 Comparativo Mensual",
         "🤝 Preparación de Visita", 
+        "📦 Nivelación Inteligente",
         "📊 Diagnóstico Demanda", 
-        "📦 Nivelación Inteligente", 
         "🌍 Correlación Macro"
     ])
     
@@ -1659,6 +1428,236 @@ elif st.session_state.vista_actual == 'Estrategico':
                         st.warning("No hay suficientes registros en la bitácora para proyectar.")
                 except Exception as e:
                     st.error(f"Error procesando el cruce de datos: {e}")
+
+    # =================================================================================
+    # PESTAÑA: COMPARATIVO MENSUAL (INJERTADA AQUÍ)
+    # =================================================================================
+    with tab_comparativo:
+        st.subheader("📈 Análisis Comparativo de Calzado Mensual")
+        fecha_act = obtener_fecha_actualizacion(archivo_comp)
+        st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
+        
+        if archivo_comp:
+            df_op = pd.read_excel(archivo_comp) if archivo_comp.endswith('.xlsx') else pd.read_csv(archivo_comp)
+            
+            c_ano = next((c for c in df_op.columns if 'año' in c.lower() or 'ano' in c.lower()), df_op.columns[0])
+            c_tda_op = next((c for c in df_op.columns if 'tienda' in c.lower() or 'sucursal' in c.lower()), df_op.columns[2])
+            c_prs_op = next((c for c in df_op.columns if 'pares' in c.lower() or 'cant' in c.lower()), None)
+            c_imp_op = next((c for c in df_op.columns if 'importe' in c.lower() or 'peso' in c.lower() or 'monto' in c.lower()), None)
+            c_prov = next((c for c in df_op.columns if 'prov' in c.lower()), None)
+            c_tipo = next((c for c in df_op.columns if 'tipo' in c.lower() or 'concepto' in c.lower()), None)
+            
+            if c_prs_op and c_imp_op:
+                # 1. BASE MAESTRA NORMALIZADA
+                df_op_display = df_op.copy()
+                
+                # Extraemos el ID numérico limpio
+                df_op_display['TIENDA_ID'] = df_op_display[c_tda_op].astype(str).str.extract(r'(\d+)', expand=False)
+                
+                # Excluimos tiendas de prueba
+                df_op_display = df_op_display[~df_op_display['TIENDA_ID'].isin(['3004', '3015'])]
+                
+                # Filtros comerciales
+                if c_prov:
+                    df_op_display = df_op_display[~df_op_display[c_prov].astype(str).str.strip().isin(['415', '426', '427'])]
+                if c_tipo:
+                    df_op_display = df_op_display[~df_op_display[c_tipo].astype(str).str.contains('BOLSA|REUSABLE|BOLSO', case=False, na=False)]
+                
+                # Normalizamos Año y KPIs
+                df_op_display['ANIO_ID'] = pd.to_numeric(df_op_display[c_ano], errors='coerce').astype('Int64')
+                df_op_display[c_prs_op] = pd.to_numeric(df_op_display[c_prs_op], errors='coerce').fillna(0)
+                df_op_display[c_imp_op] = pd.to_numeric(df_op_display[c_imp_op], errors='coerce').fillna(0)
+                
+                # 2. ÚNICO RESUMEN OFICIAL POR TIENDA Y AÑO
+                resumen_maestro = df_op_display.groupby(['TIENDA_ID', 'ANIO_ID'])[[c_prs_op, c_imp_op]].sum().reset_index()
+                
+                # 3. CONSTRUCCIÓN SEGURA DE LA TABLA UI
+                tabla_pivot = resumen_maestro.pivot(index='TIENDA_ID', columns='ANIO_ID', values=[c_prs_op, c_imp_op]).fillna(0)
+                
+                # Aplanar las columnas del pivot
+                tabla_pivot.columns = [f"{col[0]}_{col[1]}" for col in tabla_pivot.columns]
+                
+                col_prs_25 = f"{c_prs_op}_2025"
+                col_prs_26 = f"{c_prs_op}_2026"
+                col_imp_25 = f"{c_imp_op}_2025"
+                col_imp_26 = f"{c_imp_op}_2026"
+                
+                # Garantizar que las columnas existan aunque falte un año en los datos
+                for c in [col_prs_25, col_prs_26, col_imp_25, col_imp_26]:
+                    if c not in tabla_pivot.columns:
+                        tabla_pivot[c] = 0
+                
+                # Calcular totales globales para los KPIs superiores
+                tot_p25 = tabla_pivot[col_prs_25].sum()
+                tot_p26 = tabla_pivot[col_prs_26].sum()
+                tot_w25 = tabla_pivot[col_imp_25].sum()
+                tot_w26 = tabla_pivot[col_imp_26].sum()
+                var_p_global = ((tot_p26 - tot_p25) / tot_p25 * 100) if tot_p25 > 0 else 0
+                var_w_global = ((tot_w26 - tot_w25) / tot_w25 * 100) if tot_w25 > 0 else 0
+                
+                c1, c2 = st.columns(2)
+                with c1:
+                    signo_p = "+" if var_p_global >= 0 else ""
+                    col_p = "#155724" if var_p_global >= 0 else "#721c24"
+                    st.markdown(f"""
+                        <div class="kpi-box">
+                            <div class="kpi-title">📦 Total Pares Zona Occidente</div>
+                            <div class="kpi-value">{tot_p26:,.0f} Pares</div>
+                            <div class="kpi-delta" style="color: {col_p};">Variación: {signo_p}{var_p_global:.2f}% vs 2025</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                with c2:
+                    signo_w = "+" if var_w_global >= 0 else ""
+                    col_w = "#155724" if var_w_global >= 0 else "#721c24"
+                    st.markdown(f"""
+                        <div class="kpi-box">
+                            <div class="kpi-title">💰 Total Ventas ($) Zona Occidente</div>
+                            <div class="kpi-value">${tot_w26:,.2f} MXN</div>
+                            <div class="kpi-delta" style="color: {col_w};">Variación: {signo_w}{var_w_global:.2f}% vs 2025</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                
+                st.write("<br>", unsafe_allow_html=True)
+                
+                # Formatear la tabla final UI
+                tabla_comp = pd.DataFrame({
+                    'TIENDA': tabla_pivot.index,
+                    'PARES 2025': tabla_pivot[col_prs_25],
+                    'PARES 2026': tabla_pivot[col_prs_26],
+                    'VAR PARES %': ((tabla_pivot[col_prs_26] - tabla_pivot[col_prs_25]) / tabla_pivot[col_prs_25].replace(0, 1)) * 100,
+                    'PESOS 2025': tabla_pivot[col_imp_25],
+                    'PESOS 2026': tabla_pivot[col_imp_26],
+                    'VAR PESOS %': ((tabla_pivot[col_imp_26] - tabla_pivot[col_imp_25]) / tabla_pivot[col_imp_25].replace(0, 1)) * 100
+                }).sort_values(by='VAR PARES %', ascending=False).reset_index(drop=True)
+                
+                def color_variacion(val):
+                    if isinstance(val, (int, float)):
+                        color = '#d4edda' if val >= 0 else '#f8d7da'
+                        texto = '#155724' if val >= 0 else '#721c24'
+                        return f'background-color: {color}; color: {texto}; font-weight: bold;'
+                    return ''
+
+                st.table(tabla_comp.style.map(color_variacion, subset=['VAR PARES %', 'VAR PESOS %']).format({
+                    'PARES 2025': '{:,.0f}', 'PARES 2026': '{:,.0f}', 'VAR PARES %': '{:+.2f}%',
+                    'PESOS 2025': '${:,.2f}', 'PESOS 2026': '${:,.2f}', 'VAR PESOS %': '{:+.2f}%'
+                }))
+                
+                st.write("<br>", unsafe_allow_html=True)
+                st.markdown("---")
+                
+                # SECCIÓN DE ENVÍO MASIVO ("BOTÓN NUCLEAR")
+                st.markdown("### 📧 Plataforma de Comunicación Ejecutiva")
+                col_clave, col_boton = st.columns([1, 2])
+                with col_clave:
+                    password_input = st.text_input("Clave de autorización:", type="password", key="comp_clave")
+                    confirmar_envio = st.checkbox("Confirmo el envío masivo a toda la Zona Occidente.", key="confirmar_envio")
+                with col_boton:
+                    st.write("<br>", unsafe_allow_html=True)
+                    if st.button("🚀 ENVIAR REPORTE A TODAS LAS TIENDAS", type="primary", key="comp_btn_masivo", use_container_width=True):
+                        if password_input == "T5604b":
+                            if not confirmar_envio:
+                                st.warning("⚠️ Debes marcar la casilla de confirmación para habilitar el envío masivo.")
+                            else:
+                                # 1. Preparamos DataFrames de Conversión Globalmente
+                                df_tdas_envio = cargar_tiendas()
+                                df_tdas_envio.columns = df_tdas_envio.columns.astype(str).str.strip().str.upper()
+                                col_id_tda_envio = next((c for c in df_tdas_envio.columns if c in ['TIENDA', 'SUCURSAL', 'NUMERO', 'ID']), df_tdas_envio.columns[0])
+                                col_correo_envio = next((c for c in df_tdas_envio.columns if 'CORREO' in c or 'EMAIL' in c), None)
+
+                                if archivo_conv:
+                                    df_c_envio = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
+                                    df_c_envio = df_c_envio[~df_c_envio.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
+                                    col_tda_c = next((c for c in df_c_envio.columns if 'Tienda' in c or 'TIENDA' in c), df_c_envio.columns[0])
+                                    col_conv_real = next((c for c in df_c_envio.columns if 'Conv' in c and 'Actual' in c), None)
+                                    col_tkt_real = next((c for c in df_c_envio.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
+                                    
+                                    df_c_envio['CONVERSIÓN'] = df_c_envio[col_conv_real].apply(lambda x: x*100 if x < 1 else x)
+                                    df_c_envio['TICKET PROMEDIO'] = df_c_envio[col_tkt_real]
+                                    
+                                    # EXTRAER ID NUMÉRICO DE CONVERSIÓN
+                                    df_c_envio['TIENDA_ID'] = df_c_envio[col_tda_c].astype(str).str.extract(r'(\d+)', expand=False)
+
+                                # 2. Barras de estado UI
+                                progress_bar = st.progress(0)
+                                status_text = st.empty()
+                                success_count = 0
+                                omitted_count = 0 
+                                
+                                total_tiendas = len(df_tdas_envio)
+                                
+                                # 3. Bucle sobre todas las tiendas usando las BASES MAESTRAS
+                                for idx, row_tda in df_tdas_envio.iterrows():
+                                    tda_raw = str(row_tda[col_id_tda_envio])
+                                    match = re.search(r'\d+', tda_raw)
+                                    if not match:
+                                        continue
+                                        
+                                    tienda_obj = match.group()
+                                    
+                                    correo_oficial = str(row_tda[col_correo_envio]).strip() if col_correo_envio else "fleoutgdl@divec-flexi.com"
+                                    if correo_oficial.lower() == 'nan' or not correo_oficial:
+                                        correo_oficial = "fleoutgdl@divec-flexi.com"
+
+                                    status_text.text(f"Procesando reporte para Tienda {tienda_obj}...")
+
+                                    conv_actual = 0.0
+                                    tkt_actual = 0.0
+                                    encontrado_kpi = False
+
+                                    # CRUCE DE CONVERSIÓN
+                                    if archivo_conv and 'df_c_envio' in locals():
+                                        fila_c = df_c_envio[df_c_envio['TIENDA_ID'] == tienda_obj]
+                                        if not fila_c.empty:
+                                            conv_actual = float(fila_c.iloc[0]['CONVERSIÓN'])
+                                            tkt_actual = float(fila_c.iloc[0]['TICKET PROMEDIO'])
+                                            encontrado_kpi = True
+                                            
+                                    if not encontrado_kpi:
+                                        omitted_count += 1
+                                        progress_bar.progress((idx + 1) / total_tiendas)
+                                        continue
+
+                                    faltan_pares_calc = 0
+                                    faltan_pesos_calc = 0.0
+                                    
+                                    # CONSULTA A LA BASE MAESTRA DE COMPARATIVO
+                                    datos_tienda = resumen_maestro[resumen_maestro['TIENDA_ID'] == tienda_obj]
+                                    
+                                    if not datos_tienda.empty:
+                                        pares_2025 = int(datos_tienda[datos_tienda['ANIO_ID'] == 2025][c_prs_op].sum())
+                                        pares_2026 = int(datos_tienda[datos_tienda['ANIO_ID'] == 2026][c_prs_op].sum())
+                                        pesos_2025 = float(datos_tienda[datos_tienda['ANIO_ID'] == 2025][c_imp_op].sum())
+                                        pesos_2026 = float(datos_tienda[datos_tienda['ANIO_ID'] == 2026][c_imp_op].sum())
+                                        
+                                        faltan_pares_calc = pares_2025 - pares_2026
+                                        faltan_pesos_calc = pesos_2025 - pesos_2026
+
+                                    # Enviar correo
+                                    status_text.text(f"Enviando correo a Tienda {tienda_obj}...")
+                                    resultado_alerta = enviar_correo_ejecutivo(
+                                        tienda_objetivo=tienda_obj, 
+                                        conversion=conv_actual, 
+                                        ticket=tkt_actual, 
+                                        meta_conv=10.9, 
+                                        meta_tkt=1.29, 
+                                        faltan_pares=faltan_pares_calc, 
+                                        faltan_pesos=faltan_pesos_calc,
+                                        correo_destinatario=correo_oficial
+                                    )
+                                    
+                                    if "✅" in resultado_alerta:
+                                        success_count += 1
+                                        
+                                    progress_bar.progress((idx + 1) / total_tiendas)
+                                    
+                                status_text.text("Operación finalizada.")
+                                if omitted_count > 0:
+                                    st.success(f"✅ Se enviaron reportes a {success_count} sucursales. Se omitieron {omitted_count} tiendas por falta de KPIs en los archivos fuente.")
+                                else:
+                                    st.success(f"✅ ¡Operación exitosa! Se enviaron reportes ejecutivos a {success_count} sucursales.")
+                        else:
+                            st.error("❌ Clave incorrecta. Acceso denegado para el envío masivo.")
+
 
     # =================================================================================
     # PESTAÑA: PREPARACIÓN DE VISITA EN CAMPO
@@ -1963,13 +1962,6 @@ Gerencia Comercial Zona Occidente
             st.warning("No se pudo cargar la base de tiendas.")
 
     # =================================================================================
-    # PESTAÑA: DIAGNÓSTICO DE DEMANDA
-    # =================================================================================
-    with tab_demanda:
-        st.subheader("📊 Diagnóstico de Demanda")
-        st.info("Módulo en fase de diseño. Próximamente: Análisis multivariable predictivo.")
-        
-    # =================================================================================
     # PESTAÑA: NIVELACIÓN INTELIGENTE (EL GOL DE ORO)
     # =================================================================================
     with tab_nivelacion_intel:
@@ -1983,7 +1975,6 @@ Gerencia Comercial Zona Occidente
                     df_v = st.session_state.df_ventas.copy()
                     df_t = st.session_state.df_tallas.copy()
 
-                    # Mapeo de Tiendas (IDs a Nombres)
                     df_tiendas_map = cargar_tiendas()
                     df_tiendas_map.columns = df_tiendas_map.columns.astype(str).str.strip().str.upper()
                     col_id = next((c for c in df_tiendas_map.columns if c in ['TIENDA', 'SUCURSAL', 'NUMERO', 'ID']), df_tiendas_map.columns[0])
@@ -2002,13 +1993,11 @@ Gerencia Comercial Zona Occidente
 
                     # 1. Limpieza y preparación de la base
                     df_v['tienda_int'] = pd.to_numeric(df_v['Tienda'].astype(str).str.extract(r'(\d+)', expand=False), errors='coerce').fillna(-1).astype(int)
-                    # Filtramos: Solo tiendas válidas, excluimos proveedores 415/426/427 y excluimos tiendas de prueba
                     df_v = df_v[(df_v['tienda_int'] > 0) & (~df_v['Proveedor'].isin([415, 426, 427])) & (~df_v['tienda_int'].isin([3004, 3015]))]
                     
                     df_v['Vtas'] = pd.to_numeric(df_v['Vtas'], errors='coerce').fillna(0)
                     df_v['Modelo_cln'] = df_v['Modelo'].astype(str).str.strip().str.upper()
 
-                    # Convertir todas las columnas ex y p a numéricas de forma segura
                     for i in range(1, 16):
                         if f'ex{i}' in df_v.columns: df_v[f'ex{i}'] = pd.to_numeric(df_v[f'ex{i}'], errors='coerce').fillna(0)
                         if f'p{i}' in df_v.columns: df_v[f'p{i}'] = pd.to_numeric(df_v[f'p{i}'], errors='coerce').fillna(0)
@@ -2022,18 +2011,15 @@ Gerencia Comercial Zona Occidente
                     for tda_receptor in tiendas_list:
                         df_receptor = df_v[df_v['tienda_int'] == tda_receptor]
                         
-                        # RECEPTOR: Obtenemos sus Top 30 modelos (demanda comprobada)
                         top_modelos = df_receptor[df_receptor['Vtas'] > 0].groupby('Modelo_cln')['Vtas'].sum().nlargest(30).index
 
                         for modelo in top_modelos:
-                            # Fila del modelo estrella en la tienda receptora
                             row_mod_rec = df_receptor[df_receptor['Modelo_cln'] == modelo].iloc[0]
                             dpto = str(row_mod_rec.get('Departamento', '')).strip().lower()
 
                             tallas_row = df_t[df_t['Valor_cln'] == dpto]
                             if tallas_row.empty: continue
 
-                            # Barrido por cada una de las 15 columnas de tallas
                             for i in range(1, 16):
                                 col_ex = f'ex{i}'
                                 col_p = f'p{i}'
@@ -2045,13 +2031,10 @@ Gerencia Comercial Zona Occidente
 
                                 if pd.isna(talla_real) or str(talla_real).strip() == '': continue
                                 
-                                # REGLA DE NEGOCIO: Excluir 30.5 de Caballero
                                 if dpto == 'caballero' and ('305' in str(talla_real) or '30.5' == str(talla_real)): continue
 
-                                # REGLA RECEPTOR: Stock físico = 0 y Tránsito = 0
                                 if ex_rec == 0 and p_rec == 0:
                                     
-                                    # BUSCAR DONADOR
                                     df_donadores = df_v[
                                         (df_v['Modelo_cln'] == modelo) & 
                                         (df_v['tienda_int'] != tda_receptor) & 
@@ -2060,9 +2043,6 @@ Gerencia Comercial Zona Occidente
                                     ].copy()
 
                                     if not df_donadores.empty:
-                                        # ORDENAMIENTO DE DOS NIVELES: 
-                                        # 1ero: Menor venta (prioriza los de 0 ventas sobre los de 1 venta).
-                                        # 2do: Mayor stock (protege a las tiendas que tienen menos inventario).
                                         df_donadores = df_donadores.sort_values(by=['Vtas', col_ex], ascending=[True, False])
                                         mejor_donador = df_donadores.iloc[0]
 
@@ -2083,7 +2063,6 @@ Gerencia Comercial Zona Occidente
                         df_traspasos = pd.DataFrame(traspasos_sugeridos)
                         st.success(f"✅ ¡Análisis completado! Se encontraron {len(df_traspasos)} oportunidades de rescate de capital bajo las reglas estrictas de negocio.")
                         
-                        # Diseño Visual Llamativo con HTML Customizado (Alineado a la izquierda sin tabulaciones para evitar problemas de renderizado Markdown)
                         html_tabla = "<div style='overflow-x:auto;'>\n"
                         html_tabla += "<table style='width:100%; border-collapse: collapse; font-family: sans-serif; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);'>\n"
                         html_tabla += "<thead>\n"
@@ -2126,6 +2105,15 @@ Gerencia Comercial Zona Occidente
                         st.info("No se encontraron oportunidades de traspaso que cumplan con la regla estricta (Top Venta quebrado vs Zapato Estancado >= 2). ¡El inventario de la Zona está equilibrado!")
             else:
                 st.warning("⚠️ No se encontraron los archivos locales (Ventas.xlsx, Valores de tallas.xlsx) necesarios para ejecutar el algoritmo de nivelación.")
+
+
+    # =================================================================================
+    # PESTAÑA: DIAGNÓSTICO DE DEMANDA
+    # =================================================================================
+    with tab_demanda:
+        st.subheader("📊 Diagnóstico de Demanda")
+        st.info("Módulo en fase de diseño. Próximamente: Análisis multivariable predictivo.")
+
 
     # =================================================================================
     # PESTAÑA: CORRELACIÓN MACRO
