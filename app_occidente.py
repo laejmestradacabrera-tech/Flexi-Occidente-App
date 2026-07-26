@@ -137,23 +137,23 @@ def cargar_tiendas():
     except Exception as e:
         return pd.DataFrame({'TIENDA': ['Error'], 'NOMBRE': ['Sin datos'], 'ENCARGADO': ['Sin datos']})
 
-def cargar_archivos_locales():
-    if 'df_ventas' not in st.session_state or 'df_tallas' not in st.session_state:
+# Eliminamos st.cache_data para forzar la lectura en vivo de las excepciones
+def cargar_archivos_locales_vivo():
+    try:
+        df_ventas = pd.read_excel("Ventas.xlsx")
         try:
-            st.session_state.df_ventas = pd.read_excel("Ventas.xlsx")
+            df_tallas = pd.read_excel("Valores de tallas.xlsx", sheet_name="Hoja1")
+        except:
+            df_tallas = pd.read_excel("Valores de tallas.xlsx")
             
-            try:
-                st.session_state.df_tallas = pd.read_excel("Valores de tallas.xlsx", sheet_name="Hoja1")
-            except:
-                st.session_state.df_tallas = pd.read_excel("Valores de tallas.xlsx")
-                
-            try:
-                st.session_state.lista_excepciones = pd.read_excel("Valores de tallas.xlsx", sheet_name="Excepciones")['Modelo'].astype(str).str.strip().str.upper().tolist()
-            except:
-                st.session_state.lista_excepciones = []
-        except Exception as e:
-            return False
-    return True
+        try:
+            lista_excepciones = pd.read_excel("Valores de tallas.xlsx", sheet_name="Excepciones")['Modelo'].astype(str).str.strip().str.upper().tolist()
+        except:
+            lista_excepciones = []
+            
+        return df_ventas, df_tallas, lista_excepciones
+    except Exception as e:
+        return None, None, []
 
 def validar_captura_stock(tienda_id, modelo, talla_input, df_ventas, df_tallas):
     try:
@@ -860,60 +860,54 @@ elif st.session_state.vista_actual == 'Operativo':
                     
                     df_rating['ALCANCE'] = df_rating['TIENDA_INT'].map(alcance_dict).fillna(0)
 
-                df_ventas_r = pd.read_excel("Ventas.xlsx")
-                try:
-                    df_tallas_r = pd.read_excel("Valores de tallas.xlsx", sheet_name="Hoja1")
-                except:
-                    df_tallas_r = pd.read_excel("Valores de tallas.xlsx")
+                df_ventas_r, df_tallas_r, lista_excepciones = cargar_archivos_locales_vivo()
                 
-                try:
-                    lista_excepciones = pd.read_excel("Valores de tallas.xlsx", sheet_name="Excepciones")['Modelo'].astype(str).str.strip().str.upper().tolist()
-                except:
-                    lista_excepciones = []
+                if df_ventas_r is not None and df_tallas_r is not None:
+                    df_ventas_r['tienda_int'] = df_ventas_r['Tienda'].apply(lambda x: int(re.search(r'\d+', str(x)).group()) if pd.notna(x) and re.search(r'\d+', str(x)) else -1)
+                    df_ventas_r = df_ventas_r[~df_ventas_r['Proveedor'].isin([415, 426, 427])]
                     
-                df_ventas_r['tienda_int'] = df_ventas_r['Tienda'].apply(lambda x: int(re.search(r'\d+', str(x)).group()) if pd.notna(x) and re.search(r'\d+', str(x)) else -1)
-                df_ventas_r = df_ventas_r[~df_ventas_r['Proveedor'].isin([415, 426, 427])]
-                
-                quiebres_dict = {}
-                for tda_num in df_rating['TIENDA_INT']:
-                    df_tienda_v = df_ventas_r[df_ventas_r['tienda_int'] == tda_num]
-                    if df_tienda_v.empty:
-                        quiebres_dict[tda_num] = 0
-                        continue
+                    quiebres_dict = {}
+                    for tda_num in df_rating['TIENDA_INT']:
+                        df_tienda_v = df_ventas_r[df_ventas_r['tienda_int'] == tda_num]
+                        if df_tienda_v.empty:
+                            quiebres_dict[tda_num] = 0
+                            continue
+                            
+                        top_20 = df_tienda_v.groupby('Modelo')['Vtas'].sum().nlargest(20).index
+                        df_top = df_tienda_v[df_tienda_v['Modelo'].isin(top_20)]
+                        modelos_quebrados = set()
                         
-                    top_20 = df_tienda_v.groupby('Modelo')['Vtas'].sum().nlargest(20).index
-                    df_top = df_tienda_v[df_tienda_v['Modelo'].isin(top_20)]
-                    modelos_quebrados = set()
-                    
-                    for _, row in df_top.iterrows():
-                        dpto = str(row.get('Departamento', '')).strip().lower()
-                        modelo_act = str(row.get('Modelo', '')).strip().upper()
-                        tallas_row = df_tallas_r[df_tallas_r['Valor'].astype(str).str.strip().str.lower() == dpto]
-                        
-                        if not tallas_row.empty:
-                            for i in range(1, 16):
-                                ex_val = row.get(f'ex{i}', 0)
-                                p_val = row.get(f'p{i}', 0)
-                                if (pd.isna(ex_val) or ex_val == 0) and (pd.isna(p_val) or p_val == 0):
-                                    talla_fisica = tallas_row.iloc[0].get(f'ex{i}')
-                                    if pd.notna(talla_fisica) and str(talla_fisica).strip() != '':
-                                        t_str = str(talla_fisica).strip()
-                                        try:
-                                            t_num = float(talla_fisica)
-                                            if t_num >= 100: t_num = t_num / 10.0
-                                        except:
-                                            t_num = 0.0
+                        for _, row in df_top.iterrows():
+                            dpto = str(row.get('Departamento', '')).strip().lower()
+                            modelo_act = str(row.get('Modelo', '')).strip().upper()
+                            tallas_row = df_tallas_r[df_tallas_r['Valor'].astype(str).str.strip().str.lower() == dpto]
+                            
+                            if not tallas_row.empty:
+                                for i in range(1, 16):
+                                    ex_val = row.get(f'ex{i}', 0)
+                                    p_val = row.get(f'p{i}', 0)
+                                    if (pd.isna(ex_val) or ex_val == 0) and (pd.isna(p_val) or p_val == 0):
+                                        talla_fisica = tallas_row.iloc[0].get(f'ex{i}')
+                                        if pd.notna(talla_fisica) and str(talla_fisica).strip() != '':
+                                            t_str = str(talla_fisica).strip()
+                                            try:
+                                                t_num = float(talla_fisica)
+                                                if t_num >= 100: t_num = t_num / 10.0
+                                            except:
+                                                t_num = 0.0
+                                                
+                                            # ESCUDO GLOBAL DE TALLAS FANTASMA
+                                            if dpto == 'caballero' and t_num == 30.5: continue 
+                                            if dpto in ['niño', 'nino'] and t_num == 21.5: continue
+                                            if dpto == 'joven' and t_num > 25.0 and modelo_act in lista_excepciones: continue
                                             
-                                        # ESCUDO GLOBAL DE TALLAS FANTASMA
-                                        if dpto == 'caballero' and t_num == 30.5: continue 
-                                        if dpto in ['niño', 'nino'] and t_num == 21.5: continue
-                                        if dpto == 'joven' and t_num > 25.0 and modelo_act in lista_excepciones: continue
-                                        
-                                        modelos_quebrados.add(row['Modelo'])
-                                        break 
-                    quiebres_dict[tda_num] = len(modelos_quebrados)
-                
-                df_rating['QUIEBRES'] = df_rating['TIENDA_INT'].map(quiebres_dict).fillna(0)
+                                            modelos_quebrados.add(row['Modelo'])
+                                            break 
+                        quiebres_dict[tda_num] = len(modelos_quebrados)
+                    
+                    df_rating['QUIEBRES'] = df_rating['TIENDA_INT'].map(quiebres_dict).fillna(0)
+                else:
+                    df_rating['QUIEBRES'] = 0
 
                 def calcular_pts_ticket(t): return 35 if t >= 1.29 else 25 if t >= 1.25 else 10 if t >= 1.20 else 5
                 def calcular_pts_conv(c): return 35 if c >= 10.9 else 25 if c >= 10.5 else 10 if c >= 10.0 else 5
@@ -1066,7 +1060,7 @@ elif st.session_state.vista_actual == 'Operativo':
             if os.path.exists("Raiting Elegido..html"):
                 with open("Raiting Elegido..html", "r", encoding="utf-8") as f: html_code = f.read()
                 html_code = html_code.replace("TEMPORADA Q4 - 2026", "TEMPORADA Q2 - 2026")
-                html_code = re.sub(r'.*?', f'\n{podio_html}\n', html_code, flags=re.DOTALL)
+                html_code = re.sub(r'<!-- PODIO TOP 3 -->.*?<!-- LEADERBOARD \(TABLA\) -->', f'<!-- PODIO TOP 3 -->\n{podio_html}\n<!-- LEADERBOARD (TABLA) -->', html_code, flags=re.DOTALL)
                 html_code = re.sub(r'<tbody class="text-slate-200">.*?</tbody>', f'<tbody class="text-slate-200">\n{filas_html}\n</tbody>', html_code, flags=re.DOTALL)
                 html_code = re.sub(r'<button class="pulse-btn(.*?)>', r'<button onclick="openModal()" class="pulse-btn\1>', html_code)
                 html_code = html_code.replace("</body>", modal_html)
@@ -1081,16 +1075,16 @@ elif st.session_state.vista_actual == 'Operativo':
         fecha_act = obtener_fecha_actualizacion("Ventas.xlsx")
         st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
         
-        cargar_archivos_locales()
+        df_ventas, df_tallas, lista_excepciones = cargar_archivos_locales_vivo()
         
-        if 'df_ventas' in st.session_state:
-            tiendas = sorted(st.session_state.df_ventas['Tienda'].unique().tolist())
+        if df_ventas is not None and df_tallas is not None:
+            tiendas = sorted(df_ventas['Tienda'].unique().tolist())
             tienda_sel = st.selectbox("Selecciona la Tienda para analizar:", tiendas, key="nivelacion_tienda")
             
             if st.button("Ejecutar Análisis", key="nivelacion_btn"):
-                df_tienda = st.session_state.df_ventas[
-                    (st.session_state.df_ventas['Tienda'] == tienda_sel) & 
-                    (~st.session_state.df_ventas['Proveedor'].isin([415, 426, 427]))
+                df_tienda = df_ventas[
+                    (df_ventas['Tienda'] == tienda_sel) & 
+                    (~df_ventas['Proveedor'].isin([415, 426, 427]))
                 ].copy()
                 
                 top_20 = df_tienda.groupby('Modelo')['Vtas'].sum().nlargest(20).index
@@ -1100,8 +1094,8 @@ elif st.session_state.vista_actual == 'Operativo':
                 for _, row in df_top.iterrows():
                     dpto = str(row['Departamento']).strip().lower()
                     modelo_act = str(row['Modelo']).strip().upper()
-                    tallas_row = st.session_state.df_tallas[
-                        st.session_state.df_tallas['Valor'].astype(str).str.lower() == dpto
+                    tallas_row = df_tallas[
+                        df_tallas['Valor'].astype(str).str.lower() == dpto
                     ]
                     
                     if not tallas_row.empty:
@@ -1122,7 +1116,7 @@ elif st.session_state.vista_actual == 'Operativo':
                                     # ESCUDO GLOBAL DE TALLAS FANTASMA
                                     if dpto == 'caballero' and t_num == 30.5: continue 
                                     if dpto in ['niño', 'nino'] and t_num == 21.5: continue
-                                    if dpto == 'joven' and t_num > 25.0 and modelo_act in st.session_state.get('lista_excepciones', []): continue
+                                    if dpto == 'joven' and t_num > 25.0 and modelo_act in lista_excepciones: continue
                                         
                                     resultados.append({
                                         "Departamento": row['Departamento'].capitalize(),
@@ -1288,7 +1282,7 @@ elif st.session_state.vista_actual == 'Operativo':
             with st.expander("2️⃣ PILAR II: ACOMPAÑAMIENTO (Mentoría)"):
                 st.markdown("""
                 **Concepto:** Eliminar la "soledad del novato" mediante el sistema de compañero guía.
-                * 👥 **La Acción:** Designar a un colaborador con experiencia y actitud positiva para que actúe como mentor durante la primera semana. Este guía resolverá dudas cotidianas y explicará las dinámicas no escritas.
+                * 👥 **La Acción:** Designar a un colaborador con experiencia y attitude positiva para que actúe como mentor durante la primera semana. Este guía resolverá dudas cotidianas y explicará las dinámicas no escritas.
                 * 🚀 **El Impacto:** Acelera la curva de aprendizaje social y técnico. Reduce el miedo a cometer errores básicos y crea un vínculo de confianza inmediato.
                 """)
                 
@@ -1778,19 +1772,14 @@ elif st.session_state.vista_actual == 'Estrategico':
                         v_faltan_pares = int(pares_25 - pares_26)
                         v_faltan_pesos = float(pesos_25 - pesos_26)
 
-                    cargar_archivos_locales()
-                    
-                    try:
-                        lista_excepciones = pd.read_excel("Valores de tallas.xlsx", sheet_name="Excepciones")['Modelo'].astype(str).str.strip().str.upper().tolist()
-                    except:
-                        lista_excepciones = []
+                    df_ventas_r, df_tallas_r, lista_excepciones = cargar_archivos_locales_vivo()
                     
                     v_pares_transito = 0
                     v_modelos_transito = 0
                     
-                    if 'df_ventas' in st.session_state and 'df_tallas' in st.session_state:
-                        df_v = st.session_state.df_ventas.copy()
-                        df_t = st.session_state.df_tallas
+                    if df_ventas_r is not None and df_tallas_r is not None:
+                        df_v = df_ventas_r.copy()
+                        df_t = df_tallas_r.copy()
                         df_v['tienda_int'] = pd.to_numeric(df_v['Tienda'].astype(str).str.extract(r'(\d+)', expand=False), errors='coerce').fillna(-1)
                         df_tienda_v = df_v[(df_v['tienda_int'] == int(tienda_obj)) & (~df_v['Proveedor'].isin([415, 426, 427]))].copy()
                         
@@ -2022,11 +2011,11 @@ Gerencia Comercial Zona Occidente
         st.write("Identificación automática de pares inmovilizados para cubrir quiebres absolutos de modelos estrella.")
         
         if st.button("🚀 Ejecutar Algoritmo de Nivelación", type="primary"):
-            cargar_archivos_locales()
-            if 'df_ventas' in st.session_state and 'df_tallas' in st.session_state:
+            df_ventas_vivo, df_tallas_vivo, lista_excepciones = cargar_archivos_locales_vivo()
+            if df_ventas_vivo is not None and df_tallas_vivo is not None:
                 with st.spinner("Analizando matrices de inventario y ventas (Últimos 60 días)..."):
-                    df_v = st.session_state.df_ventas.copy()
-                    df_t = st.session_state.df_tallas.copy()
+                    df_v = df_ventas_vivo.copy()
+                    df_t = df_tallas_vivo.copy()
 
                     df_tiendas_map = cargar_tiendas()
                     df_tiendas_map.columns = df_tiendas_map.columns.astype(str).str.strip().str.upper()
@@ -2093,7 +2082,7 @@ Gerencia Comercial Zona Occidente
                                 # ESCUDO GLOBAL DE TALLAS FANTASMA
                                 if dpto == 'caballero' and t_num == 30.5: continue
                                 if dpto in ['niño', 'nino'] and t_num == 21.5: continue
-                                if dpto == 'joven' and t_num > 25.0 and modelo in st.session_state.get('lista_excepciones', []): continue
+                                if dpto == 'joven' and t_num > 25.0 and modelo in lista_excepciones: continue
 
                                 if ex_rec == 0 and p_rec == 0:
                                     
