@@ -141,7 +141,16 @@ def cargar_archivos_locales():
     if 'df_ventas' not in st.session_state or 'df_tallas' not in st.session_state:
         try:
             st.session_state.df_ventas = pd.read_excel("Ventas.xlsx")
-            st.session_state.df_tallas = pd.read_excel("Valores de tallas.xlsx")
+            
+            try:
+                st.session_state.df_tallas = pd.read_excel("Valores de tallas.xlsx", sheet_name="Hoja1")
+            except:
+                st.session_state.df_tallas = pd.read_excel("Valores de tallas.xlsx")
+                
+            try:
+                st.session_state.lista_excepciones = pd.read_excel("Valores de tallas.xlsx", sheet_name="Excepciones")['Modelo'].astype(str).str.strip().str.upper().tolist()
+            except:
+                st.session_state.lista_excepciones = []
         except Exception as e:
             return False
     return True
@@ -206,8 +215,8 @@ def validar_captura_stock(tienda_id, modelo, talla_input, df_ventas, df_tallas):
                                         return False, f"⛔ CAPTURA BLOQUEADA: El sistema registra {int(existencia_num)} par(es) de la talla {talla_buscada_str} (Modelo {modelo_buscado}) físicamente en la sucursal {tda_buscada}."
                                     else:
                                         st.write(f"✅ La existencia es {existencia_num}. Permitiendo captura (Quiebre válido).")
-                            else:
-                                st.write(f"❌ **ERROR:** La columna [{col_ex}] NO existe en el archivo Ventas.xlsx")
+                        else:
+                            st.write(f"❌ **ERROR:** La columna [{col_ex}] NO existe en el archivo Ventas.xlsx")
         return True, ""
     except Exception as e:
         st.error(f"Error interno en validación: {e}")
@@ -852,7 +861,16 @@ elif st.session_state.vista_actual == 'Operativo':
                     df_rating['ALCANCE'] = df_rating['TIENDA_INT'].map(alcance_dict).fillna(0)
 
                 df_ventas_r = pd.read_excel("Ventas.xlsx")
-                df_tallas_r = pd.read_excel("Valores de tallas.xlsx")
+                try:
+                    df_tallas_r = pd.read_excel("Valores de tallas.xlsx", sheet_name="Hoja1")
+                except:
+                    df_tallas_r = pd.read_excel("Valores de tallas.xlsx")
+                
+                try:
+                    lista_excepciones = pd.read_excel("Valores de tallas.xlsx", sheet_name="Excepciones")['Modelo'].astype(str).str.strip().str.upper().tolist()
+                except:
+                    lista_excepciones = []
+                    
                 df_ventas_r['tienda_int'] = df_ventas_r['Tienda'].apply(lambda x: int(re.search(r'\d+', str(x)).group()) if pd.notna(x) and re.search(r'\d+', str(x)) else -1)
                 df_ventas_r = df_ventas_r[~df_ventas_r['Proveedor'].isin([415, 426, 427])]
                 
@@ -869,7 +887,9 @@ elif st.session_state.vista_actual == 'Operativo':
                     
                     for _, row in df_top.iterrows():
                         dpto = str(row.get('Departamento', '')).strip().lower()
+                        modelo_act = str(row.get('Modelo', '')).strip().upper()
                         tallas_row = df_tallas_r[df_tallas_r['Valor'].astype(str).str.strip().str.lower() == dpto]
+                        
                         if not tallas_row.empty:
                             for i in range(1, 16):
                                 ex_val = row.get(f'ex{i}', 0)
@@ -877,14 +897,18 @@ elif st.session_state.vista_actual == 'Operativo':
                                 if (pd.isna(ex_val) or ex_val == 0) and (pd.isna(p_val) or p_val == 0):
                                     talla_fisica = tallas_row.iloc[0].get(f'ex{i}')
                                     if pd.notna(talla_fisica) and str(talla_fisica).strip() != '':
-                                        talla_str = str(talla_fisica).strip()
-                                        es_305 = False
+                                        t_str = str(talla_fisica).strip()
                                         try:
                                             t_num = float(talla_fisica)
-                                            if t_num == 305 or t_num == 30.5: es_305 = True
+                                            if t_num >= 100: t_num = t_num / 10.0
                                         except:
-                                            if '305' in talla_str: es_305 = True
-                                        if dpto == 'caballero' and es_305: continue 
+                                            t_num = 0.0
+                                            
+                                        # ESCUDO GLOBAL DE TALLAS FANTASMA
+                                        if dpto == 'caballero' and t_num == 30.5: continue 
+                                        if dpto in ['niño', 'nino'] and t_num == 21.5: continue
+                                        if dpto == 'joven' and t_num > 25.0 and modelo_act in lista_excepciones: continue
+                                        
                                         modelos_quebrados.add(row['Modelo'])
                                         break 
                     quiebres_dict[tda_num] = len(modelos_quebrados)
@@ -1042,7 +1066,7 @@ elif st.session_state.vista_actual == 'Operativo':
             if os.path.exists("Raiting Elegido..html"):
                 with open("Raiting Elegido..html", "r", encoding="utf-8") as f: html_code = f.read()
                 html_code = html_code.replace("TEMPORADA Q4 - 2026", "TEMPORADA Q2 - 2026")
-                html_code = re.sub(r'<!-- PODIO TOP 3 -->.*?<!-- LEADERBOARD \(TABLA\) -->', f'<!-- PODIO TOP 3 -->\n{podio_html}\n<!-- LEADERBOARD (TABLA) -->', html_code, flags=re.DOTALL)
+                html_code = re.sub(r'.*?', f'\n{podio_html}\n', html_code, flags=re.DOTALL)
                 html_code = re.sub(r'<tbody class="text-slate-200">.*?</tbody>', f'<tbody class="text-slate-200">\n{filas_html}\n</tbody>', html_code, flags=re.DOTALL)
                 html_code = re.sub(r'<button class="pulse-btn(.*?)>', r'<button onclick="openModal()" class="pulse-btn\1>', html_code)
                 html_code = html_code.replace("</body>", modal_html)
@@ -1075,6 +1099,7 @@ elif st.session_state.vista_actual == 'Operativo':
                 resultados = []
                 for _, row in df_top.iterrows():
                     dpto = str(row['Departamento']).strip().lower()
+                    modelo_act = str(row['Modelo']).strip().upper()
                     tallas_row = st.session_state.df_tallas[
                         st.session_state.df_tallas['Valor'].astype(str).str.lower() == dpto
                     ]
@@ -1087,6 +1112,18 @@ elif st.session_state.vista_actual == 'Operativo':
                             if (pd.isna(ex_val) or ex_val == 0) and (pd.isna(p_val) or p_val == 0):
                                 talla_fisica = tallas_row.iloc[0][f'ex{i}']
                                 if pd.notna(talla_fisica):
+                                    t_str = str(talla_fisica).strip()
+                                    try:
+                                        t_num = float(talla_fisica)
+                                        if t_num >= 100: t_num = t_num / 10.0
+                                    except:
+                                        t_num = 0.0
+                                        
+                                    # ESCUDO GLOBAL DE TALLAS FANTASMA
+                                    if dpto == 'caballero' and t_num == 30.5: continue 
+                                    if dpto in ['niño', 'nino'] and t_num == 21.5: continue
+                                    if dpto == 'joven' and t_num > 25.0 and modelo_act in st.session_state.get('lista_excepciones', []): continue
+                                        
                                     resultados.append({
                                         "Departamento": row['Departamento'].capitalize(),
                                         "Modelo": row['Modelo'],
@@ -1147,7 +1184,7 @@ elif st.session_state.vista_actual == 'Operativo':
 
         if "Faltante de Tallas" in factor:
             modelo_captura = st.text_input("Modelo:", key="bitacora_modelo")
-            talla_captura = st.number_input("Talla (Ej. 250):", min_value=150, max_value=350, step=5, value=250, key="bitacora_talla")
+            talla_captura = st.number_input("Talla (Ej. 250 o 25.0):", min_value=1.0, max_value=350.0, step=0.5, value=25.0, key="bitacora_talla")
             precio_captura = st.number_input("Precio:", min_value=0.0, key="bitacora_precio")
 
         notas = st.text_area("Detalles adicionales:", key="bitacora_notas")
@@ -1179,7 +1216,7 @@ elif st.session_state.vista_actual == 'Operativo':
             if puede_guardar:
                 fila = [
                     str(fecha), tienda_seleccionada, encargado_actual, factor, notas, 
-                    "", "", str(modelo_captura), str(int(talla_captura)), str(precio_captura), status_validacion
+                    "", "", str(modelo_captura), str(talla_captura), str(precio_captura), status_validacion
                 ]
                 try:
                     if 'sheet_bitacora' in globals():
@@ -1743,6 +1780,11 @@ elif st.session_state.vista_actual == 'Estrategico':
 
                     cargar_archivos_locales()
                     
+                    try:
+                        lista_excepciones = pd.read_excel("Valores de tallas.xlsx", sheet_name="Excepciones")['Modelo'].astype(str).str.strip().str.upper().tolist()
+                    except:
+                        lista_excepciones = []
+                    
                     v_pares_transito = 0
                     v_modelos_transito = 0
                     
@@ -1775,6 +1817,7 @@ elif st.session_state.vista_actual == 'Estrategico':
                             
                             for _, row in df_top.iterrows():
                                 dpto = str(row.get('Departamento', '')).strip().lower()
+                                modelo_act = str(row.get('Modelo', '')).strip().upper()
                                 tallas_row = df_t[df_t['Valor'].astype(str).str.strip().str.lower() == dpto]
                                 if not tallas_row.empty:
                                     for i in range(1, 16):
@@ -1783,7 +1826,17 @@ elif st.session_state.vista_actual == 'Estrategico':
                                             talla_fisica = tallas_row.iloc[0].get(f'ex{i}')
                                             if pd.notna(talla_fisica) and str(talla_fisica).strip() != '':
                                                 t_str = str(talla_fisica).strip()
-                                                if dpto == 'caballero' and ('305' in t_str or t_str == '30.5'): continue 
+                                                try:
+                                                    t_num = float(talla_fisica)
+                                                    if t_num >= 100: t_num = t_num / 10.0
+                                                except:
+                                                    t_num = 0.0
+                                                    
+                                                # ESCUDO GLOBAL DE TALLAS FANTASMA
+                                                if dpto == 'caballero' and t_num == 30.5: continue 
+                                                if dpto in ['niño', 'nino'] and t_num == 21.5: continue
+                                                if dpto == 'joven' and t_num > 25.0 and modelo_act in lista_excepciones: continue
+                                                
                                                 modelos_quebrados.add(row['Modelo'])
                                                 break
                         v_quiebres = len(modelos_quebrados)
@@ -2031,7 +2084,16 @@ Gerencia Comercial Zona Occidente
 
                                 if pd.isna(talla_real) or str(talla_real).strip() == '': continue
                                 
-                                if dpto == 'caballero' and ('305' in str(talla_real) or '30.5' == str(talla_real)): continue
+                                try:
+                                    t_num = float(talla_real)
+                                    if t_num >= 100: t_num = t_num / 10.0
+                                except:
+                                    t_num = 0.0
+
+                                # ESCUDO GLOBAL DE TALLAS FANTASMA
+                                if dpto == 'caballero' and t_num == 30.5: continue
+                                if dpto in ['niño', 'nino'] and t_num == 21.5: continue
+                                if dpto == 'joven' and t_num > 25.0 and modelo in st.session_state.get('lista_excepciones', []): continue
 
                                 if ex_rec == 0 and p_rec == 0:
                                     
@@ -2061,6 +2123,10 @@ Gerencia Comercial Zona Occidente
                     # 3. Presentación de Resultados
                     if traspasos_sugeridos:
                         df_traspasos = pd.DataFrame(traspasos_sugeridos)
+                        
+                        # REORDENAMIENTO ESTRICTO POR MODELO
+                        df_traspasos = df_traspasos.sort_values(by=['MODELO', 'ORIGEN', 'DESTINO']).reset_index(drop=True)
+                        
                         st.success(f"✅ ¡Análisis completado! Se encontraron {len(df_traspasos)} oportunidades de rescate de capital bajo las reglas estrictas de negocio.")
                         
                         html_tabla = "<div style='overflow-x:auto;'>\n"
