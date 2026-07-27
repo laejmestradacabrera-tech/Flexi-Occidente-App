@@ -2311,7 +2311,9 @@ Gerencia Comercial Zona Occidente
                             }});
 
                             if (bounds.length > 0) {{
-                                map.fitBounds(bounds, {{padding: [40, 40]}});
+                                setTimeout(function() {{
+                                    map.fitBounds(bounds, {{padding: [40, 40], maxZoom: 11}});
+                                }}, 500);
                             }}
                         </script>
                     </body>
