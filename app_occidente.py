@@ -241,8 +241,8 @@ def validar_captura_stock(tienda_id, modelo, talla_input, df_ventas, df_tallas):
                                         return False, f"⛔ CAPTURA BLOQUEADA: El sistema registra {int(existencia_num)} par(es) de la talla {talla_buscada_str} (Modelo {modelo_buscado}) físicamente en la sucursal {tda_buscada}."
                                     else:
                                         st.write(f"✅ La existencia es {existencia_num}. Permitiendo captura (Quiebre válido).")
-                        else:
-                            st.write(f"❌ **ERROR:** La columna [{col_ex}] NO existe en el archivo Ventas.xlsx")
+                            else:
+                                st.write(f"❌ **ERROR:** La columna [{col_ex}] NO existe en el archivo Ventas.xlsx")
         return True, ""
     except Exception as e:
         st.error(f"Error interno en validación: {e}")
@@ -2266,18 +2266,19 @@ Gerencia Comercial Zona Occidente
                         </style>
                     </head>
                     <body style="margin: 0; padding: 0;">
-                        <div id="map" style="width: 100vw; height: 600px; border-radius: 12px;"></div>
+                        <div id="map" style="width: 100%; height: 600px; border-radius: 12px;"></div>
                         <script>
                             var map = L.map('map').setView([20.67, -103.35], 7);
-                            L.tileLayer('https://{{s}}.basemaps.cartocdn.com/rastertiles/voyager/{{z}}/{{x}}/{{y}}{{r}}.png', {{
-                                attribution: '&copy; OpenStreetMap &copy; CARTO'
+                            L.tileLayer('https://tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
+                                maxZoom: 19,
+                                attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                             }}).addTo(map);
 
                             var markers = {json.dumps(markers_data)};
                             var bounds = [];
 
                             markers.forEach(function(m) {{
-                                var htmlIcon = `<div style='background-color:${{m.color}}; width:20px; height:20px; border-radius:50%; border:3px solid white; box-shadow:0 0 8px rgba(0,0,0,0.5); transition: transform 0.2s;' onmouseover='this.style.transform="scale(1.2)"' onmouseout='this.style.transform="scale(1)"'></div>`;
+                                var htmlIcon = "<div style='background-color:" + m.color + "; width:20px; height:20px; border-radius:50%; border:3px solid white; box-shadow:0 0 8px rgba(0,0,0,0.5);'></div>";
                                 
                                 var customIcon = L.divIcon({{
                                     className: 'custom-div-icon',
@@ -2289,22 +2290,20 @@ Gerencia Comercial Zona Occidente
                                 var convColor = m.conv >= 10.9 ? '#155724' : '#721c24';
                                 var tktColor = m.tkt >= 1.29 ? '#155724' : '#721c24';
 
-                                var popupHTML = `
-                                    <div style="font-family: 'Segoe UI', sans-serif; min-width: 220px;">
-                                        <h3 style="margin:0 0 5px 0; color:#1e293b; font-size: 16px; font-weight: 800;">${{m.name}}</h3>
-                                        <p style="margin:0 0 12px 0; font-size:13px; color:#64748b; font-weight: 600;">👤 ${{m.encargada}}</p>
-                                        <div style="display:flex; justify-content:space-between; border-top:1px solid #e2e8f0; padding-top:8px; margin-top: 8px;">
-                                            <div style="background-color: #f8fafc; padding: 5px 10px; border-radius: 6px; text-align: center; width: 45%;">
-                                                <div style="font-size:10px; color:#94a3b8; font-weight: 800; letter-spacing: 0.5px;">CONVERSIÓN</div>
-                                                <div style="font-size:16px; font-weight:900; color:${{convColor}}">${{m.conv}}%</div>
-                                            </div>
-                                            <div style="background-color: #f8fafc; padding: 5px 10px; border-radius: 6px; text-align: center; width: 45%;">
-                                                <div style="font-size:10px; color:#94a3b8; font-weight: 800; letter-spacing: 0.5px;">TICKET PROM.</div>
-                                                <div style="font-size:16px; font-weight:900; color:${{tktColor}}">${{m.tkt}}</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                `;
+                                var popupHTML = "<div style='font-family: Arial, sans-serif; min-width: 220px;'>" +
+                                    "<h3 style='margin:0 0 5px 0; color:#1e293b; font-size: 16px; font-weight: 800;'>" + m.name + "</h3>" +
+                                    "<p style='margin:0 0 12px 0; font-size:13px; color:#64748b; font-weight: 600;'>👤 " + m.encargada + "</p>" +
+                                    "<div style='display:flex; justify-content:space-between; border-top:1px solid #e2e8f0; padding-top:8px; margin-top: 8px;'>" +
+                                        "<div style='background-color: #f8fafc; padding: 5px 10px; border-radius: 6px; text-align: center; width: 45%;'>" +
+                                            "<div style='font-size:10px; color:#94a3b8; font-weight: 800;'>CONVERSIÓN</div>" +
+                                            "<div style='font-size:16px; font-weight:900; color:" + convColor + "'>" + m.conv + "%</div>" +
+                                        "</div>" +
+                                        "<div style='background-color: #f8fafc; padding: 5px 10px; border-radius: 6px; text-align: center; width: 45%;'>" +
+                                            "<div style='font-size:10px; color:#94a3b8; font-weight: 800;'>TICKET PROM.</div>" +
+                                            "<div style='font-size:16px; font-weight:900; color:" + tktColor + "'>" + m.tkt + "</div>" +
+                                        "</div>" +
+                                    "</div>" +
+                                "</div>";
 
                                 var marker = L.marker([m.lat, m.lon], {{icon: customIcon}}).addTo(map);
                                 marker.bindPopup(popupHTML);
