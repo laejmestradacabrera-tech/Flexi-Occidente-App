@@ -385,7 +385,7 @@ def generar_reporte_top20_pdf(df_top20, nombre_sucursal):
     pdf.cell(90, 5, "Gerente Comercial", 0, 1, 'C')
     return bytes(pdf.output(dest='S').encode('latin1'))
 
-def generar_reporte_desfogue_pdf(df_desfogue, nombre_sucursal):
+def generar_reporte_inmovil_pdf(df_inmovil, nombre_sucursal):
     hora_mexico = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
     fecha_actual = hora_mexico.strftime("%d/%m/%Y")    
     pdf = FPDF(orientation='P', unit='mm', format='Letter')
@@ -398,7 +398,7 @@ def generar_reporte_desfogue_pdf(df_desfogue, nombre_sucursal):
     
     pdf.set_font("Arial", 'B', 12)
     pdf.set_text_color(50, 50, 50)
-    pdf.cell(0, 8, "ORDEN DE DESFOGUE: MODELOS CON 1 A 3 PARES", ln=True, align="C")
+    pdf.cell(0, 8, "ORDEN DE DEPURACION: INVENTARIO INMOVIL (0 VENTAS EN 60 DIAS)", ln=True, align="C")
     pdf.line(10, 28, 205, 28)
     pdf.ln(8)
     
@@ -415,30 +415,33 @@ def generar_reporte_desfogue_pdf(df_desfogue, nombre_sucursal):
     pdf.ln(8)
     
     pdf.set_font("Arial", 'B', 9)
-    pdf.set_fill_color(227, 6, 19)
+    pdf.set_fill_color(30, 58, 138)
     pdf.set_text_color(255, 255, 255)
     pdf.cell(15, 8, "#", 1, 0, 'C', fill=True)
     pdf.cell(45, 8, "MODELO", 1, 0, 'C', fill=True)
-    pdf.cell(35, 8, "PARES FISICOS", 1, 0, 'C', fill=True)
-    pdf.cell(100, 8, "ACCION REQUERIDA", 1, 1, 'C', fill=True)
+    pdf.cell(30, 8, "FISICOS", 1, 0, 'C', fill=True)
+    pdf.cell(30, 8, "EN CAMINO", 1, 0, 'C', fill=True)
+    pdf.cell(75, 8, "ACCION REQUERIDA", 1, 1, 'C', fill=True)
     
     pdf.set_font("Arial", '', 9)
     pdf.set_text_color(0, 0, 0)
-    for idx, (orig_idx, row) in enumerate(df_desfogue.iterrows()):
+    for idx, (orig_idx, row) in enumerate(df_inmovil.iterrows()):
         posicion = idx + 1
         modelo = str(row.get('Modelo a Desfogar', 'S/D'))
         pares = str(row.get('Pares Físicos (Total)', '0'))
-        accion = "Transferir a Outlet / Depurar bodega"
+        camino = str(row.get('Pares en Camino', '0'))
+        accion = "Solicitar devolucion / traspaso"
         
         pdf.cell(15, 7, f"{posicion:02d}", 1, 0, 'C')
         pdf.cell(45, 7, modelo, 1, 0, 'C')
-        pdf.cell(35, 7, pares, 1, 0, 'C')
-        pdf.cell(100, 7, accion, 1, 1, 'L')
+        pdf.cell(30, 7, pares, 1, 0, 'C')
+        pdf.cell(30, 7, camino, 1, 0, 'C')
+        pdf.cell(75, 7, accion, 1, 1, 'L')
         
     pdf.ln(10)
     pdf.set_font("Arial", 'I', 9)
     pdf.set_text_color(80, 80, 80)
-    pdf.multi_cell(0, 5, "Nota: Este documento autoriza e instruye a la sucursal a iniciar el proceso de transferencia de los modelos listados para liberar espacio estrategico en bodega.")
+    pdf.multi_cell(0, 5, "Nota: Este documento avala que los modelos listados no han registrado ventas en los ultimos 60 dias, representando capital congelado. Se autoriza a la encargada gestionar su liberacion inmediata.")
     pdf.ln(25)
     pdf.set_font("Arial", '', 10)
     pdf.set_text_color(0, 0, 0)
@@ -1156,6 +1159,47 @@ elif st.session_state.vista_actual == 'Operativo':
                         st.dataframe(df_final[df_final['Departamento'] == dpto][['Modelo', 'Talla']])
                 else:
                     st.success("¡Excelente! No hay faltantes en el Top 20.")            
+                
+                # --- NUEVO BLOQUE: INVENTARIO INMÓVIL ---
+                st.markdown("---")
+                st.markdown("<h3 style='color: #1e3a8a;'>🧊 Alerta de Inventario Inmóvil (Cero ventas en 60 días)</h3>", unsafe_allow_html=True)
+                
+                inmovil_list = []
+                df_cero_vtas = df_tienda[pd.to_numeric(df_tienda['Vtas'], errors='coerce').fillna(0) <= 0]
+                
+                for _, row in df_cero_vtas.iterrows():
+                    ex_cols = [f'ex{i}' for i in range(1, 16) if f'ex{i}' in df_cero_vtas.columns]
+                    p_cols = [f'p{i}' for i in range(1, 16) if f'p{i}' in df_cero_vtas.columns]
+                    
+                    total_ex = pd.to_numeric(row[ex_cols], errors='coerce').fillna(0).sum()
+                    total_p = pd.to_numeric(row[p_cols], errors='coerce').fillna(0).sum()
+                    
+                    if total_ex > 0:
+                        inmovil_list.append({
+                            'Modelo a Desfogar': row['Modelo'],
+                            'Departamento': str(row.get('Departamento', '')).capitalize(),
+                            'Pares Físicos (Total)': int(total_ex),
+                            'Pares en Camino': int(total_p)
+                        })
+                
+                if inmovil_list:
+                    df_inmovil = pd.DataFrame(inmovil_list).sort_values(by='Pares Físicos (Total)', ascending=False).reset_index(drop=True)
+                    st.warning(f"⚠️ Se detectaron {len(df_inmovil)} modelos con inventario físico estancado que no han rotado.")
+                    st.dataframe(df_inmovil[['Modelo a Desfogar', 'Departamento', 'Pares Físicos (Total)', 'Pares en Camino']], use_container_width=True)
+                    
+                    pdf_inmovil_bytes = generar_reporte_inmovil_pdf(df_inmovil=df_inmovil, nombre_sucursal=str(tienda_sel))
+                    st.write("<br>", unsafe_allow_html=True)
+                    st.download_button(
+                        label="📄 Descargar Orden de Depuración (Inventario Inmóvil)",
+                        data=pdf_inmovil_bytes, 
+                        file_name=f"Orden_Inmovil_{tienda_sel}.pdf", 
+                        mime="application/pdf", 
+                        type="primary",
+                        key=f"inmovil_download_{tienda_sel}"
+                    )
+                else:
+                    st.success("¡Felicidades! No tienes inventario 100% estancado en tu bodega.")
+
         else:
             st.warning("Archivos de ventas o tallas no encontrados localmente.")
 
