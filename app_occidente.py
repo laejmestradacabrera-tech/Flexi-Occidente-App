@@ -13,6 +13,7 @@ import subprocess
 import streamlit.components.v1 as components 
 import re
 import base64
+import json
 
 # 1. CONFIGURACIÓN DE PÁGINA (Debe ser la primera instrucción)
 st.set_page_config(page_title="Monitor Comercial Flexi Occidente", layout="wide", initial_sidebar_state="collapsed")
@@ -137,20 +138,44 @@ def cargar_tiendas():
     except Exception as e:
         return pd.DataFrame({'TIENDA': ['Error'], 'NOMBRE': ['Sin datos'], 'ENCARGADO': ['Sin datos']})
 
-# Eliminamos st.cache_data para forzar la lectura en vivo de las excepciones
+# Lector dinámico TODOTERRENO para evitar caché y leer CSV o Excel
 def cargar_archivos_locales_vivo():
     try:
-        df_ventas = pd.read_excel("Ventas.xlsx")
-        try:
-            df_tallas = pd.read_excel("Valores de tallas.xlsx", sheet_name="Hoja1")
-        except:
-            df_tallas = pd.read_excel("Valores de tallas.xlsx")
-            
-        try:
-            lista_excepciones = pd.read_excel("Valores de tallas.xlsx", sheet_name="Excepciones")['Modelo'].astype(str).str.strip().str.upper().tolist()
-        except:
-            lista_excepciones = []
-            
+        # 1. Buscar Ventas
+        arch_ventas = buscar_archivo('Ventas')
+        if arch_ventas:
+            df_ventas = pd.read_excel(arch_ventas) if arch_ventas.endswith('.xlsx') else pd.read_csv(arch_ventas)
+        else:
+            df_ventas = None
+
+        # 2. Buscar Tallas
+        arch_tallas = buscar_archivo('Valores de tallas')
+        if arch_tallas:
+            if arch_tallas.endswith('.xlsx'):
+                try:
+                    df_tallas = pd.read_excel(arch_tallas, sheet_name="Hoja1")
+                except:
+                    df_tallas = pd.read_excel(arch_tallas)
+            else:
+                df_tallas = pd.read_csv(arch_tallas)
+        else:
+            df_tallas = None
+
+        # 3. Buscar Excepciones
+        lista_excepciones = []
+        # Buscamos primero si hay un archivo suelto llamado "Excepciones" (.csv o .xlsx)
+        arch_exc = buscar_archivo('Excepciones')
+        if arch_exc:
+            df_exc = pd.read_excel(arch_exc) if arch_exc.endswith('.xlsx') else pd.read_csv(arch_exc)
+            col_mod = 'Modelo' if 'Modelo' in df_exc.columns else df_exc.columns[0]
+            lista_excepciones = df_exc[col_mod].astype(str).str.strip().str.upper().tolist()
+        elif arch_tallas and arch_tallas.endswith('.xlsx'):
+            # Si no hay suelto, intentamos leer la pestaña del Excel
+            try:
+                lista_excepciones = pd.read_excel(arch_tallas, sheet_name="Excepciones")['Modelo'].astype(str).str.strip().str.upper().tolist()
+            except:
+                pass
+                
         return df_ventas, df_tallas, lista_excepciones
     except Exception as e:
         return None, None, []
@@ -1075,16 +1100,15 @@ elif st.session_state.vista_actual == 'Operativo':
         fecha_act = obtener_fecha_actualizacion("Ventas.xlsx")
         st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
         
-        df_ventas, df_tallas, lista_excepciones = cargar_archivos_locales_vivo()
-        
-        if df_ventas is not None and df_tallas is not None:
-            tiendas = sorted(df_ventas['Tienda'].unique().tolist())
+        df_ventas_vivo, df_tallas_vivo, lista_excepciones = cargar_archivos_locales_vivo()
+        if df_ventas_vivo is not None and df_tallas_vivo is not None:
+            tiendas = sorted(df_ventas_vivo['Tienda'].unique().tolist())
             tienda_sel = st.selectbox("Selecciona la Tienda para analizar:", tiendas, key="nivelacion_tienda")
             
             if st.button("Ejecutar Análisis", key="nivelacion_btn"):
-                df_tienda = df_ventas[
-                    (df_ventas['Tienda'] == tienda_sel) & 
-                    (~df_ventas['Proveedor'].isin([415, 426, 427]))
+                df_tienda = df_ventas_vivo[
+                    (df_ventas_vivo['Tienda'] == tienda_sel) & 
+                    (~df_ventas_vivo['Proveedor'].isin([415, 426, 427]))
                 ].copy()
                 
                 top_20 = df_tienda.groupby('Modelo')['Vtas'].sum().nlargest(20).index
@@ -1094,8 +1118,8 @@ elif st.session_state.vista_actual == 'Operativo':
                 for _, row in df_top.iterrows():
                     dpto = str(row['Departamento']).strip().lower()
                     modelo_act = str(row['Modelo']).strip().upper()
-                    tallas_row = df_tallas[
-                        df_tallas['Valor'].astype(str).str.lower() == dpto
+                    tallas_row = df_tallas_vivo[
+                        df_tallas_vivo['Valor'].astype(str).str.lower() == dpto
                     ]
                     
                     if not tallas_row.empty:
@@ -1282,7 +1306,7 @@ elif st.session_state.vista_actual == 'Operativo':
             with st.expander("2️⃣ PILAR II: ACOMPAÑAMIENTO (Mentoría)"):
                 st.markdown("""
                 **Concepto:** Eliminar la "soledad del novato" mediante el sistema de compañero guía.
-                * 👥 **La Acción:** Designar a un colaborador con experiencia y attitude positiva para que actúe como mentor durante la primera semana. Este guía resolverá dudas cotidianas y explicará las dinámicas no escritas.
+                * 👥 **La Acción:** Designar a un colaborador con experiencia y actitud positiva para que actúe como mentor durante la primera semana. Este guía resolverá dudas cotidianas y explicará las dinámicas no escritas.
                 * 🚀 **El Impacto:** Acelera la curva de aprendizaje social y técnico. Reduce el miedo a cometer errores básicos y crea un vínculo de confianza inmediato.
                 """)
                 
@@ -1326,12 +1350,13 @@ elif st.session_state.vista_actual == 'Estrategico':
     st.write("---")
 
     # NUEVAS PESTAÑAS ESTRATÉGICAS - ORDEN ESTABLECIDO
-    tab_monitor, tab_impacto, tab_comparativo, tab_visita, tab_nivelacion_intel, tab_demanda, tab_macro = st.tabs([
+    tab_monitor, tab_impacto, tab_comparativo, tab_visita, tab_nivelacion_intel, tab_mapa, tab_demanda, tab_macro = st.tabs([
         "📡 Monitor Estratégico", 
         "💰 Impacto Financiero",
         "📈 Comparativo Mensual",
         "🤝 Preparación de Visita", 
         "📦 Nivelación Inteligente",
+        "📍 Radar Geográfico",
         "📊 Diagnóstico Demanda", 
         "🌍 Correlación Macro"
     ])
@@ -2161,6 +2186,155 @@ Gerencia Comercial Zona Occidente
             else:
                 st.warning("⚠️ No se encontraron los archivos locales (Ventas.xlsx, Valores de tallas.xlsx) necesarios para ejecutar el algoritmo de nivelación.")
 
+
+    # =================================================================================
+    # PESTAÑA: RADAR GEOGRÁFICO (MAPA)
+    # =================================================================================
+    with tab_mapa:
+        st.subheader("📍 Radar Geográfico de Rendimiento")
+        st.write("Vista satelital en tiempo real del desempeño de la Zona Occidente.")
+        
+        try:
+            df_mapa = cargar_tiendas()
+            df_mapa.columns = df_mapa.columns.astype(str).str.strip().str.upper()
+            
+            if 'LATITUD' in df_mapa.columns and 'LONGITUD' in df_mapa.columns:
+                # Extraer KPIs
+                kpi_dict = {}
+                if archivo_conv:
+                    df_c_mapa = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
+                    df_c_mapa = df_c_mapa[~df_c_mapa.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
+                    
+                    col_tda_mapa = next((c for c in df_c_mapa.columns if 'Tienda' in c or 'TIENDA' in c), df_c_mapa.columns[0])
+                    col_cv_mapa = next((c for c in df_c_mapa.columns if 'Conv' in c and 'Actual' in c), None)
+                    col_tk_mapa = next((c for c in df_c_mapa.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
+                    
+                    for _, r in df_c_mapa.iterrows():
+                        try:
+                            t_id = int(re.search(r'\d+', str(r[col_tda_mapa])).group())
+                            cv = float(r[col_cv_mapa]) if col_cv_mapa else 0.0
+                            cv = cv * 100 if cv < 1 else cv
+                            tk = float(r[col_tk_mapa]) if col_tk_mapa else 0.0
+                            kpi_dict[t_id] = {'conv': cv, 'tkt': tk}
+                        except:
+                            pass
+                
+                # Construir datos para Leaflet
+                markers_data = []
+                col_id_tda = next((c for c in df_mapa.columns if c in ['TIENDA', 'SUCURSAL', 'NUMERO', 'ID']), df_mapa.columns[0])
+                col_nom_tda = next((c for c in df_mapa.columns if c in ['NOMBRE']), df_mapa.columns[1] if len(df_mapa.columns)>1 else df_mapa.columns[0])
+                col_enc_tda = 'ENCARGADO' if 'ENCARGADO' in df_mapa.columns else 'N/A'
+                
+                for _, r in df_mapa.iterrows():
+                    try:
+                        lat = float(r['LATITUD'])
+                        lon = float(r['LONGITUD'])
+                        t_id = int(re.search(r'\d+', str(r[col_id_tda])).group())
+                        nom = str(r[col_nom_tda])
+                        enc = str(r[col_enc_tda]) if col_enc_tda in r else 'N/A'
+                        
+                        kpis = kpi_dict.get(t_id, {'conv': 0.0, 'tkt': 0.0})
+                        cv = kpis['conv']
+                        tk = kpis['tkt']
+                        
+                        # Lógica de colores del radar
+                        if cv >= 10.9 and tk >= 1.29: color = "#22c55e" # Verde
+                        elif cv >= 10.9 or tk >= 1.29: color = "#eab308" # Amarillo
+                        elif cv > 0 or tk > 0: color = "#ef4444" # Rojo
+                        else: color = "#94a3b8" # Gris (Sin datos)
+                        
+                        markers_data.append({
+                            "lat": lat, "lon": lon, "name": f"{t_id} - {nom}", 
+                            "encargada": enc, "conv": round(cv, 2), "tkt": round(tk, 2), 
+                            "color": color
+                        })
+                    except:
+                        pass
+                
+                if markers_data:
+                    leaflet_html = f"""
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+                        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+                        <style>
+                            .custom-div-icon {{ background: transparent; border: none; }}
+                            .leaflet-popup-content-wrapper {{ border-radius: 12px; padding: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }}
+                            .leaflet-popup-content {{ margin: 0; }}
+                        </style>
+                    </head>
+                    <body style="margin: 0; padding: 0;">
+                        <div id="map" style="width: 100vw; height: 600px; border-radius: 12px;"></div>
+                        <script>
+                            var map = L.map('map').setView([20.67, -103.35], 7);
+                            L.tileLayer('https://{{s}}.basemaps.cartocdn.com/rastertiles/voyager/{{z}}/{{x}}/{{y}}{{r}}.png', {{
+                                attribution: '&copy; OpenStreetMap &copy; CARTO'
+                            }}).addTo(map);
+
+                            var markers = {json.dumps(markers_data)};
+                            var bounds = [];
+
+                            markers.forEach(function(m) {{
+                                var htmlIcon = `<div style='background-color:${{m.color}}; width:20px; height:20px; border-radius:50%; border:3px solid white; box-shadow:0 0 8px rgba(0,0,0,0.5); transition: transform 0.2s;' onmouseover='this.style.transform="scale(1.2)"' onmouseout='this.style.transform="scale(1)"'></div>`;
+                                
+                                var customIcon = L.divIcon({{
+                                    className: 'custom-div-icon',
+                                    html: htmlIcon,
+                                    iconSize: [20, 20],
+                                    iconAnchor: [10, 10]
+                                }});
+
+                                var convColor = m.conv >= 10.9 ? '#155724' : '#721c24';
+                                var tktColor = m.tkt >= 1.29 ? '#155724' : '#721c24';
+
+                                var popupHTML = `
+                                    <div style="font-family: 'Segoe UI', sans-serif; min-width: 220px;">
+                                        <h3 style="margin:0 0 5px 0; color:#1e293b; font-size: 16px; font-weight: 800;">${{m.name}}</h3>
+                                        <p style="margin:0 0 12px 0; font-size:13px; color:#64748b; font-weight: 600;">👤 ${{m.encargada}}</p>
+                                        <div style="display:flex; justify-content:space-between; border-top:1px solid #e2e8f0; padding-top:8px; margin-top: 8px;">
+                                            <div style="background-color: #f8fafc; padding: 5px 10px; border-radius: 6px; text-align: center; width: 45%;">
+                                                <div style="font-size:10px; color:#94a3b8; font-weight: 800; letter-spacing: 0.5px;">CONVERSIÓN</div>
+                                                <div style="font-size:16px; font-weight:900; color:${{convColor}}">${{m.conv}}%</div>
+                                            </div>
+                                            <div style="background-color: #f8fafc; padding: 5px 10px; border-radius: 6px; text-align: center; width: 45%;">
+                                                <div style="font-size:10px; color:#94a3b8; font-weight: 800; letter-spacing: 0.5px;">TICKET PROM.</div>
+                                                <div style="font-size:16px; font-weight:900; color:${{tktColor}}">${{m.tkt}}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+
+                                var marker = L.marker([m.lat, m.lon], {{icon: customIcon}}).addTo(map);
+                                marker.bindPopup(popupHTML);
+                                bounds.push([m.lat, m.lon]);
+                            }});
+
+                            if (bounds.length > 0) {{
+                                map.fitBounds(bounds, {{padding: [40, 40]}});
+                            }}
+                        </script>
+                    </body>
+                    </html>
+                    """
+                    
+                    # Añadir leyenda
+                    st.markdown("""
+                    <div style='display: flex; gap: 20px; justify-content: center; margin-bottom: 15px; background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;'>
+                        <div style='display: flex; align-items: center; gap: 8px;'><div style='width: 15px; height: 15px; border-radius: 50%; background-color: #22c55e;'></div><span style='font-size: 14px; font-weight: 600; color: #334155;'>Supera Metas (Ambas)</span></div>
+                        <div style='display: flex; align-items: center; gap: 8px;'><div style='width: 15px; height: 15px; border-radius: 50%; background-color: #eab308;'></div><span style='font-size: 14px; font-weight: 600; color: #334155;'>Riesgo (Falta una meta)</span></div>
+                        <div style='display: flex; align-items: center; gap: 8px;'><div style='width: 15px; height: 15px; border-radius: 50%; background-color: #ef4444;'></div><span style='font-size: 14px; font-weight: 600; color: #334155;'>Crítico (Ninguna meta)</span></div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    components.html(leaflet_html, height=620)
+                else:
+                    st.info("No se pudieron procesar las coordenadas. Verifica que el archivo esté completo.")
+                    
+            else:
+                st.warning("⚠️ No se detectaron las columnas 'LATITUD' y 'LONGITUD' en tu archivo 'CORREO DE TIENDAS.xlsx'. Asegúrate de haber guardado el archivo con los nuevos encabezados.")
+        except Exception as e:
+            st.error(f"Error al generar el mapa: {e}")
 
     # =================================================================================
     # PESTAÑA: DIAGNÓSTICO DE DEMANDA
