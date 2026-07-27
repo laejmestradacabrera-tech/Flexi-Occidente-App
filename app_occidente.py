@@ -130,13 +130,14 @@ def obtener_fecha_actualizacion(nombre_archivo):
     except Exception:
         return "Fecha no disponible"
 
-@st.cache_data
 def cargar_tiendas():
-    nombre_archivo = "CORREO DE TIENDAS.xlsx"
-    try:
-        return pd.read_excel(nombre_archivo)
-    except Exception as e:
-        return pd.DataFrame({'TIENDA': ['Error'], 'NOMBRE': ['Sin datos'], 'ENCARGADO': ['Sin datos']})
+    arch_tiendas = buscar_archivo('CORREO DE TIENDAS')
+    if arch_tiendas:
+        try:
+            return pd.read_excel(arch_tiendas) if arch_tiendas.endswith('.xlsx') else pd.read_csv(arch_tiendas)
+        except Exception as e:
+            pass
+    return pd.DataFrame({'TIENDA': ['Error'], 'NOMBRE': ['Sin datos'], 'ENCARGADO': ['Sin datos']})
 
 # Lector dinámico TODOTERRENO para evitar caché y leer CSV o Excel
 def cargar_archivos_locales_vivo():
