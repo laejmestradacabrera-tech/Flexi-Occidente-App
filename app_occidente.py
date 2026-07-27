@@ -385,6 +385,74 @@ def generar_reporte_top20_pdf(df_top20, nombre_sucursal):
     pdf.cell(90, 5, "Gerente Comercial", 0, 1, 'C')
     return bytes(pdf.output(dest='S').encode('latin1'))
 
+def generar_reporte_desfogue_pdf(df_desfogue, nombre_sucursal):
+    hora_mexico = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
+    fecha_actual = hora_mexico.strftime("%d/%m/%Y")    
+    pdf = FPDF(orientation='P', unit='mm', format='Letter')
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    
+    pdf.set_font("Arial", 'B', 16)
+    pdf.set_text_color(227, 6, 19)
+    pdf.cell(0, 8, "FLEXI - ZONA OCCIDENTE", ln=True, align="C")
+    
+    pdf.set_font("Arial", 'B', 12)
+    pdf.set_text_color(50, 50, 50)
+    pdf.cell(0, 8, "ORDEN DE DESFOGUE: MODELOS CON 1 A 3 PARES", ln=True, align="C")
+    pdf.line(10, 28, 205, 28)
+    pdf.ln(8)
+    
+    pdf.set_font("Arial", '', 10)
+    pdf.cell(40, 6, "Fecha de Reporte:", 0, 0)
+    pdf.cell(60, 6, fecha_actual, 0, 0)
+    pdf.cell(35, 6, "Encargada:", 0, 0)
+    pdf.cell(60, 6, "_______________________", 0, 1)
+    
+    pdf.cell(40, 6, "Sucursal:", 0, 0)
+    pdf.cell(60, 6, nombre_sucursal, 0, 0)
+    pdf.cell(35, 6, "Gerente Comercial:", 0, 0)
+    pdf.cell(60, 6, "LAE. Jose Martin Estrada Cabrera", 0, 1)
+    pdf.ln(8)
+    
+    pdf.set_font("Arial", 'B', 9)
+    pdf.set_fill_color(227, 6, 19)
+    pdf.set_text_color(255, 255, 255)
+    pdf.cell(15, 8, "#", 1, 0, 'C', fill=True)
+    pdf.cell(45, 8, "MODELO", 1, 0, 'C', fill=True)
+    pdf.cell(35, 8, "PARES FISICOS", 1, 0, 'C', fill=True)
+    pdf.cell(100, 8, "ACCION REQUERIDA", 1, 1, 'C', fill=True)
+    
+    pdf.set_font("Arial", '', 9)
+    pdf.set_text_color(0, 0, 0)
+    for idx, (orig_idx, row) in enumerate(df_desfogue.iterrows()):
+        posicion = idx + 1
+        modelo = str(row.get('Modelo a Desfogar', 'S/D'))
+        pares = str(row.get('Pares Físicos (Total)', '0'))
+        accion = "Transferir a Outlet / Depurar bodega"
+        
+        pdf.cell(15, 7, f"{posicion:02d}", 1, 0, 'C')
+        pdf.cell(45, 7, modelo, 1, 0, 'C')
+        pdf.cell(35, 7, pares, 1, 0, 'C')
+        pdf.cell(100, 7, accion, 1, 1, 'L')
+        
+    pdf.ln(10)
+    pdf.set_font("Arial", 'I', 9)
+    pdf.set_text_color(80, 80, 80)
+    pdf.multi_cell(0, 5, "Nota: Este documento autoriza e instruye a la sucursal a iniciar el proceso de transferencia de los modelos listados para liberar espacio estrategico en bodega.")
+    pdf.ln(25)
+    pdf.set_font("Arial", '', 10)
+    pdf.set_text_color(0, 0, 0)
+    pdf.cell(90, 5, "_______________________", 0, 0, 'C')
+    pdf.cell(15, 5, "", 0, 0)
+    pdf.cell(90, 5, "_______________________", 0, 1, 'C')
+    pdf.cell(90, 5, "Firma de la Encargada", 0, 0, 'C')
+    pdf.cell(15, 5, "", 0, 0)
+    pdf.cell(90, 5, "LAE. Jose Martin Estrada", 0, 1, 'C')
+    pdf.cell(90, 5, "Responsable de Sucursal", 0, 0, 'C')
+    pdf.cell(15, 5, "", 0, 0)
+    pdf.cell(90, 5, "Gerente Comercial", 0, 1, 'C')
+    return bytes(pdf.output(dest='S').encode('latin1'))
+
 def generar_reporte_inmovil_pdf(df_inmovil, nombre_sucursal):
     hora_mexico = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
     fecha_actual = hora_mexico.strftime("%d/%m/%Y")    
