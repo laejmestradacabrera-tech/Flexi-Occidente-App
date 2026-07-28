@@ -140,7 +140,7 @@ def cargar_tiendas():
     return pd.DataFrame({'TIENDA': ['Error'], 'NOMBRE': ['Sin datos'], 'ENCARGADO': ['Sin datos']})
 
 def cargar_archivos_locales():
-    if 'df_ventas' not in st.session_state or 'df_tallas' not in st.session_state:
+    if 'df_ventas' not in st.session_state or 'df_tallas' not in st.session_state or 'lista_excepciones' not in st.session_state:
         try:
             arch_ventas = buscar_archivo('Ventas')
             if arch_ventas:
@@ -159,6 +159,21 @@ def cargar_archivos_locales():
                     st.session_state.df_tallas = pd.read_csv(arch_tallas)
             else:
                 st.session_state.df_tallas = pd.read_excel("Valores de tallas.xlsx")
+                
+            # NUEVO: Cargar lista de excepciones global en memoria
+            lista_exc = []
+            arch_exc = buscar_archivo('Excepciones')
+            if arch_exc:
+                df_exc = pd.read_excel(arch_exc) if arch_exc.endswith('.xlsx') else pd.read_csv(arch_exc)
+                col_mod = 'Modelo' if 'Modelo' in df_exc.columns else df_exc.columns[0]
+                lista_exc = df_exc[col_mod].astype(str).str.strip().str.upper().tolist()
+            elif arch_tallas and arch_tallas.endswith('.xlsx'):
+                try:
+                    lista_exc = pd.read_excel(arch_tallas, sheet_name="Excepciones")['Modelo'].astype(str).str.strip().str.upper().tolist()
+                except:
+                    pass
+            st.session_state.lista_excepciones = lista_exc
+            
         except Exception as e:
             return False
     return True
@@ -212,6 +227,23 @@ def validar_captura_stock(tienda_id, modelo, talla_input, df_ventas, df_tallas):
                                 
                             if talla_matriz_str == talla_buscada_str:
                                 st.write(f"🎯 **¡COINCIDENCIA ENCONTRADA!** Talla Matriz [{talla_matriz_str}] == Talla Captura [{talla_buscada_str}] en la columna **{col_ex}**")
+                                
+                                # ESCUDO GLOBAL EN LA BITÁCORA PARA PREVENIR CAPTURAS FANTASMAS
+                                try:
+                                    t_num = float(talla_buscada_str)
+                                    if t_num >= 100: t_num = t_num / 10.0
+                                except:
+                                    t_num = 0.0
+                                    
+                                if dpto_venta == 'caballero' and t_num == 30.5:
+                                    return False, "⛔ TALLA FANTASMA: El sistema corporativo no maneja la talla 30.5 en caballero. Captura rechazada."
+                                if dpto_venta in ['niño', 'nino'] and t_num == 21.5:
+                                    return False, "⛔ TALLA FANTASMA: El sistema corporativo no maneja la talla 21.5 en niño. Captura rechazada."
+                                
+                                lista_exc = st.session_state.get('lista_excepciones', [])
+                                if dpto_venta == 'joven' and t_num > 25.0 and modelo_buscado in lista_exc:
+                                    return False, f"⛔ EXCEPCIÓN DETECTADA: El modelo {modelo_buscado} no se fabrica en tallas mayores a 25.0. Captura rechazada."
+
                                 if col_ex in row_venta:
                                     existencia = row_venta[col_ex]
                                     st.write(f"📦 **Existencia leída en Ventas para {col_ex}:** [{existencia}]")
@@ -944,6 +976,7 @@ elif st.session_state.vista_actual == 'Operativo':
                 if 'df_ventas' in st.session_state and 'df_tallas' in st.session_state:
                     df_ventas_r = st.session_state.df_ventas.copy()
                     df_tallas_r = st.session_state.df_tallas
+                    lista_exc_r = st.session_state.get('lista_excepciones', [])
                     df_ventas_r['tienda_int'] = df_ventas_r['Tienda'].apply(lambda x: int(re.search(r'\d+', str(x)).group()) if pd.notna(x) and re.search(r'\d+', str(x)) else -1)
                     df_ventas_r = df_ventas_r[~df_ventas_r['Proveedor'].isin([415, 426, 427])]
                     
@@ -960,6 +993,7 @@ elif st.session_state.vista_actual == 'Operativo':
                         
                         for _, row in df_top.iterrows():
                             dpto = str(row.get('Departamento', '')).strip().lower()
+                            modelo_act = str(row.get('Modelo', '')).strip().upper()
                             tallas_row = df_tallas_r[df_tallas_r['Valor'].astype(str).str.strip().str.lower() == dpto]
                             if not tallas_row.empty:
                                 for i in range(1, 16):
@@ -969,13 +1003,17 @@ elif st.session_state.vista_actual == 'Operativo':
                                         talla_fisica = tallas_row.iloc[0].get(f'ex{i}')
                                         if pd.notna(talla_fisica) and str(talla_fisica).strip() != '':
                                             talla_str = str(talla_fisica).strip()
-                                            es_305 = False
                                             try:
                                                 t_num = float(talla_fisica)
-                                                if t_num == 305 or t_num == 30.5: es_305 = True
+                                                if t_num >= 100: t_num = t_num / 10.0
                                             except:
-                                                if '305' in talla_str: es_305 = True
-                                            if dpto == 'caballero' and es_305: continue 
+                                                t_num = 0.0
+                                                
+                                            # ESCUDO GLOBAL DE TALLAS FANTASMA Y EXCEPCIONES
+                                            if dpto == 'caballero' and t_num == 30.5: continue 
+                                            if dpto in ['niño', 'nino'] and t_num == 21.5: continue
+                                            if dpto == 'joven' and t_num > 25.0 and modelo_act in lista_exc_r: continue
+                                            
                                             modelos_quebrados.add(row['Modelo'])
                                             break 
                         quiebres_dict[tda_num] = len(modelos_quebrados)
@@ -1884,6 +1922,7 @@ elif st.session_state.vista_actual == 'Estrategico':
                     if 'df_ventas' in st.session_state and 'df_tallas' in st.session_state:
                         df_v = st.session_state.df_ventas.copy()
                         df_t = st.session_state.df_tallas
+                        lista_exc_v = st.session_state.get('lista_excepciones', [])
                         df_v['tienda_int'] = pd.to_numeric(df_v['Tienda'].astype(str).str.extract(r'(\d+)', expand=False), errors='coerce').fillna(-1)
                         df_tienda_v = df_v[(df_v['tienda_int'] == int(tienda_obj)) & (~df_v['Proveedor'].isin([415, 426, 427]))].copy()
                         
@@ -1910,6 +1949,7 @@ elif st.session_state.vista_actual == 'Estrategico':
                             
                             for _, row in df_top.iterrows():
                                 dpto = str(row.get('Departamento', '')).strip().lower()
+                                modelo_act = str(row.get('Modelo', '')).strip().upper()
                                 tallas_row = df_t[df_t['Valor'].astype(str).str.strip().str.lower() == dpto]
                                 if not tallas_row.empty:
                                     for i in range(1, 16):
@@ -1918,7 +1958,17 @@ elif st.session_state.vista_actual == 'Estrategico':
                                             talla_fisica = tallas_row.iloc[0].get(f'ex{i}')
                                             if pd.notna(talla_fisica) and str(talla_fisica).strip() != '':
                                                 t_str = str(talla_fisica).strip()
-                                                if dpto == 'caballero' and ('305' in t_str or t_str == '30.5'): continue 
+                                                try:
+                                                    t_num = float(talla_fisica)
+                                                    if t_num >= 100: t_num = t_num / 10.0
+                                                except:
+                                                    t_num = 0.0
+                                                    
+                                                # ESCUDO GLOBAL DE TALLAS FANTASMA Y EXCEPCIONES
+                                                if dpto == 'caballero' and t_num == 30.5: continue 
+                                                if dpto in ['niño', 'nino'] and t_num == 21.5: continue
+                                                if dpto == 'joven' and t_num > 25.0 and modelo_act in lista_exc_v: continue
+                                                
                                                 modelos_quebrados.add(row['Modelo'])
                                                 break
                         v_quiebres = len(modelos_quebrados)
@@ -2109,6 +2159,7 @@ Gerencia Comercial Zona Occidente
                 with st.spinner("Analizando matrices de inventario y ventas (Últimos 60 días)..."):
                     df_v = st.session_state.df_ventas.copy()
                     df_t = st.session_state.df_tallas.copy()
+                    lista_exc_n = st.session_state.get('lista_excepciones', [])
 
                     df_tiendas_map = cargar_tiendas()
                     df_tiendas_map.columns = df_tiendas_map.columns.astype(str).str.strip().str.upper()
@@ -2142,7 +2193,7 @@ Gerencia Comercial Zona Occidente
                     traspasos_sugeridos = []
                     tiendas_list = df_v['tienda_int'].unique()
 
-                    # 2. Motor de Emparejamiento
+                    # 2. Motor de Emparejamiento con KARDEX VIRTUAL
                     for tda_receptor in tiendas_list:
                         df_receptor = df_v[df_v['tienda_int'] == tda_receptor]
                         
@@ -2166,23 +2217,43 @@ Gerencia Comercial Zona Occidente
 
                                 if pd.isna(talla_real) or str(talla_real).strip() == '': continue
                                 
-                                if dpto == 'caballero' and ('305' in str(talla_real) or '30.5' == str(talla_real)): continue
+                                try:
+                                    t_num = float(talla_real)
+                                    if t_num >= 100: t_num = t_num / 10.0
+                                except:
+                                    t_num = 0.0
+
+                                # ESCUDO GLOBAL DE TALLAS FANTASMA Y EXCEPCIONES
+                                if dpto == 'caballero' and t_num == 30.5: continue 
+                                if dpto in ['niño', 'nino'] and t_num == 21.5: continue
+                                if dpto == 'joven' and t_num > 25.0 and modelo in lista_exc_n: continue
 
                                 if ex_rec == 0 and p_rec == 0:
                                     
+                                    # KARDEX VIRTUAL: Lee el inventario descontando lo que ya se donó
                                     df_donadores = df_v[
                                         (df_v['Modelo_cln'] == modelo) & 
                                         (df_v['tienda_int'] != tda_receptor) & 
                                         (df_v['Vtas'] <= 1) & 
                                         (df_v[col_ex] >= 2)
                                     ].copy()
+                                    
+                                    # REGLA EXCLUSIVA DE ENRUTAMIENTO: TIENDA 12 PAAR (Ecosistema Aislado)
+                                    tiendas_validas_donadoras = df_donadores['tienda_int'].apply(
+                                        lambda o: (o in [56, 59, 133]) if tda_receptor == 12 else (tda_receptor in [56, 59, 133] if o == 12 else True)
+                                    )
+                                    df_donadores = df_donadores[tiendas_validas_donadoras]
 
                                     if not df_donadores.empty:
                                         df_donadores = df_donadores.sort_values(by=['Vtas', col_ex], ascending=[True, False])
                                         mejor_donador = df_donadores.iloc[0]
+                                        origen_idx = mejor_donador.name
 
                                         origen_nom = get_tienda_nombre(mejor_donador['tienda_int'])
                                         destino_nom = get_tienda_nombre(tda_receptor)
+                                        
+                                        # KARDEX VIRTUAL: Restar el par físico al donador instantáneamente
+                                        df_v.at[origen_idx, col_ex] -= 1
 
                                         traspasos_sugeridos.append({
                                             'ORIGEN': origen_nom,
@@ -2190,7 +2261,7 @@ Gerencia Comercial Zona Occidente
                                             'MODELO': row_mod_rec['Modelo'],
                                             'TALLA': str(talla_real).strip(),
                                             'CANTIDAD': 1,
-                                            'JUSTIFICACIÓN': f"Destino (Top 30, Sin Stock). Origen (Ventas: {int(mejor_donador['Vtas'])}, Stock: {int(mejor_donador[col_ex])})"
+                                            'JUSTIFICACIÓN': f"Destino (Top 30). Origen (Vtas: {int(mejor_donador['Vtas'])}, Stock Restante: {int(df_v.at[origen_idx, col_ex])})"
                                         })
 
                     # 3. Presentación de Resultados
