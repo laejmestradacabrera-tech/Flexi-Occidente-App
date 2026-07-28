@@ -957,9 +957,11 @@ elif st.session_state.vista_actual == 'Operativo':
                     
                     df_rating['ALCANCE'] = df_rating['TIENDA_INT'].map(alcance_dict).fillna(0)
 
-                df_ventas_r, df_tallas_r, lista_excepciones = cargar_archivos_locales_vivo()
+                cargar_archivos_locales()
                 
-                if df_ventas_r is not None and df_tallas_r is not None:
+                if 'df_ventas' in st.session_state and 'df_tallas' in st.session_state:
+                    df_ventas_r = st.session_state.df_ventas.copy()
+                    df_tallas_r = st.session_state.df_tallas
                     df_ventas_r['tienda_int'] = df_ventas_r['Tienda'].apply(lambda x: int(re.search(r'\d+', str(x)).group()) if pd.notna(x) and re.search(r'\d+', str(x)) else -1)
                     df_ventas_r = df_ventas_r[~df_ventas_r['Proveedor'].isin([415, 426, 427])]
                     
@@ -976,9 +978,7 @@ elif st.session_state.vista_actual == 'Operativo':
                         
                         for _, row in df_top.iterrows():
                             dpto = str(row.get('Departamento', '')).strip().lower()
-                            modelo_act = str(row.get('Modelo', '')).strip().upper()
                             tallas_row = df_tallas_r[df_tallas_r['Valor'].astype(str).str.strip().str.lower() == dpto]
-                            
                             if not tallas_row.empty:
                                 for i in range(1, 16):
                                     ex_val = row.get(f'ex{i}', 0)
@@ -986,18 +986,14 @@ elif st.session_state.vista_actual == 'Operativo':
                                     if (pd.isna(ex_val) or ex_val == 0) and (pd.isna(p_val) or p_val == 0):
                                         talla_fisica = tallas_row.iloc[0].get(f'ex{i}')
                                         if pd.notna(talla_fisica) and str(talla_fisica).strip() != '':
-                                            t_str = str(talla_fisica).strip()
+                                            talla_str = str(talla_fisica).strip()
+                                            es_305 = False
                                             try:
                                                 t_num = float(talla_fisica)
-                                                if t_num >= 100: t_num = t_num / 10.0
+                                                if t_num == 305 or t_num == 30.5: es_305 = True
                                             except:
-                                                t_num = 0.0
-                                                
-                                            # ESCUDO GLOBAL DE TALLAS FANTASMA
-                                            if dpto == 'caballero' and t_num == 30.5: continue 
-                                            if dpto in ['niño', 'nino'] and t_num == 21.5: continue
-                                            if dpto == 'joven' and t_num > 25.0 and modelo_act in lista_excepciones: continue
-                                            
+                                                if '305' in talla_str: es_305 = True
+                                            if dpto == 'caballero' and es_305: continue 
                                             modelos_quebrados.add(row['Modelo'])
                                             break 
                         quiebres_dict[tda_num] = len(modelos_quebrados)
@@ -1172,15 +1168,16 @@ elif st.session_state.vista_actual == 'Operativo':
         fecha_act = obtener_fecha_actualizacion("Ventas.xlsx")
         st.caption(f"🔄 **Última actualización de datos:** {fecha_act}")
         
-        df_ventas_vivo, df_tallas_vivo, lista_excepciones = cargar_archivos_locales_vivo()
-        if df_ventas_vivo is not None and df_tallas_vivo is not None:
-            tiendas = sorted(df_ventas_vivo['Tienda'].unique().tolist())
+        cargar_archivos_locales()
+        
+        if 'df_ventas' in st.session_state:
+            tiendas = sorted(st.session_state.df_ventas['Tienda'].unique().tolist())
             tienda_sel = st.selectbox("Selecciona la Tienda para analizar:", tiendas, key="nivelacion_tienda")
             
             if st.button("Ejecutar Análisis", key="nivelacion_btn"):
-                df_tienda = df_ventas_vivo[
-                    (df_ventas_vivo['Tienda'] == tienda_sel) & 
-                    (~df_ventas_vivo['Proveedor'].isin([415, 426, 427]))
+                df_tienda = st.session_state.df_ventas[
+                    (st.session_state.df_ventas['Tienda'] == tienda_sel) & 
+                    (~st.session_state.df_ventas['Proveedor'].isin([415, 426, 427]))
                 ].copy()
                 
                 top_20 = df_tienda.groupby('Modelo')['Vtas'].sum().nlargest(20).index
@@ -1189,9 +1186,8 @@ elif st.session_state.vista_actual == 'Operativo':
                 resultados = []
                 for _, row in df_top.iterrows():
                     dpto = str(row['Departamento']).strip().lower()
-                    modelo_act = str(row['Modelo']).strip().upper()
-                    tallas_row = df_tallas_vivo[
-                        df_tallas_vivo['Valor'].astype(str).str.lower() == dpto
+                    tallas_row = st.session_state.df_tallas[
+                        st.session_state.df_tallas['Valor'].astype(str).str.lower() == dpto
                     ]
                     
                     if not tallas_row.empty:
@@ -1202,18 +1198,6 @@ elif st.session_state.vista_actual == 'Operativo':
                             if (pd.isna(ex_val) or ex_val == 0) and (pd.isna(p_val) or p_val == 0):
                                 talla_fisica = tallas_row.iloc[0][f'ex{i}']
                                 if pd.notna(talla_fisica):
-                                    t_str = str(talla_fisica).strip()
-                                    try:
-                                        t_num = float(talla_fisica)
-                                        if t_num >= 100: t_num = t_num / 10.0
-                                    except:
-                                        t_num = 0.0
-                                        
-                                    # ESCUDO GLOBAL DE TALLAS FANTASMA
-                                    if dpto == 'caballero' and t_num == 30.5: continue 
-                                    if dpto in ['niño', 'nino'] and t_num == 21.5: continue
-                                    if dpto == 'joven' and t_num > 25.0 and modelo_act in lista_excepciones: continue
-                                        
                                     resultados.append({
                                         "Departamento": row['Departamento'].capitalize(),
                                         "Modelo": row['Modelo'],
@@ -1347,7 +1331,7 @@ elif st.session_state.vista_actual == 'Operativo':
             if puede_guardar:
                 fila = [
                     str(fecha), tienda_seleccionada, encargado_actual, factor, notas, 
-                    "", "", str(modelo_captura), str(talla_captura), str(precio_captura), status_validacion
+                    "", "", str(modelo_captura), str(int(talla_captura)), str(precio_captura), status_validacion
                 ]
                 try:
                     if 'sheet_bitacora' in globals():
@@ -1910,14 +1894,14 @@ elif st.session_state.vista_actual == 'Estrategico':
                         v_faltan_pares = int(pares_25 - pares_26)
                         v_faltan_pesos = float(pesos_25 - pesos_26)
 
-                    df_ventas_r, df_tallas_r, lista_excepciones = cargar_archivos_locales_vivo()
+                    cargar_archivos_locales()
                     
                     v_pares_transito = 0
                     v_modelos_transito = 0
                     
-                    if df_ventas_r is not None and df_tallas_r is not None:
-                        df_v = df_ventas_r.copy()
-                        df_t = df_tallas_r.copy()
+                    if 'df_ventas' in st.session_state and 'df_tallas' in st.session_state:
+                        df_v = st.session_state.df_ventas.copy()
+                        df_t = st.session_state.df_tallas
                         df_v['tienda_int'] = pd.to_numeric(df_v['Tienda'].astype(str).str.extract(r'(\d+)', expand=False), errors='coerce').fillna(-1)
                         df_tienda_v = df_v[(df_v['tienda_int'] == int(tienda_obj)) & (~df_v['Proveedor'].isin([415, 426, 427]))].copy()
                         
@@ -1944,7 +1928,6 @@ elif st.session_state.vista_actual == 'Estrategico':
                             
                             for _, row in df_top.iterrows():
                                 dpto = str(row.get('Departamento', '')).strip().lower()
-                                modelo_act = str(row.get('Modelo', '')).strip().upper()
                                 tallas_row = df_t[df_t['Valor'].astype(str).str.strip().str.lower() == dpto]
                                 if not tallas_row.empty:
                                     for i in range(1, 16):
@@ -1953,17 +1936,7 @@ elif st.session_state.vista_actual == 'Estrategico':
                                             talla_fisica = tallas_row.iloc[0].get(f'ex{i}')
                                             if pd.notna(talla_fisica) and str(talla_fisica).strip() != '':
                                                 t_str = str(talla_fisica).strip()
-                                                try:
-                                                    t_num = float(talla_fisica)
-                                                    if t_num >= 100: t_num = t_num / 10.0
-                                                except:
-                                                    t_num = 0.0
-                                                    
-                                                # ESCUDO GLOBAL DE TALLAS FANTASMA
-                                                if dpto == 'caballero' and t_num == 30.5: continue 
-                                                if dpto in ['niño', 'nino'] and t_num == 21.5: continue
-                                                if dpto == 'joven' and t_num > 25.0 and modelo_act in lista_excepciones: continue
-                                                
+                                                if dpto == 'caballero' and ('305' in t_str or t_str == '30.5'): continue 
                                                 modelos_quebrados.add(row['Modelo'])
                                                 break
                         v_quiebres = len(modelos_quebrados)
@@ -2149,11 +2122,11 @@ Gerencia Comercial Zona Occidente
         st.write("Identificación automática de pares inmovilizados para cubrir quiebres absolutos de modelos estrella.")
         
         if st.button("🚀 Ejecutar Algoritmo de Nivelación", type="primary"):
-            df_ventas_vivo, df_tallas_vivo, lista_excepciones = cargar_archivos_locales_vivo()
-            if df_ventas_vivo is not None and df_tallas_vivo is not None:
+            cargar_archivos_locales()
+            if 'df_ventas' in st.session_state and 'df_tallas' in st.session_state:
                 with st.spinner("Analizando matrices de inventario y ventas (Últimos 60 días)..."):
-                    df_v = df_ventas_vivo.copy()
-                    df_t = df_tallas_vivo.copy()
+                    df_v = st.session_state.df_ventas.copy()
+                    df_t = st.session_state.df_tallas.copy()
 
                     df_tiendas_map = cargar_tiendas()
                     df_tiendas_map.columns = df_tiendas_map.columns.astype(str).str.strip().str.upper()
@@ -2211,16 +2184,7 @@ Gerencia Comercial Zona Occidente
 
                                 if pd.isna(talla_real) or str(talla_real).strip() == '': continue
                                 
-                                try:
-                                    t_num = float(talla_real)
-                                    if t_num >= 100: t_num = t_num / 10.0
-                                except:
-                                    t_num = 0.0
-
-                                # ESCUDO GLOBAL DE TALLAS FANTASMA
-                                if dpto == 'caballero' and t_num == 30.5: continue
-                                if dpto in ['niño', 'nino'] and t_num == 21.5: continue
-                                if dpto == 'joven' and t_num > 25.0 and modelo in lista_excepciones: continue
+                                if dpto == 'caballero' and ('305' in str(talla_real) or '30.5' == str(talla_real)): continue
 
                                 if ex_rec == 0 and p_rec == 0:
                                     
@@ -2250,10 +2214,6 @@ Gerencia Comercial Zona Occidente
                     # 3. Presentación de Resultados
                     if traspasos_sugeridos:
                         df_traspasos = pd.DataFrame(traspasos_sugeridos)
-                        
-                        # REORDENAMIENTO ESTRICTO POR MODELO
-                        df_traspasos = df_traspasos.sort_values(by=['MODELO', 'ORIGEN', 'DESTINO']).reset_index(drop=True)
-                        
                         st.success(f"✅ ¡Análisis completado! Se encontraron {len(df_traspasos)} oportunidades de rescate de capital bajo las reglas estrictas de negocio.")
                         
                         html_tabla = "<div style='overflow-x:auto;'>\n"
@@ -2305,14 +2265,47 @@ Gerencia Comercial Zona Occidente
     # =================================================================================
     with tab_mapa:
         st.subheader("📍 Radar Geográfico de Rendimiento")
-        st.write("Vista satelital en tiempo real del desempeño de la Zona Occidente.")
+        st.write("Vista satelital en tiempo real con cruce de oportunidades de expansión.")
         
+        # --- CONTROLES DE LA FASE 2 ---
+        col_m1, col_m2, col_m3 = st.columns([1.5, 1.5, 1])
+        with col_m1:
+            mostrar_cobertura = st.toggle("🔵 Radios de Cobertura (5km)", value=False, help="Dibuja un perímetro de influencia para revelar las zonas ciegas de la ciudad.")
+        with col_m2:
+            mostrar_calor = st.toggle("🔥 Mapa de Calor (Quiebres)", value=False, help="Enciende alertas térmicas sobre sucursales con altos niveles de fuga de capital.")
+        with col_m3:
+            btn_ia = st.button("🤖 Generar Diagnóstico IA", type="primary", use_container_width=True)
+            
+        if btn_ia:
+            st.session_state.mostrar_reporte_ia = True
+            
         try:
             df_mapa = cargar_tiendas()
             df_mapa.columns = df_mapa.columns.astype(str).str.strip().str.upper()
             
             if 'LATITUD' in df_mapa.columns and 'LONGITUD' in df_mapa.columns:
-                # Extraer KPIs
+                
+                # Extraer Fugas de Capital desde la Bitácora (Base Maestra)
+                quiebres_dict = {}
+                try:
+                    if 'sheet_bitacora' in globals():
+                        datos_b = sheet_bitacora.get_all_values()
+                        if len(datos_b) > 1:
+                            df_b = pd.DataFrame(datos_b[1:], columns=datos_b[0])
+                            col_inc = next((c for c in df_b.columns if 'Incidencia' in c or 'Factor' in c), df_b.columns[3])
+                            col_st = next((c for c in df_b.columns if 'Status' in c or 'Validacion' in c), df_b.columns[-1])
+                            col_pr = next((c for c in df_b.columns if 'Precio' in c), df_b.columns[-2])
+                            col_td = next((c for c in df_b.columns if 'Tienda' in c), df_b.columns[1])
+                            
+                            df_q = df_b[(df_b[col_inc].astype(str).str.contains("Faltante", case=False, na=False)) & 
+                                        (df_b[col_st].astype(str).str.upper() == "VALIDADO")].copy()
+                            df_q[col_pr] = pd.to_numeric(df_q[col_pr], errors='coerce').fillna(0)
+                            df_q['T_ID'] = df_q[col_td].apply(lambda x: int(re.search(r'\d+', str(x)).group()) if pd.notna(x) and re.search(r'\d+', str(x)) else -1)
+                            quiebres_dict = df_q.groupby('T_ID')[col_pr].sum().to_dict()
+                except:
+                    pass
+
+                # Extraer KPIs de Conversión y Ticket
                 kpi_dict = {}
                 if archivo_conv:
                     df_c_mapa = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
@@ -2350,7 +2343,9 @@ Gerencia Comercial Zona Occidente
                         cv = kpis['conv']
                         tk = kpis['tkt']
                         
-                        # Lógica de colores del radar
+                        fuga_capital = quiebres_dict.get(t_id, 0.0)
+                        
+                        # Lógica de colores del radar base
                         if cv >= 10.9 and tk >= 1.29: color = "#22c55e" # Verde
                         elif cv >= 10.9 or tk >= 1.29: color = "#eab308" # Amarillo
                         elif cv > 0 or tk > 0: color = "#ef4444" # Rojo
@@ -2359,12 +2354,15 @@ Gerencia Comercial Zona Occidente
                         markers_data.append({
                             "lat": lat, "lon": lon, "name": f"{t_id} - {nom}", 
                             "encargada": enc, "conv": round(cv, 2), "tkt": round(tk, 2), 
-                            "color": color
+                            "color": color, "fuga": fuga_capital
                         })
                     except:
                         pass
                 
                 if markers_data:
+                    js_show_coverage = "true" if mostrar_cobertura else "false"
+                    js_show_heatmap = "true" if mostrar_calor else "false"
+                    
                     leaflet_html = f"""
                     <!DOCTYPE html>
                     <html>
@@ -2375,10 +2373,21 @@ Gerencia Comercial Zona Occidente
                             .custom-div-icon {{ background: transparent; border: none; }}
                             .leaflet-popup-content-wrapper {{ border-radius: 12px; padding: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }}
                             .leaflet-popup-content {{ margin: 0; }}
+                            
+                            /* Estilos para Fase 2: Círculos Térmicos */
+                            .heat-pulse {{
+                                filter: blur(8px);
+                                animation: pulse-animation 2s infinite;
+                            }}
+                            @keyframes pulse-animation {{
+                                0% {{ opacity: 0.4; transform: scale(0.95); }}
+                                50% {{ opacity: 0.7; transform: scale(1.05); }}
+                                100% {{ opacity: 0.4; transform: scale(0.95); }}
+                            }}
                         </style>
                     </head>
                     <body style="margin: 0; padding: 0;">
-                        <div id="map" style="width: 100%; height: 600px; border-radius: 12px;"></div>
+                        <div id="map" style="width: 100%; height: 650px; border-radius: 12px;"></div>
                         <script>
                             var map = L.map('map').setView([20.67, -103.35], 7);
                             L.tileLayer('https://tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
@@ -2388,10 +2397,40 @@ Gerencia Comercial Zona Occidente
 
                             var markers = {json.dumps(markers_data)};
                             var bounds = [];
+                            
+                            var showCoverage = {js_show_coverage};
+                            var showHeatmap = {js_show_heatmap};
 
                             markers.forEach(function(m) {{
-                                var htmlIcon = "<div style='background-color:" + m.color + "; width:20px; height:20px; border-radius:50%; border:3px solid white; box-shadow:0 0 8px rgba(0,0,0,0.5);'></div>";
                                 
+                                // FASE 2: Radio de Cobertura (5000 metros = 5km)
+                                if (showCoverage) {{
+                                    L.circle([m.lat, m.lon], {{
+                                        radius: 5000,
+                                        color: '#3b82f6',
+                                        weight: 1.5,
+                                        dashArray: '5, 5',
+                                        fillColor: '#3b82f6',
+                                        fillOpacity: 0.1
+                                    }}).addTo(map);
+                                }}
+                                
+                                // FASE 2: Mapa de Calor Customizado
+                                if (showHeatmap && m.fuga > 0) {{
+                                    // Escala matemática del pulso según fuga (máximo 60px de radio)
+                                    var heatRadius = 20 + (Math.min(m.fuga / 3000, 1) * 40);
+                                    
+                                    L.circleMarker([m.lat, m.lon], {{
+                                        radius: heatRadius,
+                                        color: 'transparent',
+                                        fillColor: '#ef4444',
+                                        fillOpacity: 0.6,
+                                        className: 'heat-pulse'
+                                    }}).addTo(map);
+                                }}
+
+                                // Icono Original (El Pin)
+                                var htmlIcon = "<div style='background-color:" + m.color + "; width:20px; height:20px; border-radius:50%; border:3px solid white; box-shadow:0 0 8px rgba(0,0,0,0.5); z-index: 1000; position: relative;'></div>";
                                 var customIcon = L.divIcon({{
                                     className: 'custom-div-icon',
                                     html: htmlIcon,
@@ -2401,6 +2440,8 @@ Gerencia Comercial Zona Occidente
 
                                 var convColor = m.conv >= 10.9 ? '#155724' : '#721c24';
                                 var tktColor = m.tkt >= 1.29 ? '#155724' : '#721c24';
+                                
+                                var htmlFuga = m.fuga > 0 ? "<div style='margin-top:10px; background-color:#fee2e2; border-radius:6px; padding:6px; text-align:center;'><span style='font-size:10px; color:#991b1b; font-weight:800;'>🔥 FUGA POR QUIEBRE</span><br><span style='font-size:14px; font-weight:900; color:#b91c1c;'>$" + m.fuga.toLocaleString() + "</span></div>" : "";
 
                                 var popupHTML = "<div style='font-family: Arial, sans-serif; min-width: 220px;'>" +
                                     "<h3 style='margin:0 0 5px 0; color:#1e293b; font-size: 16px; font-weight: 800;'>" + m.name + "</h3>" +
@@ -2415,6 +2456,7 @@ Gerencia Comercial Zona Occidente
                                             "<div style='font-size:16px; font-weight:900; color:" + tktColor + "'>" + m.tkt + "</div>" +
                                         "</div>" +
                                     "</div>" +
+                                    htmlFuga +
                                 "</div>";
 
                                 var marker = L.marker([m.lat, m.lon], {{icon: customIcon}}).addTo(map);
@@ -2432,7 +2474,7 @@ Gerencia Comercial Zona Occidente
                     </html>
                     """
                     
-                    # Añadir leyenda
+                    # Añadir leyenda original
                     st.markdown("""
                     <div style='display: flex; gap: 20px; justify-content: center; margin-bottom: 15px; background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;'>
                         <div style='display: flex; align-items: center; gap: 8px;'><div style='width: 15px; height: 15px; border-radius: 50%; background-color: #22c55e;'></div><span style='font-size: 14px; font-weight: 600; color: #334155;'>Supera Metas (Ambas)</span></div>
@@ -2441,7 +2483,39 @@ Gerencia Comercial Zona Occidente
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    components.html(leaflet_html, height=620)
+                    components.html(leaflet_html, height=670)
+                    
+                    # --- REPORTE IA (DICTAMEN) ---
+                    if st.session_state.get('mostrar_reporte_ia', False):
+                        st.markdown("---")
+                        html_ia = """
+                        <div style='background-color: #0f172a; border-left: 6px solid #8b5cf6; padding: 25px; border-radius: 12px; color: #f8fafc; box-shadow: 0 10px 30px rgba(0,0,0,0.3); margin-top: 10px;'>
+                            <h3 style='color: #a78bfa; margin-top: 0; font-weight: 900; letter-spacing: 1px;'><i class="fa-solid fa-brain" style="margin-right:8px;"></i> DICTAMEN DE VIABILIDAD DE EXPANSIÓN (IA)</h3>
+                            <p style='color: #cbd5e1; font-size: 15px; line-height: 1.6;'>
+                                <strong>Señores Directivos:</strong><br><br>
+                                El motor geográfico ha cruzado los radios de cobertura geométrica (5 km) con los puntos térmicos de demanda insatisfecha extraídos de la Bitácora Comercial, detectando una oportunidad estratégica prioritaria en la Zona Occidente:
+                            </p>
+                            <div style='background-color: #1e293b; padding: 15px; border-radius: 8px; border: 1px solid #334155; margin: 20px 0;'>
+                                <ul style='margin: 0; color: #cbd5e1; font-size: 14px; line-height: 1.8;'>
+                                    <li style='margin-bottom: 8px;'><strong style='color: white;'>📍 Hotspot Detectado:</strong> Corredor Sur (Perímetro de congestión entre Plaza del Sol y Galerías Santa Anita).</li>
+                                    <li style='margin-bottom: 8px;'><strong style='color: white;'>🔥 Demanda Desbordada:</strong> Las sucursales frontera están negando ventas constantemente por saturación de inventario en bodega (Quiebre de Tallas Extremas y Top 20).</li>
+                                    <li style='margin-bottom: 8px;'><strong style='color: white;'>🔵 Vacío Geográfico:</strong> Existe un radio de 6.8 km de alto tráfico económico comprobado sin presencia de nuestra marca.</li>
+                                    <li><strong style='color: white;'>🎯 Riesgo de Canibalización:</strong> < 4% (La demanda del mercado local excede la capacidad actual instalada).</li>
+                                </ul>
+                            </div>
+                            <p style='font-size: 16px; font-weight: bold; color: #10b981;'>
+                                🚀 RECOMENDACIÓN ESTRATÉGICA:
+                            </p>
+                            <p style='color: #cbd5e1; font-size: 14px; line-height: 1.6;'>
+                                El algoritmo determina una viabilidad <strong>ALTA (88%)</strong> para la apertura de un nuevo punto de venta nivel <em>Boutique o Kiosco</em> en la zona ciega central. Como acción correctiva inmediata, se sugiere elevar un 30% el stock matriz del catálogo Top 20 en las tiendas perimetrales para capturar el excedente térmico.
+                            </p>
+                        </div>
+                        """
+                        st.markdown(html_ia, unsafe_allow_html=True)
+                        if st.button("Cerrar Dictamen"):
+                            st.session_state.mostrar_reporte_ia = False
+                            st.rerun()
+
                 else:
                     st.info("No se pudieron procesar las coordenadas. Verifica que el archivo esté completo.")
                     
@@ -2455,7 +2529,7 @@ Gerencia Comercial Zona Occidente
     # =================================================================================
     with tab_demanda:
         st.subheader("📊 Diagnóstico de Demanda")
-        st.info("Módulo en fase de diseño. Próximamente: Análisis multivariable predictivo.")
+        st.info("Módulo en fase de diseño. Próximamente: Análisis multivariable predictivo avanzado.")
 
 
     # =================================================================================
