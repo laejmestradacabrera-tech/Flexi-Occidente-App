@@ -160,17 +160,25 @@ def cargar_archivos_locales():
             else:
                 st.session_state.df_tallas = pd.read_excel("Valores de tallas.xlsx")
                 
-            # NUEVO: Cargar lista de excepciones global en memoria
+            # LECTURA FORZADA GLOBAL DE EXCEPCIONES
             lista_exc = []
             arch_exc = buscar_archivo('Excepciones')
             if arch_exc:
                 df_exc = pd.read_excel(arch_exc) if arch_exc.endswith('.xlsx') else pd.read_csv(arch_exc)
                 col_mod = 'Modelo' if 'Modelo' in df_exc.columns else df_exc.columns[0]
                 lista_exc = df_exc[col_mod].astype(str).str.strip().str.upper().tolist()
-            elif arch_tallas and arch_tallas.endswith('.xlsx'):
+            else:
+                # Búsqueda implacable en la pestaña de Excepciones
+                nombre_archivo_tallas = arch_tallas if arch_tallas else "Valores de tallas.xlsx"
                 try:
-                    lista_exc = pd.read_excel(arch_tallas, sheet_name="Excepciones")['Modelo'].astype(str).str.strip().str.upper().tolist()
-                except:
+                    if nombre_archivo_tallas.endswith('.xlsx'):
+                        xls = pd.ExcelFile(nombre_archivo_tallas)
+                        hoja_exc = next((h for h in xls.sheet_names if 'excepciones' in h.lower()), None)
+                        if hoja_exc:
+                            df_exc = pd.read_excel(nombre_archivo_tallas, sheet_name=hoja_exc)
+                            col_mod = 'Modelo' if 'Modelo' in df_exc.columns else df_exc.columns[0]
+                            lista_exc = df_exc[col_mod].astype(str).str.strip().str.upper().tolist()
+                except Exception as e:
                     pass
             st.session_state.lista_excepciones = lista_exc
             
@@ -241,7 +249,8 @@ def validar_captura_stock(tienda_id, modelo, talla_input, df_ventas, df_tallas):
                                     return False, "⛔ TALLA FANTASMA: El sistema corporativo no maneja la talla 21.5 en niño. Captura rechazada."
                                 
                                 lista_exc = st.session_state.get('lista_excepciones', [])
-                                if dpto_venta == 'joven' and t_num > 25.0 and modelo_buscado in lista_exc:
+                                # PARCHE EXCEPCIONES: Aplicar escudo sin importar el departamento de SAP
+                                if t_num > 25.0 and modelo_buscado in lista_exc:
                                     return False, f"⛔ EXCEPCIÓN DETECTADA: El modelo {modelo_buscado} no se fabrica en tallas mayores a 25.0. Captura rechazada."
 
                                 if col_ex in row_venta:
@@ -612,7 +621,6 @@ if 'vista_actual' not in st.session_state:
 # ==============================================================================
 if st.session_state.vista_actual == 'Inicio':
     
-    # 1. Extracción Segura de KPIs
     v_p_str = "0.00%"
     v_w_str = "0.00%"
     conv_val = "0.00%"
@@ -663,11 +671,9 @@ if st.session_state.vista_actual == 'Inicio':
                 v_w_str = f"{'+' if v_w>0 else ''}{v_w:.2f}%"
         except: pass
 
-    # 2. Configuración de la Imagen de Fondo
     tienda_b64 = obtener_imagen_base64("Tienda.jpg")
     bg_css = f"background-image: linear-gradient(rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.95)), url('{tienda_b64}');" if tienda_b64 else "background-color: #0f172a;"
 
-    # 3. HTML del Dashboard Lobby
     html_lobby = f"""
     <div style="{bg_css} background-size: cover; background-position: center; border-radius: 16px; padding: 50px 40px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); position: relative; margin-top: 20px;">
         <div style="position: absolute; top: 30px; right: 40px; text-align: right; color: white; font-size: 13px;">
@@ -722,7 +728,6 @@ if st.session_state.vista_actual == 'Inicio':
     
     st.markdown(html_lobby.replace('\n', ''), unsafe_allow_html=True)
     
-    # 4. Tarjetas de Acción (Streamlit Columns)
     col1, esp, col2 = st.columns([1, 0.05, 1])
     
     with col1:
@@ -783,7 +788,6 @@ elif st.session_state.vista_actual == 'Login_Estrategico':
 # ==============================================================================
 elif st.session_state.vista_actual == 'Operativo':
 
-    # Barra superior de navegación rápida
     col_nav1, col_nav2 = st.columns([4, 1])
 
     with col_nav1:
@@ -805,9 +809,6 @@ elif st.session_state.vista_actual == 'Operativo':
 
     st.write("---")
 
-    # --------------------------------------------------------------------------
-    # NAVEGACIÓN OPERATIVA (Sin "Comparativo Mensual")
-    # --------------------------------------------------------------------------
     modulos_operativos = [
         "📊 Desempeño Comercial",
         "👟 Top 20 Tiendas",
@@ -829,7 +830,6 @@ elif st.session_state.vista_actual == 'Operativo':
 
     st.markdown("---")
 
-    # --- PESTAÑA 1: DESEMPEÑO COMERCIAL ---
     if modulo_activo == "📊 Desempeño Comercial":
         st.subheader("📊 DESEMPEÑO COMERCIAL")
         fecha_act = obtener_fecha_actualizacion(archivo_conv)
@@ -860,7 +860,6 @@ elif st.session_state.vista_actual == 'Operativo':
 
                 st.table(ranking.style.apply(color_semaforo, axis=1).format({'CONVERSIÓN': '{:.2f}%', 'TICKET PROMEDIO': '{:.2f}'}))            
 
-    # --- PESTAÑAS 3 Y 4: DESPLIEGUE DE RANKINGS DE MODELOS ---
     elif modulo_activo == "👟 Top 20 Tiendas":
         st.subheader("👟 TOP 20 TIENDA")
         if archivo_modelos:
@@ -928,7 +927,6 @@ elif st.session_state.vista_actual == 'Operativo':
         else:
             st.warning("⚠️ Archivo de Modelos no encontrado.")
 
-    # --- PESTAÑA 5: RATING COMERCIAL ---
     elif modulo_activo == "🏆 Rating Comercial":
         try:
             with st.spinner("Actualizando Liga de Campeones en tiempo real..."):
@@ -1012,7 +1010,7 @@ elif st.session_state.vista_actual == 'Operativo':
                                             # ESCUDO GLOBAL DE TALLAS FANTASMA Y EXCEPCIONES
                                             if dpto == 'caballero' and t_num == 30.5: continue 
                                             if dpto in ['niño', 'nino'] and t_num == 21.5: continue
-                                            if dpto == 'joven' and t_num > 25.0 and modelo_act in lista_exc_r: continue
+                                            if t_num > 25.0 and modelo_act in lista_exc_r: continue
                                             
                                             modelos_quebrados.add(row['Modelo'])
                                             break 
@@ -1182,7 +1180,6 @@ elif st.session_state.vista_actual == 'Operativo':
         except Exception as e:
             st.error(f"Error al cargar el Rating: {e}")
 
-    # --- PESTAÑA 6: NIVELACIÓN DE STOCK ---
     elif modulo_activo == "🔄 Nivelación de Stock":
         st.markdown("<h2 style='color: #B22222;'>📈 Monitor de Nivelación Flexi Occidente</h2>", unsafe_allow_html=True)
         fecha_act = obtener_fecha_actualizacion("Ventas.xlsx")
@@ -1232,7 +1229,6 @@ elif st.session_state.vista_actual == 'Operativo':
                 else:
                     st.success("¡Excelente! No hay faltantes en el Top 20.")            
                 
-                # --- NUEVO BLOQUE: INVENTARIO INMÓVIL ---
                 st.markdown("---")
                 st.markdown("<h3 style='color: #1e3a8a;'>🧊 Alerta de Inventario Inmóvil (Cero ventas en 60 días)</h3>", unsafe_allow_html=True)
                 
@@ -1275,7 +1271,6 @@ elif st.session_state.vista_actual == 'Operativo':
         else:
             st.warning("Archivos de ventas o tallas no encontrados localmente.")
 
-    # --- PESTAÑA 7: BITÁCORA ---
     elif modulo_activo == "📝 Bitácora":
         st.subheader("📝 Registro de Incidencias Operativas")
         df_tiendas = cargar_tiendas()
@@ -1298,9 +1293,7 @@ elif st.session_state.vista_actual == 'Operativo':
             st.markdown("**N° Sucursal en SAP/Inventario:**")
             st.info(f"🏪 {tda_num_defecto}")
             
-        # Asignamos el valor directamente en la memoria para la validación
         tienda_numero = tda_num_defecto
-
         st.info(f"**Encargado(a) detectado(a):** {encargado_actual}")
             
         fecha_mexico = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
@@ -1336,9 +1329,10 @@ elif st.session_state.vista_actual == 'Operativo':
                     puede_guardar = False
                 else:
                     try:
-                        df_ventas = pd.read_excel("Ventas.xlsx")
-                        df_tallas = pd.read_excel("Valores de tallas.xlsx")
-                        es_valido, mensaje = validar_captura_stock(tienda_numero, modelo_captura, talla_captura, df_ventas, df_tallas)
+                        cargar_archivos_locales()
+                        df_v = st.session_state.df_ventas
+                        df_t = st.session_state.df_tallas
+                        es_valido, mensaje = validar_captura_stock(tienda_numero, modelo_captura, talla_captura, df_v, df_t)
                         if not es_valido:
                             st.error(mensaje)
                             puede_guardar = False
@@ -1362,7 +1356,6 @@ elif st.session_state.vista_actual == 'Operativo':
                 except Exception as e:
                     st.error(f"❌ Error al intentar guardar en Google Sheets: {e}")
 
-    # --- PESTAÑA 8: RUTA DEL CLIENTE ---
     elif modulo_activo == "🧭 Ruta Cliente":
         st.subheader("🧭 Protocolo Operativo en Piso de Venta")
         nombre_imagen = "RC Zona Occidente.png"
@@ -1371,7 +1364,6 @@ elif st.session_state.vista_actual == 'Operativo':
         else:
             st.warning("⚠️ La imagen 'RC Zona Occidente.png' aún no se encuentra en GitHub.")
 
-    # --- PESTAÑA 9: CAPACITACIÓN ---
     elif modulo_activo == "🎓 Capacitación":
         st.markdown("## 🎓 Centro de Capacitación y Desarrollo Operativo")
         st.write("Bienvenido al espacio interactivo para el fortalecimiento del sentido de pertenencia y alineación comercial de la Zona Occidente.")
@@ -1394,18 +1386,10 @@ elif st.session_state.vista_actual == 'Operativo':
         with col_der:
             st.markdown("### 📘 Manual de Integración a Tiendas Flexi")
             st.info("**🎯 Objetivo General:** Establecer un proceso de acogida estandarizado que reduzca la rotación de personal en los primeros 90 días, transformando la incorporación en una experiencia de bienvenida profesional y humana.")
-            st.write("*La permanencia del personal de nueva contratación no depende únicamente de las condiciones laborales, sino de la calidad de su integración inicial. Este manual presenta cinco pilares fundamentales para asegurar que el nuevo colaborador se sienta valorado, guiado y conectado con los objetivos de la organización.*")
             
             with st.expander("🎯 1. PROPÓSITO DEL MONITOR COMERCIAL", expanded=True):
                 st.markdown("""
                 Este monitor interactivo fue desarrollado bajo la dirección del **LAE. José Martín Estrada Cabrera** como una herramienta estratégica y de auditoría en tiempo real. Su propósito principal es dar visibilidad total a la operación del piso de venta, permitiendo tomar decisiones basadas en datos exactos y eliminar las suposiciones.
-                
-                **👥 La Importancia de la Integración (El Factor Humano):**
-                Para que este monitor refleje números de éxito, es vital comprender que **los resultados no los dan los sistemas, los dan las personas**. 
-                Una integración correcta, humana y profesional del personal de nuevo ingreso garantiza que:
-                * Comprendan el *por qué* de su rol y su impacto directo en la sucursal desde el día uno.
-                * Se sientan respaldados por su equipo, reduciendo drásticamente su curva de aprendizaje y la frustración.
-                * Transformen su esfuerzo diario en la conquista de los objetivos de la empresa.
                 
                 **📌 Nuestras Metas Inamovibles (El ADN de la Zona):**
                 Toda la capacitación y esfuerzo de la sucursal se resume en dominar estos dos indicadores de calzado:
@@ -1414,59 +1398,32 @@ elif st.session_state.vista_actual == 'Operativo':
                 """)
                 
             with st.expander("1️⃣ PILAR I: BIENVENIDA (Logística y Orden)"):
-                st.markdown("""
-                **Concepto:** Proyectar orden y profesionalismo. La preparación del entorno de trabajo es el primer mensaje que el colaborador recibe sobre la cultura de la empresa.
-                * 🛠️ **La Acción:** Asegurarse de que el espacio físico esté impecable, las herramientas de trabajo (computadora, accesos, sistemas) estén configuradas y el uniforme de la talla correcta esté listo sobre su lugar antes de que el colaborador cruce la puerta (en la medida de lo posible).
-                * 🌟 **El Impacto:** Elimina la ansiedad e incertidumbre del primer día. Comunica de forma implícita: *"Te estábamos esperando y tu llegada es importante para nosotros"*.
-                """)
+                st.markdown("**Concepto:** Proyectar orden y profesionalismo. La preparación del entorno de trabajo es el primer mensaje que el colaborador recibe sobre la cultura de la empresa.")
                 
             with st.expander("2️⃣ PILAR II: ACOMPAÑAMIENTO (Mentoría)"):
-                st.markdown("""
-                **Concepto:** Eliminar la "soledad del novato" mediante el sistema de compañero guía.
-                * 👥 **La Acción:** Designar a un colaborador con experiencia y actitud positiva para que actúe como mentor durante la primera semana. Este guía resolverá dudas cotidianas y explicará las dinámicas no escritas.
-                * 🚀 **El Impacto:** Acelera la curva de aprendizaje social y técnico. Reduce el miedo a cometer errores básicos y crea un vínculo de confianza inmediato.
-                """)
+                st.markdown("**Concepto:** Eliminar la 'soledad del novato' mediante el sistema de compañero guía.")
                 
             with st.expander("3️⃣ PILAR III: CLARIDAD DEL PROPÓSITO"):
-                st.markdown("""
-                **Concepto:** Conectar las tareas diarias con el impacto real en el éxito de la zona y la misión de la empresa.
-                * 🗣️ **La Acción:** Realizar una sesión de alineación donde se explique no solo "qué" debe hacer, sino "por qué" su rol es vital para alcanzar los objetivos generales. Mostrar cómo su esfuerzo contribuye al bienestar del cliente o del equipo.
-                * ❤️ **El Impacto:** Genera compromiso emocional. Un colaborador que encuentra propósito en su trabajo desarrolla una lealtad que va más allá de la oferta económica.
-                """)
+                st.markdown("**Concepto:** Conectar las tareas diarias con el impacto real en el éxito de la zona y la misión de la empresa.")
                 
             with st.expander("4️⃣ PILAR IV: METAS DE CORTO PLAZO"):
-                st.markdown("""
-                **Concepto:** Brindar claridad absoluta sobre las expectativas de desempeño en la etapa crítica.
-                * 🎯 **La Acción:** Establecer objetivos específicos, medibles y alcanzables para la primera semana, los primeros 15 días y el primer mes. Brindar retroalimentación constructiva al finalizar cada etapa.
-                * 📈 **El Impacto:** Reduce la frustración causada por la ambigüedad. Permite que el colaborador celebre victorias tempranas y desarrolle la autoconfianza necesaria para su profesionalización.
-                """)
+                st.markdown("**Concepto:** Brindar claridad absoluta sobre las expectativas de desempeño en la etapa crítica.")
                 
             with st.expander("5️⃣ PILAR V: VINCULACIÓN SOCIAL"):
-                st.markdown("""
-                **Concepto:** Humanizar el entorno laboral y fomentar la integración grupal.
-                * 🎉 **La Acción:** Organizar activamente momentos de convivencia (como una dinámica de presentación) donde el equipo actual reciba formalmente al nuevo integrante.
-                * 🤝 **El Impacto:** Rompe las barreras invisibles entre el personal antiguo y el nuevo. El sentido de pertenencia a un grupo social es el factor de retención más potente ante ofertas de la competencia.
-                """)
-            
-            st.success("✨ **Nota Final:** La integración no termina al finalizar el primer día; es un proceso continuo de acompañamiento. El éxito de este manual reside en la consistencia con la que el liderazgo de la tienda aplique cada uno de estos puntos con cada nuevo integrante.")
+                st.markdown("**Concepto:** Humanizar el entorno laboral y fomentar la integración grupal.")
 
-# ==============================================================================
-# PANTALLA 4: MÓDULO ESTRATÉGICO (EXCLUSIVO GERENCIA)
-# ==============================================================================
 elif st.session_state.vista_actual == 'Estrategico':
-    # Barra superior de navegación rápida
     col_nav1, col_nav2 = st.columns([4, 1])
     with col_nav1:
         st.markdown("<h2 style='color: #4338ca; margin-top: 0;'>Panel de Decisiones Estratégicas</h2>", unsafe_allow_html=True)
     with col_nav2:
         if st.button("← Volver al Menú Principal", use_container_width=True):
             st.session_state.vista_actual = 'Inicio'
-            st.session_state.autenticado = False # Cerramos sesión al salir
+            st.session_state.autenticado = False
             st.rerun()
             
     st.write("---")
 
-    # NUEVAS PESTAÑAS ESTRATÉGICAS - ORDEN ESTABLECIDO
     tab_monitor, tab_impacto, tab_comparativo, tab_visita, tab_nivelacion_intel, tab_mapa, tab_demanda, tab_macro = st.tabs([
         "📡 Monitor Estratégico", 
         "💰 Impacto Financiero",
@@ -1505,7 +1462,6 @@ elif st.session_state.vista_actual == 'Estrategico':
         st.subheader("💰 Impacto Financiero por quiebre")
         st.write("Proyección estadística de fugas de capital basada en el monitoreo de piso de venta.")
         
-        st.markdown("### 🎛️ Parámetros del Simulador Directivo")
         col_sim1, col_sim2 = st.columns(2)
         with col_sim1:
             venta_muestra = st.number_input("Venta Acumulada de la Muestra (Piloto) $:", min_value=0.0, value=2276150.0, step=10000.0)
@@ -1556,7 +1512,6 @@ elif st.session_state.vista_actual == 'Estrategico':
                         st.markdown("---")
                         st.markdown("#### 📍 Proyección a Nivel Zona Occidente")
                         col1, col2, col3 = st.columns(3)
-                        
                         col1.metric("Cobertura Piloto", f"{tiendas_piloto} de {total_tiendas} Tdas", f"{int((tiendas_piloto/total_tiendas)*100)}% de Operación Zona")
                         col2.metric("Venta Perdida (Real Piloto)", f"${perdida_real:,.2f}", f"{len(df_quiebres)} quiebres validados", delta_color="inverse")
                         col3.metric("Proyección Zona (19 Tdas)", f"${proyeccion_total:,.2f}", f"Factor Expansión: {factor_proyeccion:.2f}x", delta_color="off")
@@ -1564,13 +1519,11 @@ elif st.session_state.vista_actual == 'Estrategico':
                         st.markdown("---")
                         st.markdown("#### 🌍 Proyección de Impacto Nacional (Ponderado por Share)")
                         col_nat1, col_nat2 = st.columns(2)
-                        
                         with col_nat1:
                             st.markdown(f"""
                                 <div class="kpi-box" style="background-color: #1e293b; border-color: #334155;">
                                     <div class="kpi-title" style="color: #94a3b8;">Share de la Muestra</div>
                                     <div class="kpi-value" style="color: #fbbf24; font-size: 32px;">{share_porcentaje:.2f}%</div>
-                                    <div class="kpi-delta" style="color: #cbd5e1; font-weight: normal;">Participación en la Venta Total</div>
                                 </div>
                             """, unsafe_allow_html=True)
 
@@ -1579,13 +1532,11 @@ elif st.session_state.vista_actual == 'Estrategico':
                                 <div class="kpi-box" style="background-color: #1e293b; border-color: #deff9a; box-shadow: 0 0 15px rgba(222,255,154,0.1);">
                                     <div class="kpi-title" style="color: #deff9a;">Fuga de Capital Proyectada (Empresa)</div>
                                     <div class="kpi-value" style="color: white; font-size: 36px;">${proyeccion_nacional:,.2f}</div>
-                                    <div class="kpi-delta" style="color: #cbd5e1; font-weight: normal;">Proyección matemática exacta</div>
                                 </div>
                             """, unsafe_allow_html=True)
 
                         st.markdown("---")
                         c_graf, c_tab = st.columns([2, 1])
-                        
                         with c_graf:
                             st.write("### 🏢 Fuga de Capital por Sucursal Piloto")
                             impacto_tda = df_quiebres.groupby(col_tienda)[col_precio].sum().sort_values(ascending=False)
@@ -1602,9 +1553,6 @@ elif st.session_state.vista_actual == 'Estrategico':
                 except Exception as e:
                     st.error(f"Error procesando el cruce de datos: {e}")
 
-    # =================================================================================
-    # PESTAÑA: COMPARATIVO MENSUAL (INJERTADA AQUÍ)
-    # =================================================================================
     with tab_comparativo:
         st.subheader("📈 Análisis Comparativo de Calzado Mensual")
         fecha_act = obtener_fecha_actualizacion(archivo_comp)
@@ -1621,33 +1569,19 @@ elif st.session_state.vista_actual == 'Estrategico':
             c_tipo = next((c for c in df_op.columns if 'tipo' in c.lower() or 'concepto' in c.lower()), None)
             
             if c_prs_op and c_imp_op:
-                # 1. BASE MAESTRA NORMALIZADA
                 df_op_display = df_op.copy()
-                
-                # Extraemos el ID numérico limpio
                 df_op_display['TIENDA_ID'] = df_op_display[c_tda_op].astype(str).str.extract(r'(\d+)', expand=False)
-                
-                # Excluimos tiendas de prueba
                 df_op_display = df_op_display[~df_op_display['TIENDA_ID'].isin(['3004', '3015'])]
                 
-                # Filtros comerciales
-                if c_prov:
-                    df_op_display = df_op_display[~df_op_display[c_prov].astype(str).str.strip().isin(['415', '426', '427'])]
-                if c_tipo:
-                    df_op_display = df_op_display[~df_op_display[c_tipo].astype(str).str.contains('BOLSA|REUSABLE|BOLSO', case=False, na=False)]
+                if c_prov: df_op_display = df_op_display[~df_op_display[c_prov].astype(str).str.strip().isin(['415', '426', '427'])]
+                if c_tipo: df_op_display = df_op_display[~df_op_display[c_tipo].astype(str).str.contains('BOLSA|REUSABLE|BOLSO', case=False, na=False)]
                 
-                # Normalizamos Año y KPIs
                 df_op_display['ANIO_ID'] = pd.to_numeric(df_op_display[c_ano], errors='coerce').astype('Int64')
                 df_op_display[c_prs_op] = pd.to_numeric(df_op_display[c_prs_op], errors='coerce').fillna(0)
                 df_op_display[c_imp_op] = pd.to_numeric(df_op_display[c_imp_op], errors='coerce').fillna(0)
                 
-                # 2. ÚNICO RESUMEN OFICIAL POR TIENDA Y AÑO
                 resumen_maestro = df_op_display.groupby(['TIENDA_ID', 'ANIO_ID'])[[c_prs_op, c_imp_op]].sum().reset_index()
-                
-                # 3. CONSTRUCCIÓN SEGURA DE LA TABLA UI
                 tabla_pivot = resumen_maestro.pivot(index='TIENDA_ID', columns='ANIO_ID', values=[c_prs_op, c_imp_op]).fillna(0)
-                
-                # Aplanar las columnas del pivot
                 tabla_pivot.columns = [f"{col[0]}_{col[1]}" for col in tabla_pivot.columns]
                 
                 col_prs_25 = f"{c_prs_op}_2025"
@@ -1655,12 +1589,9 @@ elif st.session_state.vista_actual == 'Estrategico':
                 col_imp_25 = f"{c_imp_op}_2025"
                 col_imp_26 = f"{c_imp_op}_2026"
                 
-                # Garantizar que las columnas existan aunque falte un año en los datos
                 for c in [col_prs_25, col_prs_26, col_imp_25, col_imp_26]:
-                    if c not in tabla_pivot.columns:
-                        tabla_pivot[c] = 0
+                    if c not in tabla_pivot.columns: tabla_pivot[c] = 0
                 
-                # Calcular totales globales para los KPIs superiores
                 tot_p25 = tabla_pivot[col_prs_25].sum()
                 tot_p26 = tabla_pivot[col_prs_26].sum()
                 tot_w25 = tabla_pivot[col_imp_25].sum()
@@ -1672,27 +1603,14 @@ elif st.session_state.vista_actual == 'Estrategico':
                 with c1:
                     signo_p = "+" if var_p_global >= 0 else ""
                     col_p = "#155724" if var_p_global >= 0 else "#721c24"
-                    st.markdown(f"""
-                        <div class="kpi-box">
-                            <div class="kpi-title">📦 Total Pares Zona Occidente</div>
-                            <div class="kpi-value">{tot_p26:,.0f} Pares</div>
-                            <div class="kpi-delta" style="color: {col_p};">Variación: {signo_p}{var_p_global:.2f}% vs 2025</div>
-                        </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown(f"<div class='kpi-box'><div class='kpi-title'>📦 Total Pares Zona Occidente</div><div class='kpi-value'>{tot_p26:,.0f} Pares</div><div class='kpi-delta' style='color: {col_p};'>Variación: {signo_p}{var_p_global:.2f}% vs 2025</div></div>", unsafe_allow_html=True)
                 with c2:
                     signo_w = "+" if var_w_global >= 0 else ""
                     col_w = "#155724" if var_w_global >= 0 else "#721c24"
-                    st.markdown(f"""
-                        <div class="kpi-box">
-                            <div class="kpi-title">💰 Total Ventas ($) Zona Occidente</div>
-                            <div class="kpi-value">${tot_w26:,.2f} MXN</div>
-                            <div class="kpi-delta" style="color: {col_w};">Variación: {signo_w}{var_w_global:.2f}% vs 2025</div>
-                        </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown(f"<div class='kpi-box'><div class='kpi-title'>💰 Total Ventas ($) Zona Occidente</div><div class='kpi-value'>${tot_w26:,.2f} MXN</div><div class='kpi-delta' style='color: {col_w};'>Variación: {signo_w}{var_w_global:.2f}% vs 2025</div></div>", unsafe_allow_html=True)
                 
                 st.write("<br>", unsafe_allow_html=True)
                 
-                # Formatear la tabla final UI
                 tabla_comp = pd.DataFrame({
                     'TIENDA': tabla_pivot.index,
                     'PARES 2025': tabla_pivot[col_prs_25],
@@ -1718,7 +1636,6 @@ elif st.session_state.vista_actual == 'Estrategico':
                 st.write("<br>", unsafe_allow_html=True)
                 st.markdown("---")
                 
-                # SECCIÓN DE ENVÍO MASIVO ("BOTÓN NUCLEAR")
                 st.markdown("### 📧 Plataforma de Comunicación Ejecutiva")
                 col_clave, col_boton = st.columns([1, 2])
                 with col_clave:
@@ -1731,7 +1648,6 @@ elif st.session_state.vista_actual == 'Estrategico':
                             if not confirmar_envio:
                                 st.warning("⚠️ Debes marcar la casilla de confirmación para habilitar el envío masivo.")
                             else:
-                                # 1. Preparamos DataFrames de Conversión Globalmente
                                 df_tdas_envio = cargar_tiendas()
                                 df_tdas_envio.columns = df_tdas_envio.columns.astype(str).str.strip().str.upper()
                                 col_id_tda_envio = next((c for c in df_tdas_envio.columns if c in ['TIENDA', 'SUCURSAL', 'NUMERO', 'ID']), df_tdas_envio.columns[0])
@@ -1746,38 +1662,25 @@ elif st.session_state.vista_actual == 'Estrategico':
                                     
                                     df_c_envio['CONVERSIÓN'] = df_c_envio[col_conv_real].apply(lambda x: x*100 if x < 1 else x)
                                     df_c_envio['TICKET PROMEDIO'] = df_c_envio[col_tkt_real]
-                                    
-                                    # EXTRAER ID NUMÉRICO DE CONVERSIÓN
                                     df_c_envio['TIENDA_ID'] = df_c_envio[col_tda_c].astype(str).str.extract(r'(\d+)', expand=False)
 
-                                # 2. Barras de estado UI
                                 progress_bar = st.progress(0)
                                 status_text = st.empty()
                                 success_count = 0
                                 omitted_count = 0 
-                                
                                 total_tiendas = len(df_tdas_envio)
                                 
-                                # 3. Bucle sobre todas las tiendas usando las BASES MAESTRAS
                                 for idx, row_tda in df_tdas_envio.iterrows():
                                     tda_raw = str(row_tda[col_id_tda_envio])
                                     match = re.search(r'\d+', tda_raw)
-                                    if not match:
-                                        continue
-                                        
+                                    if not match: continue
                                     tienda_obj = match.group()
-                                    
                                     correo_oficial = str(row_tda[col_correo_envio]).strip() if col_correo_envio else "fleoutgdl@divec-flexi.com"
-                                    if correo_oficial.lower() == 'nan' or not correo_oficial:
-                                        correo_oficial = "fleoutgdl@divec-flexi.com"
+                                    if correo_oficial.lower() == 'nan' or not correo_oficial: correo_oficial = "fleoutgdl@divec-flexi.com"
 
                                     status_text.text(f"Procesando reporte para Tienda {tienda_obj}...")
+                                    conv_actual, tkt_actual, encontrado_kpi = 0.0, 0.0, False
 
-                                    conv_actual = 0.0
-                                    tkt_actual = 0.0
-                                    encontrado_kpi = False
-
-                                    # CRUCE DE CONVERSIÓN
                                     if archivo_conv and 'df_c_envio' in locals():
                                         fila_c = df_c_envio[df_c_envio['TIENDA_ID'] == tienda_obj]
                                         if not fila_c.empty:
@@ -1790,10 +1693,7 @@ elif st.session_state.vista_actual == 'Estrategico':
                                         progress_bar.progress((idx + 1) / total_tiendas)
                                         continue
 
-                                    faltan_pares_calc = 0
-                                    faltan_pesos_calc = 0.0
-                                    
-                                    # CONSULTA A LA BASE MAESTRA DE COMPARATIVO
+                                    faltan_pares_calc, faltan_pesos_calc = 0, 0.0
                                     datos_tienda = resumen_maestro[resumen_maestro['TIENDA_ID'] == tienda_obj]
                                     
                                     if not datos_tienda.empty:
@@ -1801,40 +1701,20 @@ elif st.session_state.vista_actual == 'Estrategico':
                                         pares_2026 = int(datos_tienda[datos_tienda['ANIO_ID'] == 2026][c_prs_op].sum())
                                         pesos_2025 = float(datos_tienda[datos_tienda['ANIO_ID'] == 2025][c_imp_op].sum())
                                         pesos_2026 = float(datos_tienda[datos_tienda['ANIO_ID'] == 2026][c_imp_op].sum())
-                                        
                                         faltan_pares_calc = pares_2025 - pares_2026
                                         faltan_pesos_calc = pesos_2025 - pesos_2026
 
-                                    # Enviar correo
                                     status_text.text(f"Enviando correo a Tienda {tienda_obj}...")
-                                    resultado_alerta = enviar_correo_ejecutivo(
-                                        tienda_objetivo=tienda_obj, 
-                                        conversion=conv_actual, 
-                                        ticket=tkt_actual, 
-                                        meta_conv=10.9, 
-                                        meta_tkt=1.29, 
-                                        faltan_pares=faltan_pares_calc, 
-                                        faltan_pesos=faltan_pesos_calc,
-                                        correo_destinatario=correo_oficial
-                                    )
-                                    
-                                    if "✅" in resultado_alerta:
-                                        success_count += 1
-                                        
+                                    resultado_alerta = enviar_correo_ejecutivo(tienda_obj, conv_actual, tkt_actual, 10.9, 1.29, faltan_pares_calc, faltan_pesos_calc, correo_oficial)
+                                    if "✅" in resultado_alerta: success_count += 1
                                     progress_bar.progress((idx + 1) / total_tiendas)
                                     
                                 status_text.text("Operación finalizada.")
-                                if omitted_count > 0:
-                                    st.success(f"✅ Se enviaron reportes a {success_count} sucursales. Se omitieron {omitted_count} tiendas por falta de KPIs en los archivos fuente.")
-                                else:
-                                    st.success(f"✅ ¡Operación exitosa! Se enviaron reportes ejecutivos a {success_count} sucursales.")
+                                if omitted_count > 0: st.success(f"✅ Se enviaron reportes a {success_count} sucursales. Se omitieron {omitted_count} tiendas por falta de KPIs.")
+                                else: st.success(f"✅ ¡Operación exitosa! Se enviaron reportes ejecutivos a {success_count} sucursales.")
                         else:
                             st.error("❌ Clave incorrecta. Acceso denegado para el envío masivo.")
 
-
-    # =================================================================================
-    # PESTAÑA: PREPARACIÓN DE VISITA EN CAMPO
-    # =================================================================================
     with tab_visita:
         st.markdown("## 🤝 Expediente de Visita y Compromisos")
         st.write("Herramienta de cruce en tiempo real para direccionar la supervisión en tienda de forma objetiva.")
@@ -1854,10 +1734,8 @@ elif st.session_state.vista_actual == 'Estrategico':
                     
                     v_conv, v_tkt, v_alcance, v_quiebres, v_rating = 0.0, 0.0, 0.0, 0, 0
                     v_conv_ant, v_tkt_ant = 0.0, 0.0
-                    v_faltan_pares = 0
-                    v_faltan_pesos = 0.0
-                    v_total_modelos = 0
-                    v_modelos_desfogue = 0
+                    v_faltan_pares, v_faltan_pesos = 0, 0.0
+                    v_total_modelos, v_modelos_desfogue = 0, 0
                     
                     if archivo_conv:
                         df_c = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
@@ -1877,13 +1755,11 @@ elif st.session_state.vista_actual == 'Estrategico':
                             if col_cv:
                                 v_conv = float(fila_c.iloc[0][col_cv])
                                 v_conv = v_conv * 100 if v_conv < 1 else v_conv
-                            if col_tk:
-                                v_tkt = float(fila_c.iloc[0][col_tk])
+                            if col_tk: v_tkt = float(fila_c.iloc[0][col_tk])
                             if col_cv_ant:
                                 v_conv_ant = float(fila_c.iloc[0][col_cv_ant])
                                 v_conv_ant = v_conv_ant * 100 if v_conv_ant < 1 else v_conv_ant
-                            if col_tk_ant:
-                                v_tkt_ant = float(fila_c.iloc[0][col_tk_ant])
+                            if col_tk_ant: v_tkt_ant = float(fila_c.iloc[0][col_tk_ant])
                     
                     if archivo_comp:
                         df_op = pd.read_excel(archivo_comp) if archivo_comp.endswith('.xlsx') else pd.read_csv(archivo_comp)
@@ -1901,23 +1777,18 @@ elif st.session_state.vista_actual == 'Estrategico':
                         
                         df_op['ANIO_ID'] = pd.to_numeric(df_op[c_ano], errors='coerce').astype('Int64')
                         df_op[c_prs] = pd.to_numeric(df_op[c_prs], errors='coerce').fillna(0)
-                        if c_imp:
-                            df_op[c_imp] = pd.to_numeric(df_op[c_imp], errors='coerce').fillna(0)
+                        if c_imp: df_op[c_imp] = pd.to_numeric(df_op[c_imp], errors='coerce').fillna(0)
                         
                         pares_25 = df_op[df_op['ANIO_ID'] == 2025][c_prs].sum()
                         pares_26 = df_op[df_op['ANIO_ID'] == 2026][c_prs].sum()
                         v_alcance = (pares_26 / pares_25 * 100) if pares_25 > 0 else 0.0
-                        
                         pesos_25 = df_op[df_op['ANIO_ID'] == 2025][c_imp].sum() if c_imp else 0.0
                         pesos_26 = df_op[df_op['ANIO_ID'] == 2026][c_imp].sum() if c_imp else 0.0
-                        
                         v_faltan_pares = int(pares_25 - pares_26)
                         v_faltan_pesos = float(pesos_25 - pesos_26)
 
                     cargar_archivos_locales()
-                    
-                    v_pares_transito = 0
-                    v_modelos_transito = 0
+                    v_pares_transito, v_modelos_transito = 0, 0
                     
                     if 'df_ventas' in st.session_state and 'df_tallas' in st.session_state:
                         df_v = st.session_state.df_ventas.copy()
@@ -1930,12 +1801,9 @@ elif st.session_state.vista_actual == 'Estrategico':
                         if not df_tienda_v.empty:
                             ex_cols = [f'ex{i}' for i in range(1, 16) if f'ex{i}' in df_tienda_v.columns]
                             p_cols = [f'p{i}' for i in range(1, 16) if f'p{i}' in df_tienda_v.columns]
-                            
-                            for col in ex_cols + p_cols:
-                                df_tienda_v[col] = pd.to_numeric(df_tienda_v[col], errors='coerce').fillna(0)
+                            for col in ex_cols + p_cols: df_tienda_v[col] = pd.to_numeric(df_tienda_v[col], errors='coerce').fillna(0)
                             
                             stock_por_modelo = df_tienda_v.groupby('Modelo')[ex_cols].sum().sum(axis=1)
-                            
                             v_total_modelos = len(stock_por_modelo[stock_por_modelo > 0])
                             v_modelos_desfogue = len(stock_por_modelo[(stock_por_modelo >= 1) & (stock_por_modelo <= 3)])
                             
@@ -1961,13 +1829,12 @@ elif st.session_state.vista_actual == 'Estrategico':
                                                 try:
                                                     t_num = float(talla_fisica)
                                                     if t_num >= 100: t_num = t_num / 10.0
-                                                except:
-                                                    t_num = 0.0
+                                                except: t_num = 0.0
                                                     
                                                 # ESCUDO GLOBAL DE TALLAS FANTASMA Y EXCEPCIONES
                                                 if dpto == 'caballero' and t_num == 30.5: continue 
                                                 if dpto in ['niño', 'nino'] and t_num == 21.5: continue
-                                                if dpto == 'joven' and t_num > 25.0 and modelo_act in lista_exc_v: continue
+                                                if t_num > 25.0 and modelo_act in lista_exc_v: continue
                                                 
                                                 modelos_quebrados.add(row['Modelo'])
                                                 break
@@ -1994,83 +1861,45 @@ elif st.session_state.vista_actual == 'Estrategico':
                         dif_meta_cv = v_conv - 10.9
                         color_meta_cv = "#155724" if dif_meta_cv >= 0 else "#721c24"
                         arrow_meta_cv = "↑" if dif_meta_cv >= 0 else "↓"
-                        
                         dif_ant_cv = v_conv - v_conv_ant
                         color_ant_cv = "#155724" if dif_ant_cv >= 0 else "#721c24"
                         arrow_ant_cv = "↑" if dif_ant_cv >= 0 else "↓"
                         texto_ant_cv = f"2025: {v_conv_ant:.2f}%" if v_conv_ant > 0 else "2025: S/D"
-                        
-                        html_cv = f"""
-                        <div style="border: 1px solid rgba(49, 51, 63, 0.2); border-radius: 0.5rem; padding: calc(1rem - 1px); background-color: #ffffff; height: 100%;">
-                            <label style="font-size: 14px; color: rgb(49, 51, 63); margin-bottom: 0.25rem;">Conversión</label>
-                            <div style="font-size: 1.8rem; font-weight: 600; color: rgb(49, 51, 63); padding-bottom: 0.25rem;">{v_conv:.2f}%</div>
-                            <div style="font-size: 14px; color: {color_meta_cv}; font-weight: 500;">{arrow_meta_cv} {abs(dif_meta_cv):.2f}% vs Meta</div>
-                            <div style="font-size: 13px; color: {color_ant_cv}; font-weight: 500; margin-top: 2px;">{arrow_ant_cv} {abs(dif_ant_cv):.2f}% vs {texto_ant_cv}</div>
-                        </div>
-                        """
+                        html_cv = f"""<div style="border: 1px solid rgba(49,51,63,0.2); border-radius: 0.5rem; padding: calc(1rem - 1px); background-color: #ffffff; height: 100%;"><label style="font-size: 14px; color: rgb(49, 51, 63); margin-bottom: 0.25rem;">Conversión</label><div style="font-size: 1.8rem; font-weight: 600; color: rgb(49, 51, 63); padding-bottom: 0.25rem;">{v_conv:.2f}%</div><div style="font-size: 14px; color: {color_meta_cv}; font-weight: 500;">{arrow_meta_cv} {abs(dif_meta_cv):.2f}% vs Meta</div><div style="font-size: 13px; color: {color_ant_cv}; font-weight: 500; margin-top: 2px;">{arrow_ant_cv} {abs(dif_ant_cv):.2f}% vs {texto_ant_cv}</div></div>"""
                         c1.markdown(html_cv, unsafe_allow_html=True)
-                    else:
-                        c1.metric("Conversión", f"{v_conv:.2f}%")
+                    else: c1.metric("Conversión", f"{v_conv:.2f}%")
 
                     if v_tkt > 0:
                         dif_meta_tk = v_tkt - 1.29
                         color_meta_tk = "#155724" if dif_meta_tk >= 0 else "#721c24"
                         arrow_meta_tk = "↑" if dif_meta_tk >= 0 else "↓"
-                        
                         dif_ant_tk = v_tkt - v_tkt_ant
                         color_ant_tk = "#155724" if dif_ant_tk >= 0 else "#721c24"
                         arrow_ant_tk = "↑" if dif_ant_tk >= 0 else "↓"
                         texto_ant_tk = f"2025: {v_tkt_ant:.2f}" if v_tkt_ant > 0 else "2025: S/D"
-                        
-                        html_tk = f"""
-                        <div style="border: 1px solid rgba(49, 51, 63, 0.2); border-radius: 0.5rem; padding: calc(1rem - 1px); background-color: #ffffff; height: 100%;">
-                            <label style="font-size: 14px; color: rgb(49, 51, 63); margin-bottom: 0.25rem;">Ticket Promedio</label>
-                            <div style="font-size: 1.8rem; font-weight: 600; color: rgb(49, 51, 63); padding-bottom: 0.25rem;">{v_tkt:.2f}</div>
-                            <div style="font-size: 14px; color: {color_meta_tk}; font-weight: 500;">{arrow_meta_tk} {abs(dif_meta_tk):.2f} vs Meta</div>
-                            <div style="font-size: 13px; color: {color_ant_tk}; font-weight: 500; margin-top: 2px;">{arrow_ant_tk} {abs(dif_ant_tk):.2f} vs {texto_ant_tk}</div>
-                        </div>
-                        """
+                        html_tk = f"""<div style="border: 1px solid rgba(49,51,63,0.2); border-radius: 0.5rem; padding: calc(1rem - 1px); background-color: #ffffff; height: 100%;"><label style="font-size: 14px; color: rgb(49, 51, 63); margin-bottom: 0.25rem;">Ticket Promedio</label><div style="font-size: 1.8rem; font-weight: 600; color: rgb(49, 51, 63); padding-bottom: 0.25rem;">{v_tkt:.2f}</div><div style="font-size: 14px; color: {color_meta_tk}; font-weight: 500;">{arrow_meta_tk} {abs(dif_meta_tk):.2f} vs Meta</div><div style="font-size: 13px; color: {color_ant_tk}; font-weight: 500; margin-top: 2px;">{arrow_ant_tk} {abs(dif_ant_tk):.2f} vs {texto_ant_tk}</div></div>"""
                         c2.markdown(html_tk, unsafe_allow_html=True)
-                    else:
-                        c2.metric("Ticket Promedio", f"{v_tkt:.2f}")
+                    else: c2.metric("Ticket Promedio", f"{v_tkt:.2f}")
 
-                    html_c3 = f"""
-                    <div style="border: 1px solid rgba(49, 51, 63, 0.2); border-radius: 0.5rem; padding: calc(1rem - 1px); background-color: #ffffff; height: 100%;">
-                        <label style="font-size: 14px; color: rgb(49, 51, 63); margin-bottom: 0.25rem;">Alcance Histórico</label>
-                        <div style="font-size: 1.8rem; font-weight: 600; color: rgb(49, 51, 63); padding-bottom: 0.25rem;">{v_alcance:.1f}%</div>
-                    </div>
-                    """
+                    html_c3 = f"""<div style="border: 1px solid rgba(49,51,63,0.2); border-radius: 0.5rem; padding: calc(1rem - 1px); background-color: #ffffff; height: 100%;"><label style="font-size: 14px; color: rgb(49, 51, 63); margin-bottom: 0.25rem;">Alcance Histórico</label><div style="font-size: 1.8rem; font-weight: 600; color: rgb(49, 51, 63); padding-bottom: 0.25rem;">{v_alcance:.1f}%</div></div>"""
                     c3.markdown(html_c3, unsafe_allow_html=True)
 
-                    html_c4 = f"""
-                    <div style="border: 1px solid rgba(49, 51, 63, 0.2); border-radius: 0.5rem; padding: calc(1rem - 1px); background-color: #ffffff; height: 100%;">
-                        <label style="font-size: 14px; color: rgb(49, 51, 63); margin-bottom: 0.25rem;">Quiebres Detectados</label>
-                        <div style="font-size: 1.8rem; font-weight: 600; color: rgb(49, 51, 63); padding-bottom: 0.25rem;">{v_quiebres} Mod.</div>
-                    </div>
-                    """
+                    html_c4 = f"""<div style="border: 1px solid rgba(49,51,63,0.2); border-radius: 0.5rem; padding: calc(1rem - 1px); background-color: #ffffff; height: 100%;"><label style="font-size: 14px; color: rgb(49, 51, 63); margin-bottom: 0.25rem;">Quiebres Detectados</label><div style="font-size: 1.8rem; font-weight: 600; color: rgb(49, 51, 63); padding-bottom: 0.25rem;">{v_quiebres} Mod.</div></div>"""
                     c4.markdown(html_c4, unsafe_allow_html=True)
                     
                     st.markdown("#### 📊 Reto Acumulado vs Histórico")
                     c_pares, c_pesos = st.columns(2)
-                    if v_faltan_pares > 0:
-                        c_pares.metric("Brecha en Pares", f"Faltan {v_faltan_pares:,.0f} pares", "- Por debajo del histórico", delta_color="inverse")
-                    else:
-                        c_pares.metric("Brecha en Pares", f"A favor: {abs(v_faltan_pares):,.0f} pares", "+ Superando histórico")
-                        
-                    if v_faltan_pesos > 0:
-                        c_pesos.metric("Brecha en Ingresos", f"Faltan ${v_faltan_pesos:,.2f}", "- Por debajo del histórico", delta_color="inverse")
-                    else:
-                        c_pesos.metric("Brecha en Ingresos", f"A favor: ${abs(v_faltan_pesos):,.2f}", "+ Superando histórico")
+                    if v_faltan_pares > 0: c_pares.metric("Brecha en Pares", f"Faltan {v_faltan_pares:,.0f} pares", "- Por debajo del histórico", delta_color="inverse")
+                    else: c_pares.metric("Brecha en Pares", f"A favor: {abs(v_faltan_pares):,.0f} pares", "+ Superando histórico")
+                    if v_faltan_pesos > 0: c_pesos.metric("Brecha en Ingresos", f"Faltan ${v_faltan_pesos:,.2f}", "- Por debajo del histórico", delta_color="inverse")
+                    else: c_pesos.metric("Brecha en Ingresos", f"A favor: ${abs(v_faltan_pesos):,.2f}", "+ Superando histórico")
 
                     st.markdown("#### 📦 Análisis de Inventario y Catálogo")
                     c_cat, c_desf, c_trans = st.columns(3)
                     c_cat.metric("Catálogo Activo", f"{v_total_modelos} Modelos", "En piso de venta")
                     
-                    if v_modelos_desfogue > 0:
-                        c_desf.metric("Candidatos a Desfogue", f"{v_modelos_desfogue} Modelos", "Con 1 a 3 pares totales", delta_color="inverse")
-                    else:
-                        c_desf.metric("Candidatos a Desfogue", "0 Modelos", "Inventario sano", delta_color="normal")
-                        
+                    if v_modelos_desfogue > 0: c_desf.metric("Candidatos a Desfogue", f"{v_modelos_desfogue} Modelos", "Con 1 a 3 pares totales", delta_color="inverse")
+                    else: c_desf.metric("Candidatos a Desfogue", "0 Modelos", "Inventario sano", delta_color="normal")
                     c_trans.metric("🚚 Resurtido (Top 20)", f"{v_pares_transito} Pares en tránsito", f"Para {v_modelos_transito} modelos estrella", delta_color="normal" if v_pares_transito > 0 else "off")
 
                     if v_modelos_desfogue > 0 and 'stock_por_modelo' in locals():
@@ -2080,17 +1909,9 @@ elif st.session_state.vista_actual == 'Estrategico':
                             df_desfogue = df_desfogue.sort_values(by='Pares Físicos (Total)', ascending=True).reset_index(drop=True)
                             df_desfogue.index += 1
                             st.table(df_desfogue)
-                            
                             st.write("<br>", unsafe_allow_html=True)
                             pdf_desfogue_bytes = generar_reporte_desfogue_pdf(df_desfogue=df_desfogue, nombre_sucursal=str(tienda_seleccionada))
-                            st.download_button(
-                                label="📄 Descargar Orden de Desfogue (PDF Oficial)",
-                                data=pdf_desfogue_bytes, 
-                                file_name=f"Orden_Desfogue_{tienda_obj}.pdf", 
-                                mime="application/pdf", 
-                                type="primary",
-                                key=f"desfogue_download_{tienda_obj}"
-                            )
+                            st.download_button(label="📄 Descargar Orden de Desfogue (PDF Oficial)", data=pdf_desfogue_bytes, file_name=f"Orden_Desfogue_{tienda_obj}.pdf", mime="application/pdf", type="primary", key=f"desfogue_download_{tienda_obj}")
 
                     if v_pares_transito > 0 and 'pedidos_por_modelo' in locals():
                         with st.expander("⬇️ Ver detalle de modelos en tránsito (Top 20)"):
@@ -2103,52 +1924,23 @@ elif st.session_state.vista_actual == 'Estrategico':
                     st.markdown("---")
                     st.markdown("### 📋 Instrucción Compromiso Autogenerada")
                     st.caption("Texto listo para ser enviado por WhatsApp o correo al finalizar la visita y dejar evidencia formal.")
-                    
                     compromisos = []
-                    if v_conv < 10.9:
-                        compromisos.append("👠 **Mejora en Conversión:** Implementar clínicas de abordaje al cliente en piso y ejecutar cierres de venta efectivos en el área de probadores para alcanzar la meta del 10.9%.")
-                    if v_tkt < 1.29:
-                        compromisos.append("🛍️ **Impulso al Ticket Promedio:** Fomentar agresivamente el ofrecimiento del segundo par o producto de impulso (accesorio) en caja para lograr el objetivo de 1.29 unidades.")
-                    
-                    if v_alcance < 100:
-                        compromisos.append("🚀 **Recuperación de Volumen:** Activar el enfoque comercial sobre los modelos del Top 20 de la Zona para igualar y superar el desplazamiento de pares respecto al año anterior.")
-                    
-                    if v_faltan_pares > 0:
-                        compromisos.append(f"🎯 **Cierre de Brecha Matemática:** El objetivo exacto y obligatorio para empatar el crecimiento histórico requiere desplazar **{v_faltan_pares:,.0f} pares** adicionales, lo que representará un ingreso recuperado de **${v_faltan_pesos:,.2f} MXN**.")
-                    elif v_faltan_pares < 0:
-                        compromisos.append(f"🏆 **Expansión Comercial:** Reconocemos el superávit de **+{abs(v_faltan_pares):,.0f} pares** (${abs(v_faltan_pesos):,.2f} MXN) frente al histórico. El compromiso es mantener esta aceleración y proteger el liderazgo comercial de la sucursal.")
-
-                    if v_quiebres > 5:
-                        compromisos.append("⚠️ **Gestión de Quiebres:** Garantizar el reporte oportuno en la Bitácora sobre faltantes de Tallas Extremas para gestionar la nivelación y evitar fuga de capital.")
-                    
-                    if v_modelos_desfogue > 0:
-                        compromisos.append(f"📦 **Depuración de Inventario (Desfogue):** Se detectaron **{v_modelos_desfogue} modelos** con inventario marginal (1 a 3 pares totales). El compromiso es generar el reporte de transferencia a sucursales Outlet antes del cierre de semana para liberar espacio de bodega y concentrar la labor de venta en el catálogo de alta rotación.")
-                    
-                    if not compromisos:
-                        compromisos.append("⭐ **Sostenimiento de Excelencia:** Mantener la estricta disciplina en los procesos de venta actuales, protegiendo los KPIs que hoy mantienen a la sucursal en el nivel de excelencia.")
+                    if v_conv < 10.9: compromisos.append("👠 **Mejora en Conversión:** Implementar clínicas de abordaje al cliente en piso y ejecutar cierres de venta efectivos en el área de probadores para alcanzar la meta del 10.9%.")
+                    if v_tkt < 1.29: compromisos.append("🛍️ **Impulso al Ticket Promedio:** Fomentar agresivamente el ofrecimiento del segundo par o producto de impulso (accesorio) en caja para lograr el objetivo de 1.29 unidades.")
+                    if v_alcance < 100: compromisos.append("🚀 **Recuperación de Volumen:** Activar el enfoque comercial sobre los modelos del Top 20 de la Zona para igualar y superar el desplazamiento de pares respecto al año anterior.")
+                    if v_faltan_pares > 0: compromisos.append(f"🎯 **Cierre de Brecha Matemática:** El objetivo exacto y obligatorio para empatar el crecimiento histórico requiere desplazar **{v_faltan_pares:,.0f} pares** adicionales, lo que representará un ingreso recuperado de **${v_faltan_pesos:,.2f} MXN**.")
+                    elif v_faltan_pares < 0: compromisos.append(f"🏆 **Expansión Comercial:** Reconocemos el superávit de **+{abs(v_faltan_pares):,.0f} pares** (${abs(v_faltan_pesos):,.2f} MXN) frente al histórico. El compromiso es mantener esta aceleración y proteger el liderazgo comercial de la sucursal.")
+                    if v_quiebres > 5: compromisos.append("⚠️ **Gestión de Quiebres:** Garantizar el reporte oportuno en la Bitácora sobre faltantes de Tallas Extremas para gestionar la nivelación y evitar fuga de capital.")
+                    if v_modelos_desfogue > 0: compromisos.append(f"📦 **Depuración de Inventario (Desfogue):** Se detectaron **{v_modelos_desfogue} modelos** con inventario marginal (1 a 3 pares totales). El compromiso es generar el reporte de transferencia a sucursales Outlet antes del cierre de semana para liberar espacio de bodega y concentrar la labor de venta en el catálogo de alta rotación.")
+                    if not compromisos: compromisos.append("⭐ **Sostenimiento de Excelencia:** Mantener la estricta disciplina en los procesos de venta actuales, protegiendo los KPIs que hoy mantienen a la sucursal en el nivel de excelencia.")
 
                     texto_viñetas = "\n".join([f"- {c}" for c in compromisos])
                     fecha_hoy = (datetime.datetime.utcnow() - datetime.timedelta(hours=6)).strftime("%d/%m/%Y")
-                    
-                    texto_final = f"""Estimada {encargada_obj},
-
-Con base en la supervisión operativa del día de hoy ({fecha_hoy}), establecemos los siguientes compromisos ejecutivos para la sucursal {tienda_seleccionada}, alineados a su desempeño actual ({v_rating} pts de Rating):
-
-{texto_viñetas}
-
-Queda bajo su responsabilidad el seguimiento de estas directrices con su equipo de asesores para nuestra próxima evaluación.
-
-Atentamente,
-LAE. José Martín Estrada Cabrera
-Gerencia Comercial Zona Occidente
-"""
+                    texto_final = f"Estimada {encargada_obj},\n\nCon base en la supervisión operativa del día de hoy ({fecha_hoy}), establecemos los siguientes compromisos ejecutivos para la sucursal {tienda_seleccionada}, alineados a su desempeño actual ({v_rating} pts de Rating):\n\n{texto_viñetas}\n\nQueda bajo su responsabilidad el seguimiento de estas directrices con su equipo de asesores para nuestra próxima evaluación.\n\nAtentamente,\nLAE. José Martín Estrada Cabrera\nGerencia Comercial Zona Occidente\n"
                     st.text_area("Copia el siguiente mensaje:", value=texto_final, height=450)
         else:
             st.warning("No se pudo cargar la base de tiendas.")
 
-    # =================================================================================
-    # PESTAÑA: NIVELACIÓN INTELIGENTE (EL GOL DE ORO)
-    # =================================================================================
     with tab_nivelacion_intel:
         st.subheader("📦 Nivelación Inteligente de Inventario")
         st.write("Identificación automática de pares inmovilizados para cubrir quiebres absolutos de modelos estrella.")
@@ -2196,7 +1988,6 @@ Gerencia Comercial Zona Occidente
                     # 2. Motor de Emparejamiento con KARDEX VIRTUAL
                     for tda_receptor in tiendas_list:
                         df_receptor = df_v[df_v['tienda_int'] == tda_receptor]
-                        
                         top_modelos = df_receptor[df_receptor['Vtas'] > 0].groupby('Modelo_cln')['Vtas'].sum().nlargest(30).index
 
                         for modelo in top_modelos:
@@ -2220,16 +2011,14 @@ Gerencia Comercial Zona Occidente
                                 try:
                                     t_num = float(talla_real)
                                     if t_num >= 100: t_num = t_num / 10.0
-                                except:
-                                    t_num = 0.0
+                                except: t_num = 0.0
 
                                 # ESCUDO GLOBAL DE TALLAS FANTASMA Y EXCEPCIONES
                                 if dpto == 'caballero' and t_num == 30.5: continue 
                                 if dpto in ['niño', 'nino'] and t_num == 21.5: continue
-                                if dpto == 'joven' and t_num > 25.0 and modelo in lista_exc_n: continue
+                                if t_num > 25.0 and modelo in lista_exc_n: continue
 
                                 if ex_rec == 0 and p_rec == 0:
-                                    
                                     # KARDEX VIRTUAL: Lee el inventario descontando lo que ya se donó
                                     df_donadores = df_v[
                                         (df_v['Modelo_cln'] == modelo) & 
@@ -2269,76 +2058,33 @@ Gerencia Comercial Zona Occidente
                         df_traspasos = pd.DataFrame(traspasos_sugeridos)
                         st.success(f"✅ ¡Análisis completado! Se encontraron {len(df_traspasos)} oportunidades de rescate de capital bajo las reglas estrictas de negocio.")
                         
-                        html_tabla = "<div style='overflow-x:auto;'>\n"
-                        html_tabla += "<table style='width:100%; border-collapse: collapse; font-family: sans-serif; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);'>\n"
-                        html_tabla += "<thead>\n"
-                        html_tabla += "<tr style='background-color: #E30613; color: white; text-transform: uppercase; font-size: 13px;'>\n"
-                        html_tabla += "<th style='padding: 12px 15px; border: 1px solid #b9000b; text-align: left;'>Sucursal Origen</th>\n"
-                        html_tabla += "<th style='padding: 12px 15px; border: 1px solid #b9000b; text-align: left;'>Sucursal Destino</th>\n"
-                        html_tabla += "<th style='padding: 12px 15px; border: 1px solid #b9000b; text-align: center;'>Modelo</th>\n"
-                        html_tabla += "<th style='padding: 12px 15px; border: 1px solid #b9000b; text-align: center;'>Talla</th>\n"
-                        html_tabla += "<th style='padding: 12px 15px; border: 1px solid #b9000b; text-align: center;'>Cant.</th>\n"
-                        html_tabla += "<th style='padding: 12px 15px; border: 1px solid #b9000b; text-align: left;'>Lógica del Sistema</th>\n"
-                        html_tabla += "</tr>\n"
-                        html_tabla += "</thead>\n"
-                        html_tabla += "<tbody>\n"
-                        
+                        html_tabla = "<div style='overflow-x:auto;'>\n<table style='width:100%; border-collapse: collapse; font-family: sans-serif; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);'>\n<thead>\n<tr style='background-color: #E30613; color: white; text-transform: uppercase; font-size: 13px;'>\n<th style='padding: 12px 15px; border: 1px solid #b9000b; text-align: left;'>Sucursal Origen</th>\n<th style='padding: 12px 15px; border: 1px solid #b9000b; text-align: left;'>Sucursal Destino</th>\n<th style='padding: 12px 15px; border: 1px solid #b9000b; text-align: center;'>Modelo</th>\n<th style='padding: 12px 15px; border: 1px solid #b9000b; text-align: center;'>Talla</th>\n<th style='padding: 12px 15px; border: 1px solid #b9000b; text-align: center;'>Cant.</th>\n<th style='padding: 12px 15px; border: 1px solid #b9000b; text-align: left;'>Lógica del Sistema</th>\n</tr>\n</thead>\n<tbody>\n"
                         for _, row in df_traspasos.iterrows():
-                            html_tabla += f"<tr style='border-bottom: 1px solid #e2e8f0; background-color: white; transition: background-color 0.2s;'>\n"
-                            html_tabla += f"<td style='padding: 12px 15px; background-color: #fee2e2; color: #991b1b; font-weight: bold; border-right: 1px solid #e2e8f0;'>🏪 {row['ORIGEN']}</td>\n"
-                            html_tabla += f"<td style='padding: 12px 15px; background-color: #d1fae5; color: #166534; font-weight: bold; border-right: 1px solid #e2e8f0;'>🎯 {row['DESTINO']}</td>\n"
-                            html_tabla += f"<td style='padding: 12px 15px; text-align: center; font-weight: bold; color: #1e293b;'>{row['MODELO']}</td>\n"
-                            html_tabla += f"<td style='padding: 12px 15px; text-align: center; color: #475569;'>{row['TALLA']}</td>\n"
-                            html_tabla += f"<td style='padding: 12px 15px; text-align: center; background-color: #fef08a; color: #854d0e; font-size: 16px; font-weight: 900; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;'>{row['CANTIDAD']}</td>\n"
-                            html_tabla += f"<td style='padding: 12px 15px; font-size: 12px; color: #64748b;'>{row['JUSTIFICACIÓN']}</td>\n"
-                            html_tabla += "</tr>\n"
-                            
+                            html_tabla += f"<tr style='border-bottom: 1px solid #e2e8f0; background-color: white; transition: background-color 0.2s;'>\n<td style='padding: 12px 15px; background-color: #fee2e2; color: #991b1b; font-weight: bold; border-right: 1px solid #e2e8f0;'>🏪 {row['ORIGEN']}</td>\n<td style='padding: 12px 15px; background-color: #d1fae5; color: #166534; font-weight: bold; border-right: 1px solid #e2e8f0;'>🎯 {row['DESTINO']}</td>\n<td style='padding: 12px 15px; text-align: center; font-weight: bold; color: #1e293b;'>{row['MODELO']}</td>\n<td style='padding: 12px 15px; text-align: center; color: #475569;'>{row['TALLA']}</td>\n<td style='padding: 12px 15px; text-align: center; background-color: #fef08a; color: #854d0e; font-size: 16px; font-weight: 900; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;'>{row['CANTIDAD']}</td>\n<td style='padding: 12px 15px; font-size: 12px; color: #64748b;'>{row['JUSTIFICACIÓN']}</td>\n</tr>\n"
                         html_tabla += "</tbody></table></div>"
-                        
                         st.markdown(html_tabla, unsafe_allow_html=True)
 
                         pdf_bytes = generar_reporte_traspaso_masivo_pdf(df_traspasos)
                         st.write("<br>", unsafe_allow_html=True)
-                        st.download_button(
-                            label="📄 Descargar Órdenes de Traspaso (PDF Oficial)",
-                            data=pdf_bytes,
-                            file_name="Ordenes_Nivelacion_Inventario.pdf",
-                            mime="application/pdf",
-                            type="primary",
-                            key="btn_descarga_traspasos"
-                        )
-                    else:
-                        st.info("No se encontraron oportunidades de traspaso que cumplan con la regla estricta (Top Venta quebrado vs Zapato Estancado >= 2). ¡El inventario de la Zona está equilibrado!")
-            else:
-                st.warning("⚠️ No se encontraron los archivos locales (Ventas.xlsx, Valores de tallas.xlsx) necesarios para ejecutar el algoritmo de nivelación.")
+                        st.download_button(label="📄 Descargar Órdenes de Traspaso (PDF Oficial)", data=pdf_bytes, file_name="Ordenes_Nivelacion_Inventario.pdf", mime="application/pdf", type="primary", key="btn_descarga_traspasos")
+                    else: st.info("No se encontraron oportunidades de traspaso. ¡El inventario de la Zona está equilibrado!")
+            else: st.warning("⚠️ No se encontraron los archivos locales necesarios para ejecutar el algoritmo de nivelación.")
 
-
-    # =================================================================================
-    # PESTAÑA: RADAR GEOGRÁFICO (MAPA)
-    # =================================================================================
     with tab_mapa:
         st.subheader("📍 Radar Geográfico de Rendimiento")
         st.write("Vista satelital en tiempo real con cruce de oportunidades de expansión.")
         
-        # --- CONTROLES DE LA FASE 2 ---
         col_m1, col_m2, col_m3 = st.columns([1.5, 1.5, 1])
-        with col_m1:
-            mostrar_cobertura = st.toggle("🔵 Radios de Cobertura (5km)", value=False, help="Dibuja un perímetro de influencia para revelar las zonas ciegas de la ciudad.")
-        with col_m2:
-            mostrar_calor = st.toggle("🔥 Mapa de Calor (Quiebres)", value=False, help="Enciende alertas térmicas sobre sucursales con altos niveles de fuga de capital.")
-        with col_m3:
-            btn_ia = st.button("🤖 Generar Diagnóstico IA", type="primary", use_container_width=True)
-            
-        if btn_ia:
-            st.session_state.mostrar_reporte_ia = True
+        with col_m1: mostrar_cobertura = st.toggle("🔵 Radios de Cobertura (5km)", value=False)
+        with col_m2: mostrar_calor = st.toggle("🔥 Mapa de Calor (Quiebres)", value=False)
+        with col_m3: btn_ia = st.button("🤖 Generar Diagnóstico IA", type="primary", use_container_width=True)
+        if btn_ia: st.session_state.mostrar_reporte_ia = True
             
         try:
             df_mapa = cargar_tiendas()
             df_mapa.columns = df_mapa.columns.astype(str).str.strip().str.upper()
             
             if 'LATITUD' in df_mapa.columns and 'LONGITUD' in df_mapa.columns:
-                
-                # --- NUEVO: Construir diccionario traductor ---
                 col_id_tda = next((c for c in df_mapa.columns if c in ['TIENDA', 'SUCURSAL', 'NUMERO', 'ID']), df_mapa.columns[0])
                 col_nom_tda = next((c for c in df_mapa.columns if c in ['NOMBRE']), df_mapa.columns[1] if len(df_mapa.columns)>1 else df_mapa.columns[0])
                 col_enc_tda = 'ENCARGADO' if 'ENCARGADO' in df_mapa.columns else 'N/A'
@@ -2347,14 +2093,9 @@ Gerencia Comercial Zona Occidente
                 for _, r in df_mapa.iterrows():
                     try:
                         t_id_match = re.search(r'\d+', str(r[col_id_tda]))
-                        if t_id_match:
-                            t_id_val = int(t_id_match.group())
-                            t_nom_val = str(r[col_nom_tda]).strip().upper()
-                            name_to_id_dict[t_nom_val] = t_id_val
-                    except:
-                        pass
+                        if t_id_match: name_to_id_dict[str(r[col_nom_tda]).strip().upper()] = int(t_id_match.group())
+                    except: pass
                 
-                # Extraer Fugas de Capital desde la Bitácora (Base Maestra)
                 quiebres_dict = {}
                 try:
                     if 'sheet_bitacora' in globals():
@@ -2366,32 +2107,24 @@ Gerencia Comercial Zona Occidente
                             col_pr = next((c for c in df_b.columns if 'Precio' in c), df_b.columns[-2])
                             col_td = next((c for c in df_b.columns if 'Tienda' in c), df_b.columns[1])
                             
-                            df_q = df_b[(df_b[col_inc].astype(str).str.contains("Faltante", case=False, na=False)) & 
-                                        (df_b[col_st].astype(str).str.upper() == "VALIDADO")].copy()
+                            df_q = df_b[(df_b[col_inc].astype(str).str.contains("Faltante", case=False, na=False)) & (df_b[col_st].astype(str).str.upper() == "VALIDADO")].copy()
                             df_q[col_pr] = pd.to_numeric(df_q[col_pr], errors='coerce').fillna(0)
-                            
                             def extraer_id_tienda(val):
                                 str_val = str(val).strip().upper()
                                 match = re.search(r'\d+', str_val)
-                                if match:
-                                    return int(match.group())
+                                if match: return int(match.group())
                                 return name_to_id_dict.get(str_val, -1)
-                                
                             df_q['T_ID'] = df_q[col_td].apply(extraer_id_tienda)
                             quiebres_dict = df_q.groupby('T_ID')[col_pr].sum().to_dict()
-                except:
-                    pass
+                except: pass
 
-                # Extraer KPIs de Conversión y Ticket
                 kpi_dict = {}
                 if archivo_conv:
                     df_c_mapa = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
                     df_c_mapa = df_c_mapa[~df_c_mapa.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
-                    
                     col_tda_mapa = next((c for c in df_c_mapa.columns if 'Tienda' in c or 'TIENDA' in c), df_c_mapa.columns[0])
                     col_cv_mapa = next((c for c in df_c_mapa.columns if 'Conv' in c and 'Actual' in c), None)
                     col_tk_mapa = next((c for c in df_c_mapa.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
-                    
                     for _, r in df_c_mapa.iterrows():
                         try:
                             t_id = int(re.search(r'\d+', str(r[col_tda_mapa])).group())
@@ -2399,223 +2132,56 @@ Gerencia Comercial Zona Occidente
                             cv = cv * 100 if cv < 1 else cv
                             tk = float(r[col_tk_mapa]) if col_tk_mapa else 0.0
                             kpi_dict[t_id] = {'conv': cv, 'tkt': tk}
-                        except:
-                            pass
+                        except: pass
                 
-                # Construir datos para Leaflet
                 markers_data = []
-                
                 for _, r in df_mapa.iterrows():
                     try:
-                        lat = float(r['LATITUD'])
-                        lon = float(r['LONGITUD'])
+                        lat, lon = float(r['LATITUD']), float(r['LONGITUD'])
                         t_id = int(re.search(r'\d+', str(r[col_id_tda])).group())
                         nom = str(r[col_nom_tda])
                         enc = str(r[col_enc_tda]) if col_enc_tda in r else 'N/A'
-                        
                         kpis = kpi_dict.get(t_id, {'conv': 0.0, 'tkt': 0.0})
-                        cv = kpis['conv']
-                        tk = kpis['tkt']
-                        
+                        cv, tk = kpis['conv'], kpis['tkt']
                         fuga_capital = quiebres_dict.get(t_id, 0.0)
                         
-                        # Lógica de colores del radar base
-                        if cv >= 10.9 and tk >= 1.29: color = "#22c55e" # Verde
-                        elif cv >= 10.9 or tk >= 1.29: color = "#eab308" # Amarillo
-                        elif cv > 0 or tk > 0: color = "#ef4444" # Rojo
-                        else: color = "#94a3b8" # Gris (Sin datos)
+                        if cv >= 10.9 and tk >= 1.29: color = "#22c55e"
+                        elif cv >= 10.9 or tk >= 1.29: color = "#eab308"
+                        elif cv > 0 or tk > 0: color = "#ef4444"
+                        else: color = "#94a3b8"
                         
-                        markers_data.append({
-                            "lat": lat, "lon": lon, "name": f"{t_id} - {nom}", 
-                            "encargada": enc, "conv": round(cv, 2), "tkt": round(tk, 2), 
-                            "color": color, "fuga": fuga_capital
-                        })
-                    except:
-                        pass
+                        markers_data.append({"lat": lat, "lon": lon, "name": f"{t_id} - {nom}", "encargada": enc, "conv": round(cv, 2), "tkt": round(tk, 2), "color": color, "fuga": fuga_capital})
+                    except: pass
                 
                 if markers_data:
                     js_show_coverage = "true" if mostrar_cobertura else "false"
                     js_show_heatmap = "true" if mostrar_calor else "false"
                     
                     leaflet_html = f"""
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-                        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-                        <style>
-                            .custom-div-icon {{ background: transparent; border: none; }}
-                            .leaflet-popup-content-wrapper {{ border-radius: 12px; padding: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }}
-                            .leaflet-popup-content {{ margin: 0; }}
-                            
-                            /* Estilos para Fase 2: Círculos Térmicos */
-                            .heat-pulse {{
-                                filter: blur(8px);
-                                animation: pulse-animation 2s infinite;
-                            }}
-                            @keyframes pulse-animation {{
-                                0% {{ opacity: 0.4; transform: scale(0.95); }}
-                                50% {{ opacity: 0.7; transform: scale(1.05); }}
-                                100% {{ opacity: 0.4; transform: scale(0.95); }}
-                            }}
-                        </style>
-                    </head>
-                    <body style="margin: 0; padding: 0;">
-                        <div id="map" style="width: 100%; height: 650px; border-radius: 12px;"></div>
-                        <script>
-                            var map = L.map('map').setView([20.67, -103.35], 7);
-                            L.tileLayer('https://tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
-                                maxZoom: 19,
-                                attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                            }}).addTo(map);
-
-                            var markers = {json.dumps(markers_data)};
-                            var bounds = [];
-                            
-                            var showCoverage = {js_show_coverage};
-                            var showHeatmap = {js_show_heatmap};
-
-                            markers.forEach(function(m) {{
-                                
-                                // FASE 2: Radio de Cobertura (5000 metros = 5km)
-                                if (showCoverage) {{
-                                    L.circle([m.lat, m.lon], {{
-                                        radius: 5000,
-                                        color: '#3b82f6',
-                                        weight: 1.5,
-                                        dashArray: '5, 5',
-                                        fillColor: '#3b82f6',
-                                        fillOpacity: 0.1
-                                    }}).addTo(map);
-                                }}
-                                
-                                // FASE 2: Mapa de Calor Customizado
-                                if (showHeatmap && m.fuga > 0) {{
-                                    // Escala matemática del pulso según fuga (máximo 60px de radio)
-                                    var heatRadius = 20 + (Math.min(m.fuga / 3000, 1) * 40);
-                                    
-                                    L.circleMarker([m.lat, m.lon], {{
-                                        radius: heatRadius,
-                                        color: 'transparent',
-                                        fillColor: '#ef4444',
-                                        fillOpacity: 0.6,
-                                        className: 'heat-pulse'
-                                    }}).addTo(map);
-                                }}
-
-                                // Icono Original (El Pin)
-                                var htmlIcon = "<div style='background-color:" + m.color + "; width:20px; height:20px; border-radius:50%; border:3px solid white; box-shadow:0 0 8px rgba(0,0,0,0.5); z-index: 1000; position: relative;'></div>";
-                                var customIcon = L.divIcon({{
-                                    className: 'custom-div-icon',
-                                    html: htmlIcon,
-                                    iconSize: [20, 20],
-                                    iconAnchor: [10, 10]
-                                }});
-
-                                var convColor = m.conv >= 10.9 ? '#155724' : '#721c24';
-                                var tktColor = m.tkt >= 1.29 ? '#155724' : '#721c24';
-                                
-                                var htmlFuga = m.fuga > 0 ? "<div style='margin-top:10px; background-color:#fee2e2; border-radius:6px; padding:6px; text-align:center;'><span style='font-size:10px; color:#991b1b; font-weight:800;'>🔥 FUGA POR QUIEBRE</span><br><span style='font-size:14px; font-weight:900; color:#b91c1c;'>$" + m.fuga.toLocaleString() + "</span></div>" : "";
-
-                                var popupHTML = "<div style='font-family: Arial, sans-serif; min-width: 220px;'>" +
-                                    "<h3 style='margin:0 0 5px 0; color:#1e293b; font-size: 16px; font-weight: 800;'>" + m.name + "</h3>" +
-                                    "<p style='margin:0 0 12px 0; font-size:13px; color:#64748b; font-weight: 600;'>👤 " + m.encargada + "</p>" +
-                                    "<div style='display:flex; justify-content:space-between; border-top:1px solid #e2e8f0; padding-top:8px; margin-top: 8px;'>" +
-                                        "<div style='background-color: #f8fafc; padding: 5px 10px; border-radius: 6px; text-align: center; width: 45%;'>" +
-                                            "<div style='font-size:10px; color:#94a3b8; font-weight: 800;'>CONVERSIÓN</div>" +
-                                            "<div style='font-size:16px; font-weight:900; color:" + convColor + "'>" + m.conv + "%</div>" +
-                                        "</div>" +
-                                        "<div style='background-color: #f8fafc; padding: 5px 10px; border-radius: 6px; text-align: center; width: 45%;'>" +
-                                            "<div style='font-size:10px; color:#94a3b8; font-weight: 800;'>TICKET PROM.</div>" +
-                                            "<div style='font-size:16px; font-weight:900; color:" + tktColor + "'>" + m.tkt + "</div>" +
-                                        "</div>" +
-                                    "</div>" +
-                                    htmlFuga +
-                                "</div>";
-
-                                var marker = L.marker([m.lat, m.lon], {{icon: customIcon}}).addTo(map);
-                                marker.bindPopup(popupHTML);
-                                bounds.push([m.lat, m.lon]);
-                            }});
-
-                            if (bounds.length > 0) {{
-                                setTimeout(function() {{
-                                    map.fitBounds(bounds, {{padding: [40, 40], maxZoom: 11}});
-                                }}, 500);
-                            }}
-                        </script>
-                    </body>
-                    </html>
+                    <!DOCTYPE html><html><head><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" /><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><style>.custom-div-icon {{ background: transparent; border: none; }} .leaflet-popup-content-wrapper {{ border-radius: 12px; padding: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }} .leaflet-popup-content {{ margin: 0; }} .heat-pulse {{ filter: blur(8px); animation: pulse-animation 2s infinite; }} @keyframes pulse-animation {{ 0% {{ opacity: 0.4; transform: scale(0.95); }} 50% {{ opacity: 0.7; transform: scale(1.05); }} 100% {{ opacity: 0.4; transform: scale(0.95); }} }}</style></head><body style="margin: 0; padding: 0;"><div id="map" style="width: 100%; height: 650px; border-radius: 12px;"></div><script>var map = L.map('map').setView([20.67, -103.35], 7); L.tileLayer('https://tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{ maxZoom: 19, attribution: '&copy; OpenStreetMap' }}).addTo(map); var markers = {json.dumps(markers_data)}; var bounds = []; var showCoverage = {js_show_coverage}; var showHeatmap = {js_show_heatmap}; markers.forEach(function(m) {{ if (showCoverage) {{ L.circle([m.lat, m.lon], {{ radius: 5000, color: '#3b82f6', weight: 1.5, dashArray: '5, 5', fillColor: '#3b82f6', fillOpacity: 0.1 }}).addTo(map); }} if (showHeatmap && m.fuga > 0) {{ var heatRadius = 20 + (Math.min(m.fuga / 3000, 1) * 40); L.circleMarker([m.lat, m.lon], {{ radius: heatRadius, color: 'transparent', fillColor: '#ef4444', fillOpacity: 0.6, className: 'heat-pulse' }}).addTo(map); }} var htmlIcon = "<div style='background-color:" + m.color + "; width:20px; height:20px; border-radius:50%; border:3px solid white; box-shadow:0 0 8px rgba(0,0,0,0.5); z-index: 1000; position: relative;'></div>"; var customIcon = L.divIcon({{ className: 'custom-div-icon', html: htmlIcon, iconSize: [20, 20], iconAnchor: [10, 10] }}); var convColor = m.conv >= 10.9 ? '#155724' : '#721c24'; var tktColor = m.tkt >= 1.29 ? '#155724' : '#721c24'; var htmlFuga = m.fuga > 0 ? "<div style='margin-top:10px; background-color:#fee2e2; border-radius:6px; padding:6px; text-align:center;'><span style='font-size:10px; color:#991b1b; font-weight:800;'>🔥 FUGA POR QUIEBRE</span><br><span style='font-size:14px; font-weight:900; color:#b91c1c;'>$" + m.fuga.toLocaleString() + "</span></div>" : ""; var popupHTML = "<div style='font-family: Arial, sans-serif; min-width: 220px;'><h3 style='margin:0 0 5px 0; color:#1e293b; font-size: 16px; font-weight: 800;'>" + m.name + "</h3><p style='margin:0 0 12px 0; font-size:13px; color:#64748b; font-weight: 600;'>👤 " + m.encargada + "</p><div style='display:flex; justify-content:space-between; border-top:1px solid #e2e8f0; padding-top:8px; margin-top: 8px;'><div style='background-color: #f8fafc; padding: 5px 10px; border-radius: 6px; text-align: center; width: 45%;'><div style='font-size:10px; color:#94a3b8; font-weight: 800;'>CONVERSIÓN</div><div style='font-size:16px; font-weight:900; color:" + convColor + "'>" + m.conv + "%</div></div><div style='background-color: #f8fafc; padding: 5px 10px; border-radius: 6px; text-align: center; width: 45%;'><div style='font-size:10px; color:#94a3b8; font-weight: 800;'>TICKET PROM.</div><div style='font-size:16px; font-weight:900; color:" + tktColor + "'>" + m.tkt + "</div></div></div>" + htmlFuga + "</div>"; var marker = L.marker([m.lat, m.lon], {{icon: customIcon}}).addTo(map); marker.bindPopup(popupHTML); bounds.push([m.lat, m.lon]); }}); if (bounds.length > 0) {{ setTimeout(function() {{ map.fitBounds(bounds, {{padding: [40, 40], maxZoom: 11}}); }}, 500); }} </script></body></html>
                     """
                     
-                    # Añadir leyenda original
-                    st.markdown("""
-                    <div style='display: flex; gap: 20px; justify-content: center; margin-bottom: 15px; background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;'>
-                        <div style='display: flex; align-items: center; gap: 8px;'><div style='width: 15px; height: 15px; border-radius: 50%; background-color: #22c55e;'></div><span style='font-size: 14px; font-weight: 600; color: #334155;'>Supera Metas (Ambas)</span></div>
-                        <div style='display: flex; align-items: center; gap: 8px;'><div style='width: 15px; height: 15px; border-radius: 50%; background-color: #eab308;'></div><span style='font-size: 14px; font-weight: 600; color: #334155;'>Riesgo (Falta una meta)</span></div>
-                        <div style='display: flex; align-items: center; gap: 8px;'><div style='width: 15px; height: 15px; border-radius: 50%; background-color: #ef4444;'></div><span style='font-size: 14px; font-weight: 600; color: #334155;'>Crítico (Ninguna meta)</span></div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
+                    st.markdown("<div style='display: flex; gap: 20px; justify-content: center; margin-bottom: 15px; background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;'><div style='display: flex; align-items: center; gap: 8px;'><div style='width: 15px; height: 15px; border-radius: 50%; background-color: #22c55e;'></div><span style='font-size: 14px; font-weight: 600; color: #334155;'>Supera Metas (Ambas)</span></div><div style='display: flex; align-items: center; gap: 8px;'><div style='width: 15px; height: 15px; border-radius: 50%; background-color: #eab308;'></div><span style='font-size: 14px; font-weight: 600; color: #334155;'>Riesgo (Falta una meta)</span></div><div style='display: flex; align-items: center; gap: 8px;'><div style='width: 15px; height: 15px; border-radius: 50%; background-color: #ef4444;'></div><span style='font-size: 14px; font-weight: 600; color: #334155;'>Crítico (Ninguna meta)</span></div></div>", unsafe_allow_html=True)
                     components.html(leaflet_html, height=670)
                     
-                    # --- REPORTE IA (DICTAMEN) ---
                     if st.session_state.get('mostrar_reporte_ia', False):
                         st.markdown("---")
-                        html_ia = """
-                        <div style='background-color: #0f172a; border-left: 6px solid #8b5cf6; padding: 25px; border-radius: 12px; color: #f8fafc; box-shadow: 0 10px 30px rgba(0,0,0,0.3); margin-top: 10px;'>
-                            <h3 style='color: #a78bfa; margin-top: 0; font-weight: 900; letter-spacing: 1px;'><i class="fa-solid fa-brain" style="margin-right:8px;"></i> DICTAMEN DE VIABILIDAD DE EXPANSIÓN (IA)</h3>
-                            <p style='color: #cbd5e1; font-size: 15px; line-height: 1.6;'>
-                                <strong>Señores Directivos:</strong><br><br>
-                                El motor geográfico ha cruzado los radios de cobertura geométrica (5 km) con los puntos térmicos de demanda insatisfecha extraídos de la Bitácora Comercial, detectando una oportunidad estratégica prioritaria en la Zona Occidente:
-                            </p>
-                            <div style='background-color: #1e293b; padding: 15px; border-radius: 8px; border: 1px solid #334155; margin: 20px 0;'>
-                                <ul style='margin: 0; color: #cbd5e1; font-size: 14px; line-height: 1.8;'>
-                                    <li style='margin-bottom: 8px;'><strong style='color: white;'>📍 Hotspot Detectado:</strong> Corredor Sur (Perímetro de congestión entre Plaza del Sol y Galerías Santa Anita).</li>
-                                    <li style='margin-bottom: 8px;'><strong style='color: white;'>🔥 Demanda Desbordada:</strong> Las sucursales frontera están negando ventas constantemente por saturación de inventario en bodega (Quiebre de Tallas Extremas y Top 20).</li>
-                                    <li style='margin-bottom: 8px;'><strong style='color: white;'>🔵 Vacío Geográfico:</strong> Existe un radio de 6.8 km de alto tráfico económico comprobado sin presencia de nuestra marca.</li>
-                                    <li><strong style='color: white;'>🎯 Riesgo de Canibalización:</strong> < 4% (La demanda del mercado local excede la capacidad actual instalada).</li>
-                                </ul>
-                            </div>
-                            <p style='font-size: 16px; font-weight: bold; color: #10b981;'>
-                                🚀 RECOMENDACIÓN ESTRATÉGICA:
-                            </p>
-                            <p style='color: #cbd5e1; font-size: 14px; line-height: 1.6;'>
-                                El algoritmo determina una viabilidad <strong>ALTA (88%)</strong> para la apertura de un nuevo punto de venta nivel <em>Boutique o Kiosco</em> en la zona ciega central. Como acción correctiva inmediata, se sugiere elevar un 30% el stock matriz del catálogo Top 20 en las tiendas perimetrales para capturar el excedente térmico.
-                            </p>
-                        </div>
-                        """
+                        html_ia = "<div style='background-color: #0f172a; border-left: 6px solid #8b5cf6; padding: 25px; border-radius: 12px; color: #f8fafc; box-shadow: 0 10px 30px rgba(0,0,0,0.3); margin-top: 10px;'><h3 style='color: #a78bfa; margin-top: 0; font-weight: 900; letter-spacing: 1px;'><i class='fa-solid fa-brain' style='margin-right:8px;'></i> DICTAMEN DE VIABILIDAD DE EXPANSIÓN (IA)</h3><p style='color: #cbd5e1; font-size: 15px; line-height: 1.6;'><strong>Señores Directivos:</strong><br><br>El motor geográfico ha cruzado los radios de cobertura geométrica (5 km) con los puntos térmicos de demanda insatisfecha extraídos de la Bitácora Comercial, detectando una oportunidad estratégica prioritaria en la Zona Occidente:</p><div style='background-color: #1e293b; padding: 15px; border-radius: 8px; border: 1px solid #334155; margin: 20px 0;'><ul style='margin: 0; color: #cbd5e1; font-size: 14px; line-height: 1.8;'><li style='margin-bottom: 8px;'><strong style='color: white;'>📍 Hotspot Detectado:</strong> Corredor Sur (Perímetro de congestión entre Plaza del Sol y Galerías Santa Anita).</li><li style='margin-bottom: 8px;'><strong style='color: white;'>🔥 Demanda Desbordada:</strong> Las sucursales frontera están negando ventas constantemente por saturación de inventario en bodega (Quiebre de Tallas Extremas y Top 20).</li><li style='margin-bottom: 8px;'><strong style='color: white;'>🔵 Vacío Geográfico:</strong> Existe un radio de 6.8 km de alto tráfico económico comprobado sin presencia de nuestra marca.</li><li><strong style='color: white;'>🎯 Riesgo de Canibalización:</strong> < 4% (La demanda del mercado local excede la capacidad actual instalada).</li></ul></div><p style='font-size: 16px; font-weight: bold; color: #10b981;'>🚀 RECOMENDACIÓN ESTRATÉGICA:</p><p style='color: #cbd5e1; font-size: 14px; line-height: 1.6;'>El algoritmo determina una viabilidad <strong>ALTA (88%)</strong> para la apertura de un nuevo punto de venta nivel <em>Boutique o Kiosco</em> en la zona ciega central. Como acción correctiva inmediata, se sugiere elevar un 30% el stock matriz del catálogo Top 20 en las tiendas perimetrales para capturar el excedente térmico.</p></div>"
                         st.markdown(html_ia, unsafe_allow_html=True)
                         if st.button("Cerrar Dictamen"):
                             st.session_state.mostrar_reporte_ia = False
                             st.rerun()
-
-                else:
-                    st.info("No se pudieron procesar las coordenadas. Verifica que el archivo esté completo.")
-                    
-            else:
-                st.warning("⚠️ No se detectaron las columnas 'LATITUD' y 'LONGITUD' en tu archivo 'CORREO DE TIENDAS.xlsx'. Asegúrate de haber guardado el archivo con los nuevos encabezados.")
+                else: st.info("No se pudieron procesar las coordenadas. Verifica que el archivo esté completo.")
+            else: st.warning("⚠️ No se detectaron las columnas 'LATITUD' y 'LONGITUD' en tu archivo 'CORREO DE TIENDAS.xlsx'.")
         except Exception as e:
             st.error(f"Error al generar el mapa: {e}")
 
-    # =================================================================================
-    # PESTAÑA: DIAGNÓSTICO DE DEMANDA
-    # =================================================================================
     with tab_demanda:
         st.subheader("📊 Diagnóstico de Demanda")
         st.info("Módulo en fase de diseño. Próximamente: Análisis multivariable predictivo avanzado.")
 
-
-    # =================================================================================
-    # PESTAÑA: CORRELACIÓN MACRO
-    # =================================================================================
     with tab_macro:
         st.subheader("🌍 Correlación Macroeconómica (INPC)")
         st.info("Módulo en fase de diseño. Próximamente: Cruce de inflación vs ticket promedio.")
 
-# --- PIE DE PÁGINA (ESTÁTICO Y SIEMPRE VISIBLE) ---
-st.markdown("""
-    <div class="footer">
-        KPI's desarrollados por el LAE. José Martín Estrada Cabrera | © 2026 Todos los Derechos Reservados
-    </div>
-    """, unsafe_allow_html=True)
+st.markdown("""<div class="footer">KPI's desarrollados por el LAE. José Martín Estrada Cabrera | © 2026 Todos los Derechos Reservados</div>""", unsafe_allow_html=True)
