@@ -130,22 +130,56 @@ def obtener_fecha_actualizacion(nombre_archivo):
     except Exception:
         return "Fecha no disponible"
 
-@st.cache_data
 def cargar_tiendas():
-    nombre_archivo = "CORREO DE TIENDAS.xlsx"
-    try:
-        return pd.read_excel(nombre_archivo)
-    except Exception as e:
-        return pd.DataFrame({'TIENDA': ['Error'], 'NOMBRE': ['Sin datos'], 'ENCARGADO': ['Sin datos']})
-
-def cargar_archivos_locales():
-    if 'df_ventas' not in st.session_state or 'df_tallas' not in st.session_state:
+    arch_tiendas = buscar_archivo('CORREO DE TIENDAS')
+    if arch_tiendas:
         try:
-            st.session_state.df_ventas = pd.read_excel("Ventas.xlsx")
-            st.session_state.df_tallas = pd.read_excel("Valores de tallas.xlsx")
+            return pd.read_excel(arch_tiendas) if arch_tiendas.endswith('.xlsx') else pd.read_csv(arch_tiendas)
         except Exception as e:
-            return False
-    return True
+            pass
+    return pd.DataFrame({'TIENDA': ['Error'], 'NOMBRE': ['Sin datos'], 'ENCARGADO': ['Sin datos']})
+
+# Lector dinámico TODOTERRENO para evitar caché y leer CSV o Excel
+def cargar_archivos_locales_vivo():
+    try:
+        # 1. Buscar Ventas
+        arch_ventas = buscar_archivo('Ventas')
+        if arch_ventas:
+            df_ventas = pd.read_excel(arch_ventas) if arch_ventas.endswith('.xlsx') else pd.read_csv(arch_ventas)
+        else:
+            df_ventas = None
+
+        # 2. Buscar Tallas
+        arch_tallas = buscar_archivo('Valores de tallas')
+        if arch_tallas:
+            if arch_tallas.endswith('.xlsx'):
+                try:
+                    df_tallas = pd.read_excel(arch_tallas, sheet_name="Hoja1")
+                except:
+                    df_tallas = pd.read_excel(arch_tallas)
+            else:
+                df_tallas = pd.read_csv(arch_tallas)
+        else:
+            df_tallas = None
+
+        # 3. Buscar Excepciones
+        lista_excepciones = []
+        # Buscamos primero si hay un archivo suelto llamado "Excepciones" (.csv o .xlsx)
+        arch_exc = buscar_archivo('Excepciones')
+        if arch_exc:
+            df_exc = pd.read_excel(arch_exc) if arch_exc.endswith('.xlsx') else pd.read_csv(arch_exc)
+            col_mod = 'Modelo' if 'Modelo' in df_exc.columns else df_exc.columns[0]
+            lista_excepciones = df_exc[col_mod].astype(str).str.strip().str.upper().tolist()
+        elif arch_tallas and arch_tallas.endswith('.xlsx'):
+            # Si no hay suelto, intentamos leer la pestaña del Excel
+            try:
+                lista_excepciones = pd.read_excel(arch_tallas, sheet_name="Excepciones")['Modelo'].astype(str).str.strip().str.upper().tolist()
+            except:
+                pass
+                
+        return df_ventas, df_tallas, lista_excepciones
+    except Exception as e:
+        return None, None, []
 
 def validar_captura_stock(tienda_id, modelo, talla_input, df_ventas, df_tallas):
     try:
@@ -2251,22 +2285,6 @@ Gerencia Comercial Zona Occidente
             
             if 'LATITUD' in df_mapa.columns and 'LONGITUD' in df_mapa.columns:
                 
-                # --- NUEVO: Construir diccionario traductor ---
-                col_id_tda = next((c for c in df_mapa.columns if c in ['TIENDA', 'SUCURSAL', 'NUMERO', 'ID']), df_mapa.columns[0])
-                col_nom_tda = next((c for c in df_mapa.columns if c in ['NOMBRE']), df_mapa.columns[1] if len(df_mapa.columns)>1 else df_mapa.columns[0])
-                col_enc_tda = 'ENCARGADO' if 'ENCARGADO' in df_mapa.columns else 'N/A'
-                
-                name_to_id_dict = {}
-                for _, r in df_mapa.iterrows():
-                    try:
-                        t_id_match = re.search(r'\d+', str(r[col_id_tda]))
-                        if t_id_match:
-                            t_id_val = int(t_id_match.group())
-                            t_nom_val = str(r[col_nom_tda]).strip().upper()
-                            name_to_id_dict[t_nom_val] = t_id_val
-                    except:
-                        pass
-                
                 # Extraer Fugas de Capital desde la Bitácora (Base Maestra)
                 quiebres_dict = {}
                 try:
@@ -2282,15 +2300,7 @@ Gerencia Comercial Zona Occidente
                             df_q = df_b[(df_b[col_inc].astype(str).str.contains("Faltante", case=False, na=False)) & 
                                         (df_b[col_st].astype(str).str.upper() == "VALIDADO")].copy()
                             df_q[col_pr] = pd.to_numeric(df_q[col_pr], errors='coerce').fillna(0)
-                            
-                            def extraer_id_tienda(val):
-                                str_val = str(val).strip().upper()
-                                match = re.search(r'\d+', str_val)
-                                if match:
-                                    return int(match.group())
-                                return name_to_id_dict.get(str_val, -1)
-                                
-                            df_q['T_ID'] = df_q[col_td].apply(extraer_id_tienda)
+                            df_q['T_ID'] = df_q[col_td].apply(lambda x: int(re.search(r'\d+', str(x)).group()) if pd.notna(x) and re.search(r'\d+', str(x)) else -1)
                             quiebres_dict = df_q.groupby('T_ID')[col_pr].sum().to_dict()
                 except:
                     pass
@@ -2317,6 +2327,9 @@ Gerencia Comercial Zona Occidente
                 
                 # Construir datos para Leaflet
                 markers_data = []
+                col_id_tda = next((c for c in df_mapa.columns if c in ['TIENDA', 'SUCURSAL', 'NUMERO', 'ID']), df_mapa.columns[0])
+                col_nom_tda = next((c for c in df_mapa.columns if c in ['NOMBRE']), df_mapa.columns[1] if len(df_mapa.columns)>1 else df_mapa.columns[0])
+                col_enc_tda = 'ENCARGADO' if 'ENCARGADO' in df_mapa.columns else 'N/A'
                 
                 for _, r in df_mapa.iterrows():
                     try:
