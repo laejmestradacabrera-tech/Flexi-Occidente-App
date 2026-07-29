@@ -160,11 +160,14 @@ def cargar_archivos_locales():
             else:
                 st.session_state.df_tallas = pd.read_excel("Valores de tallas.xlsx")
                 
-            # LECTURA FORZADA GLOBAL DE EXCEPCIONES
+            # LECTURA FORZADA GLOBAL DE EXCEPCIONES CON LECTOR ROBUSTO
             lista_exc = []
             arch_exc = buscar_archivo('Excepciones')
             if arch_exc:
-                df_exc = pd.read_excel(arch_exc) if arch_exc.endswith('.xlsx') else pd.read_csv(arch_exc)
+                try:
+                    df_exc = pd.read_excel(arch_exc) if arch_exc.endswith('.xlsx') else pd.read_csv(arch_exc, encoding='utf-8-sig')
+                except:
+                    df_exc = pd.read_csv(arch_exc, encoding='latin1')
                 col_mod = 'Modelo' if 'Modelo' in df_exc.columns else df_exc.columns[0]
                 lista_exc = df_exc[col_mod].astype(str).str.strip().str.upper().tolist()
             else:
@@ -1200,9 +1203,12 @@ elif st.session_state.vista_actual == 'Operativo':
                 top_20 = df_tienda.groupby('Modelo')['Vtas'].sum().nlargest(20).index
                 df_top = df_tienda[df_tienda['Modelo'].isin(top_20)].copy()
                 
+                lista_exc_faltantes = st.session_state.get('lista_excepciones', [])
+                
                 resultados = []
                 for _, row in df_top.iterrows():
                     dpto = str(row['Departamento']).strip().lower()
+                    modelo_act = str(row['Modelo']).strip().upper()
                     tallas_row = st.session_state.df_tallas[
                         st.session_state.df_tallas['Valor'].astype(str).str.lower() == dpto
                     ]
@@ -1215,6 +1221,18 @@ elif st.session_state.vista_actual == 'Operativo':
                             if (pd.isna(ex_val) or ex_val == 0) and (pd.isna(p_val) or p_val == 0):
                                 talla_fisica = tallas_row.iloc[0][f'ex{i}']
                                 if pd.notna(talla_fisica):
+                                    talla_str = str(talla_fisica).strip()
+                                    try:
+                                        t_num = float(talla_fisica)
+                                        if t_num >= 100: t_num = t_num / 10.0
+                                    except:
+                                        t_num = 0.0
+                                        
+                                    # ESCUDO GLOBAL DE TALLAS FANTASMA Y EXCEPCIONES PARA FALTANTES VISUALES
+                                    if dpto == 'caballero' and t_num == 30.5: continue 
+                                    if dpto in ['niño', 'nino'] and t_num == 21.5: continue
+                                    if t_num > 25.0 and modelo_act in lista_exc_faltantes: continue
+                                    
                                     resultados.append({
                                         "Departamento": row['Departamento'].capitalize(),
                                         "Modelo": row['Modelo'],
