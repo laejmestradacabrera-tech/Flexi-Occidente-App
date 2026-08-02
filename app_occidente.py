@@ -10,7 +10,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 import gspread
 import locale
 import subprocess
-import streamlit.components.v1 as components 
+import streamlit.components.v1 as components
 import re
 import base64
 import json
@@ -1742,7 +1742,7 @@ elif st.session_state.vista_actual == 'Estrategico':
             tienda_seleccionada = st.selectbox("🎯 Selecciona la Sucursal a Visitar:", sorted(df_tdas_visita['NOMBRE'].unique()))
             
             if st.button("Generar Expediente de Visita", type="primary"):
-                with st.spinner("Cruzando KPIs en tiempo real..."):
+                with st.spinner("Cruzando KPIs y auditando catálogo en tiempo real..."):
                     fila_tda = df_tdas_visita[df_tdas_visita['NOMBRE'] == tienda_seleccionada].iloc[0]
                     col_id = next((c for c in df_tdas_visita.columns if c.strip().upper() in ['TIENDA', 'SUCURSAL', 'NUMERO', 'ID']), df_tdas_visita.columns[0])
                     tda_raw = str(fila_tda[col_id])
@@ -1754,6 +1754,10 @@ elif st.session_state.vista_actual == 'Estrategico':
                     v_conv_ant, v_tkt_ant = 0.0, 0.0
                     v_faltan_pares, v_faltan_pesos = 0, 0.0
                     v_total_modelos, v_modelos_desfogue = 0, 0
+                    
+                    # Variables para la nueva auditoría Top 30
+                    v_top30_ausencia = []
+                    v_top30_exhibicion = []
                     
                     if archivo_conv:
                         df_c = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
@@ -1813,8 +1817,39 @@ elif st.session_state.vista_actual == 'Estrategico':
                         df_t = st.session_state.df_tallas
                         lista_exc_v = st.session_state.get('lista_excepciones', [])
                         df_v['tienda_int'] = pd.to_numeric(df_v['Tienda'].astype(str).str.extract(r'(\d+)', expand=False), errors='coerce').fillna(-1)
+                        
+                        # FILTRO EXCLUSIVO PARA LA TIENDA VISITADA
                         df_tienda_v = df_v[(df_v['tienda_int'] == int(tienda_obj)) & (~df_v['Proveedor'].isin([415, 426, 427]))].copy()
                         
+                        # ----- INICIO DE NUEVA AUDITORÍA TOP 30 ZONA VS SUCURSAL -----
+                        # Aislar la base de toda la zona descartando outlets y morralla
+                        df_v_zona = df_v[(~df_v['Proveedor'].isin([415, 426, 427])) & (~df_v['tienda_int'].isin([3004, 3015, -1])) & (~df_v['Modelo'].astype(str).str.contains('BOLSA|REUSABLE', case=False, na=False))].copy()
+                        df_v_zona['Vtas'] = pd.to_numeric(df_v_zona['Vtas'], errors='coerce').fillna(0)
+                        
+                        # Obtener exactamente el Top 30 general de la región
+                        top_30_zona = df_v_zona.groupby('Modelo')['Vtas'].sum().nlargest(30).index.tolist()
+                        
+                        # Preparar sumatorias para el cruce de la tienda
+                        ex_cols_todas = [f'ex{i}' for i in range(1, 16) if f'ex{i}' in df_tienda_v.columns]
+                        if not df_tienda_v.empty:
+                            for c_ex in ex_cols_todas: df_tienda_v[c_ex] = pd.to_numeric(df_tienda_v[c_ex], errors='coerce').fillna(0)
+                            store_vtas = df_tienda_v.groupby('Modelo')['Vtas'].sum().to_dict()
+                            store_stock = df_tienda_v.groupby('Modelo')[ex_cols_todas].sum().sum(axis=1).to_dict()
+                        else:
+                            store_vtas = {}
+                            store_stock = {}
+
+                        # Motor de clasificación de alertas (Ausencia vs Exhibición)
+                        for mod in top_30_zona:
+                            vtas_mod = store_vtas.get(mod, 0)
+                            stock_mod = store_stock.get(mod, 0)
+                            
+                            if stock_mod == 0 and vtas_mod == 0:
+                                v_top30_ausencia.append(mod)
+                            elif stock_mod > 0 and vtas_mod <= 1:
+                                v_top30_exhibicion.append({'Modelo': mod, 'Físicos': int(stock_mod), 'Ventas': int(vtas_mod)})
+                        # ----- FIN DE NUEVA AUDITORÍA TOP 30 -----
+
                         modelos_quebrados = set()
                         if not df_tienda_v.empty:
                             ex_cols = [f'ex{i}' for i in range(1, 16) if f'ex{i}' in df_tienda_v.columns]
@@ -1856,7 +1891,7 @@ elif st.session_state.vista_actual == 'Estrategico':
                                                 
                                                 modelos_quebrados.add(row['Modelo'])
                                                 break
-                        v_quiebres = len(modelos_quebrados)
+                            v_quiebres = len(modelos_quebrados)
 
                     pts_tkt = 35 if v_tkt >= 1.29 else 25 if v_tkt >= 1.25 else 10 if v_tkt >= 1.20 else 5
                     pts_conv = 35 if v_conv >= 10.9 else 25 if v_conv >= 10.5 else 10 if v_conv >= 10.0 else 5
@@ -1912,6 +1947,31 @@ elif st.session_state.vista_actual == 'Estrategico':
                     if v_faltan_pesos > 0: c_pesos.metric("Brecha en Ingresos", f"Faltan ${v_faltan_pesos:,.2f}", "- Por debajo del histórico", delta_color="inverse")
                     else: c_pesos.metric("Brecha en Ingresos", f"A favor: ${abs(v_faltan_pesos):,.2f}", "+ Superando histórico")
 
+                    # ----- INICIO UI DE AUDITORÍA TOP 30 -----
+                    st.markdown("#### 🔍 Auditoría de Catálogo (Top 30 Zona vs Sucursal)")
+                    c_aud1, c_aud2 = st.columns(2)
+                    
+                    with c_aud1:
+                        if v_top30_ausencia:
+                            st.error(f"🚨 {len(v_top30_ausencia)} Éxitos de Zona sin inventario")
+                            with st.expander("Ver Fugas por Ausencia (Cero Stock)"):
+                                df_ausencia = pd.DataFrame({"Modelos Faltantes": v_top30_ausencia})
+                                df_ausencia.index += 1
+                                st.table(df_ausencia)
+                        else:
+                            st.success("✅ Catálogo Top 30 cubierto (Sin quiebres absolutos)")
+
+                    with c_aud2:
+                        if v_top30_exhibicion:
+                            st.warning(f"⚠️ {len(v_top30_exhibicion)} Éxitos estancados (Vtas ≤ 1)")
+                            with st.expander("Ver Fugas por Exhibición"):
+                                df_exhib = pd.DataFrame(v_top30_exhibicion)
+                                df_exhib.index += 1
+                                st.table(df_exhib)
+                        else:
+                            st.success("✅ Exhibición eficiente (Top 30 con rotación)")
+                    # ----- FIN UI DE AUDITORÍA TOP 30 -----
+
                     st.markdown("#### 📦 Análisis de Inventario y Catálogo")
                     c_cat, c_desf, c_trans = st.columns(3)
                     c_cat.metric("Catálogo Activo", f"{v_total_modelos} Modelos", "En piso de venta")
@@ -1942,7 +2002,19 @@ elif st.session_state.vista_actual == 'Estrategico':
                     st.markdown("---")
                     st.markdown("### 📋 Instrucción Compromiso Autogenerada")
                     st.caption("Texto listo para ser enviado por WhatsApp o correo al finalizar la visita y dejar evidencia formal.")
+                    
                     compromisos = []
+                    
+                    # ----- INYECCIÓN DE HALLAZGOS TOP 30 AL WHATSAPP -----
+                    if v_top30_ausencia:
+                        mods_txt = ", ".join(v_top30_ausencia[:3]) + ("..." if len(v_top30_ausencia) > 3 else "")
+                        compromisos.append(f"🚨 **Resurtido Crítico (Fuga por Ausencia):** Gestionar el resurtido inmediato de modelos Top 30 de la Zona que no tienen presencia física en tu sucursal (Ej. {mods_txt}).")
+
+                    if v_top30_exhibicion:
+                        mods_txt = ", ".join([x['Modelo'] for x in v_top30_exhibicion[:3]]) + ("..." if len(v_top30_exhibicion) > 3 else "")
+                        compromisos.append(f"⚠️ **Intervención de Exhibición:** Auditar físicamente la exhibición en puntos calientes de modelos estrella que presentan nula o bajísima rotación a pesar de tener inventario en tu bodega (Ej. {mods_txt}).")
+                    # ---------------------------------------------------
+
                     if v_conv < 10.9: compromisos.append("👠 **Mejora en Conversión:** Implementar clínicas de abordaje al cliente en piso y ejecutar cierres de venta efectivos en el área de probadores para alcanzar la meta del 10.9%.")
                     if v_tkt < 1.29: compromisos.append("🛍️ **Impulso al Ticket Promedio:** Fomentar agresivamente el ofrecimiento del segundo par o producto de impulso (accesorio) en caja para lograr el objetivo de 1.29 unidades.")
                     if v_alcance < 100: compromisos.append("🚀 **Recuperación de Volumen:** Activar el enfoque comercial sobre los modelos del Top 20 de la Zona para igualar y superar el desplazamiento de pares respecto al año anterior.")
