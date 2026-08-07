@@ -15,6 +15,7 @@ import re
 import base64
 import json
 import modulo_agenda
+
 # 1. CONFIGURACIÓN DE PÁGINA (Debe ser la primera instrucción)
 st.set_page_config(page_title="Monitor Comercial Flexi Occidente", layout="wide", initial_sidebar_state="collapsed")
 
@@ -819,6 +820,7 @@ elif st.session_state.vista_actual == 'Operativo':
         "🏆 Rating Comercial",
         "🔄 Nivelación de Stock",
         "📝 Bitácora",
+        "📓 Agenda de Clientes",
         "🧭 Ruta Cliente",
         "🎓 Capacitación"
     ]
@@ -1429,11 +1431,13 @@ elif st.session_state.vista_actual == 'Operativo':
                 
             with st.expander("5️⃣ PILAR V: VINCULACIÓN SOCIAL"):
                 st.markdown("**Concepto:** Humanizar el entorno laboral y fomentar la integración grupal.")
-elif modulo_activo == "📓 Agenda de Clientes":
+
+    elif modulo_activo == "📓 Agenda de Clientes":
         if 'client' in globals():
             modulo_agenda.mostrar_modulo_agenda(client)
         else:
             st.warning("⚠️ No se detectó conexión a Google Sheets. Revisa tus credenciales.")
+
 elif st.session_state.vista_actual == 'Estrategico':
     col_nav1, col_nav2 = st.columns([4, 1])
     with col_nav1:
