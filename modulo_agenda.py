@@ -69,10 +69,9 @@ def mostrar_modulo_agenda(client_gs):
             else:
                 st.caption(f"Mostrando **{len(df_pendientes)}** cliente(s) en espera para **{sucursal_filtro}**.")
                 
-                # Generar tarjetas por cada cliente
+                # Generar tarjetas por cada cliente (DISEÑO COMPACTO Y ESTÉTICO)
                 for idx, row in df_pendientes.iterrows():
                     cliente = row.get('Cliente', 'Sin Nombre')
-                    # Buscamos 'Whatsapp' tal cual está escrito en tu Excel
                     whatsapp = row.get('Whatsapp', row.get('WhatsApp', '')) 
                     modelo = row.get('Modelo', '').upper()
                     talla = row.get('Talla', '')
@@ -80,22 +79,31 @@ def mostrar_modulo_agenda(client_gs):
                     fecha = row.get('Fecha', '')
                     notas = row.get('Notas', '')
 
-                    # Mensaje personalizado de WhatsApp
-                    mensaje = f"Hola {cliente}, te saludamos de Flexi {sucursal}. Te informamos que el modelo {modelo} en talla {talla} que buscabas ya está disponible. ¿Te lo apartamos?"
-                    mensaje_url = urllib.parse.quote(mensaje)
-                    link_wa = f"https://wa.me/52{whatsapp}?text={mensaje_url}" if whatsapp else "#"
-
-                    # Diseño de la tarjeta con el botón ajustado para evitar conflictos de navegador
-                    st.markdown(f"""
-                    <div style="background-color: #1e293b; padding: 18px; border-radius: 10px; border-left: 5px solid #E30613; margin-bottom: 15px;">
-                        <h4 style="color: white; margin-top: 0; margin-bottom: 5px;">👤 {cliente} - <span style="color: #fbbf24;">{sucursal}</span></h4>
-                        <p style="color: #cbd5e1; margin: 3px 0; font-size: 14px;"><strong>Modelo:</strong> {modelo} | <strong>Talla:</strong> {talla} | <strong>Fecha:</strong> {fecha}</p>
-                        {"<p style='color: #94a3b8; margin: 3px 0; font-size: 13px;'><em>Notas: " + notas + "</em></p>" if notas else ""}
-                        <a href="{link_wa}" target="_blank" rel="noopener noreferrer" style="background-color: #25D366; color: white; text-decoration: none; padding: 8px 15px; border-radius: 5px; font-weight: bold; display: inline-block; margin-top: 10px;">
-                            💬 Contactar vía WhatsApp
-                        </a>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    with st.container():
+                        col_info, col_btn = st.columns([4, 1])
+                        
+                        with col_info:
+                            st.markdown(f"""
+                            <div style="padding: 15px; border-left: 5px solid #E30613; background-color: #1e293b; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                <p style="margin: 0; font-size: 15px; color: #f8fafc; line-height: 1.4;">
+                                    📌 <strong>Atención {sucursal}:</strong> Favor de contactar al cliente <strong>{cliente}</strong> al teléfono <strong style="color: #fbbf24;">{whatsapp}</strong>. Su modelo <strong>{modelo}</strong> (Talla {talla}) ya llegó.
+                                </p>
+                                {"<p style='margin: 5px 0 0 0; font-size: 13px; color: #94a3b8;'><em>📝 Notas: " + notas + "</em></p>" if notas else ""}
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                        with col_btn:
+                            st.write("<br>", unsafe_allow_html=True) # Espacio para alinear verticalmente
+                            if st.button("✅ Contactado", key=f"btn_done_{idx}", use_container_width=True):
+                                try:
+                                    # El índice row.name es la fila en el DataFrame original (0-indexed).
+                                    # En Google Sheets (1-indexed), la fila 1 son los encabezados.
+                                    # Por lo tanto, la fila correspondiente a actualizar es row.name + 2
+                                    sheet_agenda.update_cell(row.name + 2, 8, "CONTACTADO")
+                                    st.toast(f"¡Excelente! Cliente {cliente} contactado.", icon="✅")
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Error al actualizar en la nube: {e}")
         else:
             st.info("Aún no hay clientes registrados en la agenda.")
 
@@ -105,7 +113,6 @@ def mostrar_modulo_agenda(client_gs):
     with tab_registro:
         st.markdown("### 📝 Captura de Datos en Caja")
         
-        # EL CAMBIO ESTÁ AQUÍ: Se agrega clear_on_submit=True
         with st.form("form_nuevo_cliente", clear_on_submit=True):
             col1, col2 = st.columns(2)
             
@@ -113,7 +120,7 @@ def mostrar_modulo_agenda(client_gs):
                 # Usamos la lista de nombres_tiendas_reales directamente
                 sucursal_input = st.selectbox("🏢 Selecciona tu Sucursal:", nombres_tiendas_reales)
                 cliente_input = st.text_input("👤 Nombre del Cliente:")
-                whatsapp_input = st.text_input("📱 WhatsApp (10 dígitos):", max_chars=10)
+                whatsapp_input = st.text_input("📱 Teléfono (10 dígitos):", max_chars=10)
             
             with col2:
                 modelo_input = st.text_input("👟 Modelo Buscado:")
@@ -126,7 +133,7 @@ def mostrar_modulo_agenda(client_gs):
                 if not cliente_input or not modelo_input:
                     st.error("⚠️ Faltan datos obligatorios (Cliente y Modelo).")
                 elif len(whatsapp_input) < 10 or not whatsapp_input.isdigit():
-                    st.error("⚠️ El número de WhatsApp debe tener 10 dígitos numéricos.")
+                    st.error("⚠️ El número de Teléfono debe tener 10 dígitos numéricos.")
                 else:
                     # Guardar con fecha actual de México
                     fecha_hoy = (datetime.datetime.utcnow() - datetime.timedelta(hours=6)).strftime("%d/%m/%Y")
