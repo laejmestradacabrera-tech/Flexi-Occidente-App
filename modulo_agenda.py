@@ -69,41 +69,46 @@ def mostrar_modulo_agenda(client_gs):
             else:
                 st.caption(f"Mostrando **{len(df_pendientes)}** cliente(s) en espera para **{sucursal_filtro}**.")
                 
-                # Generar tarjetas por cada cliente (DISEÑO COMPACTO Y ESTÉTICO)
-                for idx, row in df_pendientes.iterrows():
-                    cliente = row.get('Cliente', 'Sin Nombre')
-                    whatsapp = row.get('Whatsapp', row.get('WhatsApp', '')) 
-                    modelo = row.get('Modelo', '').upper()
-                    talla = row.get('Talla', '')
-                    sucursal = row.get('Sucursal', '')
-                    fecha = row.get('Fecha', '')
-                    notas = row.get('Notas', '')
+                # --- NUEVO DISEÑO EN CUADRÍCULA (2 COLUMNAS) ---
+                pendientes_list = list(df_pendientes.iterrows())
+                
+                # Iterar en bloques de 2
+                for i in range(0, len(pendientes_list), 2):
+                    cols = st.columns(2)
+                    
+                    for j in range(2):
+                        if i + j < len(pendientes_list):
+                            idx, row = pendientes_list[i + j]
+                            with cols[j]:
+                                cliente = row.get('Cliente', 'Sin Nombre')
+                                whatsapp = row.get('Whatsapp', row.get('WhatsApp', '')) 
+                                modelo = row.get('Modelo', '').upper()
+                                talla = row.get('Talla', '')
+                                sucursal = row.get('Sucursal', '')
+                                notas = row.get('Notas', '')
 
-                    with st.container():
-                        col_info, col_btn = st.columns([4, 1])
-                        
-                        with col_info:
-                            st.markdown(f"""
-                            <div style="padding: 15px; border-left: 5px solid #E30613; background-color: #1e293b; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                                <p style="margin: 0; font-size: 15px; color: #f8fafc; line-height: 1.4;">
-                                    📌 <strong>Atención {sucursal}:</strong> Favor de contactar al cliente <strong>{cliente}</strong> al teléfono <strong style="color: #fbbf24;">{whatsapp}</strong>. Su modelo <strong>{modelo}</strong> (Talla {talla}) ya llegó.
-                                </p>
-                                {"<p style='margin: 5px 0 0 0; font-size: 13px; color: #94a3b8;'><em>📝 Notas: " + notas + "</em></p>" if notas else ""}
-                            </div>
-                            """, unsafe_allow_html=True)
-                            
-                        with col_btn:
-                            st.write("<br>", unsafe_allow_html=True) # Espacio para alinear verticalmente
-                            if st.button("✅ Contactado", key=f"btn_done_{idx}", use_container_width=True):
-                                try:
-                                    # El índice row.name es la fila en el DataFrame original (0-indexed).
-                                    # En Google Sheets (1-indexed), la fila 1 son los encabezados.
-                                    # Por lo tanto, la fila correspondiente a actualizar es row.name + 2
-                                    sheet_agenda.update_cell(row.name + 2, 8, "CONTACTADO")
-                                    st.toast(f"¡Excelente! Cliente {cliente} contactado.", icon="✅")
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"Error al actualizar en la nube: {e}")
+                                # Bloque HTML superior (Instrucción)
+                                st.markdown(f"""
+                                <div style="padding: 15px 15px 10px 15px; border-top: 4px solid #E30613; background-color: #1e293b; border-radius: 8px 8px 0 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                    <p style="margin: 0; font-size: 14.5px; color: #f8fafc; line-height: 1.4;">
+                                        📌 <strong>Atención {sucursal}:</strong> Favor de contactar al cliente <strong>{cliente}</strong> al teléfono <strong style="color: #fbbf24;">{whatsapp}</strong>. Su modelo <strong>{modelo}</strong> (Talla {talla}) ya llegó.
+                                    </p>
+                                    {"<p style='margin: 8px 0 0 0; font-size: 12px; color: #94a3b8;'><em>📝 Notas: " + notas + "</em></p>" if notas else ""}
+                                </div>
+                                """, unsafe_allow_html=True)
+                                
+                                # Botón en la parte inferior ocupando todo el ancho de la tarjeta
+                                if st.button("✅ Contactado", key=f"btn_done_{idx}", use_container_width=True):
+                                    try:
+                                        # Actualiza la celda en Google Sheets
+                                        sheet_agenda.update_cell(row.name + 2, 8, "CONTACTADO")
+                                        st.toast(f"¡Excelente! Cliente {cliente} contactado.", icon="✅")
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Error al actualizar en la nube: {e}")
+                                
+                                # Espaciador para no pegar las tarjetas verticalmente
+                                st.write("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
         else:
             st.info("Aún no hay clientes registrados en la agenda.")
 
