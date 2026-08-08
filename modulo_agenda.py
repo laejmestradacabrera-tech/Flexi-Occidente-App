@@ -72,7 +72,8 @@ def mostrar_modulo_agenda(client_gs):
                 # Generar tarjetas por cada cliente
                 for idx, row in df_pendientes.iterrows():
                     cliente = row.get('Cliente', 'Sin Nombre')
-                    whatsapp = row.get('WhatsApp', '')
+                    # Buscamos 'Whatsapp' tal cual está escrito en tu Excel
+                    whatsapp = row.get('Whatsapp', row.get('WhatsApp', '')) 
                     modelo = row.get('Modelo', '').upper()
                     talla = row.get('Talla', '')
                     sucursal = row.get('Sucursal', '')
@@ -84,16 +85,14 @@ def mostrar_modulo_agenda(client_gs):
                     mensaje_url = urllib.parse.quote(mensaje)
                     link_wa = f"https://wa.me/52{whatsapp}?text={mensaje_url}" if whatsapp else "#"
 
-                    # Diseño de la tarjeta
+                    # Diseño de la tarjeta con el botón ajustado para evitar conflictos de navegador
                     st.markdown(f"""
                     <div style="background-color: #1e293b; padding: 18px; border-radius: 10px; border-left: 5px solid #E30613; margin-bottom: 15px;">
                         <h4 style="color: white; margin-top: 0; margin-bottom: 5px;">👤 {cliente} - <span style="color: #fbbf24;">{sucursal}</span></h4>
                         <p style="color: #cbd5e1; margin: 3px 0; font-size: 14px;"><strong>Modelo:</strong> {modelo} | <strong>Talla:</strong> {talla} | <strong>Fecha:</strong> {fecha}</p>
                         {"<p style='color: #94a3b8; margin: 3px 0; font-size: 13px;'><em>Notas: " + notas + "</em></p>" if notas else ""}
-                        <a href="{link_wa}" target="_blank" style="text-decoration: none;">
-                            <button style="background-color: #25D366; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; margin-top: 10px;">
-                                💬 Contactar vía WhatsApp
-                            </button>
+                        <a href="{link_wa}" target="_blank" rel="noopener noreferrer" style="background-color: #25D366; color: white; text-decoration: none; padding: 8px 15px; border-radius: 5px; font-weight: bold; display: inline-block; margin-top: 10px;">
+                            💬 Contactar vía WhatsApp
                         </a>
                     </div>
                     """, unsafe_allow_html=True)
@@ -105,7 +104,9 @@ def mostrar_modulo_agenda(client_gs):
     # ==========================================
     with tab_registro:
         st.markdown("### 📝 Captura de Datos en Caja")
-        with st.form("form_nuevo_cliente"):
+        
+        # EL CAMBIO ESTÁ AQUÍ: Se agrega clear_on_submit=True
+        with st.form("form_nuevo_cliente", clear_on_submit=True):
             col1, col2 = st.columns(2)
             
             with col1:
@@ -137,6 +138,5 @@ def mostrar_modulo_agenda(client_gs):
                     try:
                         sheet_agenda.append_row(fila_nueva)
                         st.success(f"✅ ¡Cliente {cliente_input} registrado exitosamente en {sucursal_input}!")
-                        st.rerun()
                     except Exception as e:
                         st.error(f"❌ Error al guardar en la nube: {e}")
