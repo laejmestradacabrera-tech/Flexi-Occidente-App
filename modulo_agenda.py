@@ -50,10 +50,19 @@ def mostrar_modulo_agenda(client_gs):
     with tab_alertas:
         st.markdown("### 🔔 Clientes en Espera")
 
+        # Control preventivo para limpiar la clave si cambian de sucursal
+        if 'ultimo_filtro_agenda' not in st.session_state:
+            st.session_state.ultimo_filtro_agenda = opcion_default
+
         # Filtro superior por Sucursal
-        col_filtro1, col_filtro2 = st.columns([2, 1])
-        with col_filtro1:
-            sucursal_filtro = st.selectbox("🏪 Selecciona tu Sucursal:", lista_sucursales, key="filtro_sucursal_agenda")
+        sucursal_filtro = st.selectbox("🏪 Selecciona tu Sucursal:", lista_sucursales, key="filtro_sucursal_agenda")
+
+        # Si el usuario cambió de opción en el selectbox, limpiamos la contraseña anterior
+        if sucursal_filtro != st.session_state.ultimo_filtro_agenda:
+            st.session_state.ultimo_filtro_agenda = sucursal_filtro
+            if "clave_gerencia_agenda" in st.session_state:
+                st.session_state.clave_gerencia_agenda = ""
+            st.rerun()
 
         # Bloqueo visual por defecto
         if sucursal_filtro == opcion_default:
