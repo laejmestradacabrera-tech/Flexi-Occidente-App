@@ -35,7 +35,11 @@ def mostrar_modulo_agenda(client_gs):
 
     # 2. Obtener lista REAL de sucursales desde tu Excel
     nombres_tiendas_reales = cargar_nombres_tiendas()
-    lista_sucursales = ["Todas las Sucursales"] + nombres_tiendas_reales
+    
+    # --- CONFIGURACIÓN DEL CANDADO NIVEL 1 ---
+    opcion_default = "👉 Selecciona tu sucursal..."
+    opcion_gerencia = "Todas las Sucursales (Solo Gerencia)"
+    lista_sucursales = [opcion_default, opcion_gerencia] + nombres_tiendas_reales
 
     # Pestañas internas del módulo
     tab_alertas, tab_registro = st.tabs(["🚨 Panel de Alertas y Seguimiento", "📝 Nuevo Registro en Piso"])
@@ -51,66 +55,84 @@ def mostrar_modulo_agenda(client_gs):
         with col_filtro1:
             sucursal_filtro = st.selectbox("🏪 Selecciona tu Sucursal:", lista_sucursales, key="filtro_sucursal_agenda")
 
-        # Obtener datos de la nube
-        datos = sheet_agenda.get_all_values()
-        if len(datos) > 1:
-            df_agenda = pd.DataFrame(datos[1:], columns=datos[0])
-            
-            # Filtrar solo pendientes (Estatus != CONTACTADO)
-            df_pendientes = df_agenda[df_agenda['Estatus'].astype(str).str.upper() != 'CONTACTADO'].copy()
-            
-            # Aplicar filtro por la sucursal seleccionada
-            if sucursal_filtro != "Todas las Sucursales":
-                # Usamos exact match o contains para coincidir con la base
-                df_pendientes = df_pendientes[df_pendientes['Sucursal'].astype(str).str.contains(sucursal_filtro, case=False, regex=False, na=False)]
-
-            if df_pendientes.empty:
-                st.success(f"✨ ¡Excelente! No hay clientes pendientes en lista de espera para {sucursal_filtro}.")
-            else:
-                st.caption(f"Mostrando **{len(df_pendientes)}** cliente(s) en espera para **{sucursal_filtro}**.")
-                
-                # --- NUEVO DISEÑO EN CUADRÍCULA (2 COLUMNAS) ---
-                pendientes_list = list(df_pendientes.iterrows())
-                
-                # Iterar en bloques de 2
-                for i in range(0, len(pendientes_list), 2):
-                    cols = st.columns(2)
-                    
-                    for j in range(2):
-                        if i + j < len(pendientes_list):
-                            idx, row = pendientes_list[i + j]
-                            with cols[j]:
-                                cliente = row.get('Cliente', 'Sin Nombre')
-                                whatsapp = row.get('Whatsapp', row.get('WhatsApp', '')) 
-                                modelo = row.get('Modelo', '').upper()
-                                talla = row.get('Talla', '')
-                                sucursal = row.get('Sucursal', '')
-                                notas = row.get('Notas', '')
-
-                                # Bloque HTML superior (Instrucción)
-                                st.markdown(f"""
-                                <div style="padding: 15px 15px 10px 15px; border-top: 4px solid #E30613; background-color: #1e293b; border-radius: 8px 8px 0 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                                    <p style="margin: 0; font-size: 14.5px; color: #f8fafc; line-height: 1.4;">
-                                        📌 <strong>Atención {sucursal}:</strong> Favor de contactar al cliente <strong>{cliente}</strong> al teléfono <strong style="color: #fbbf24;">{whatsapp}</strong>. Su modelo <strong>{modelo}</strong> (Talla {talla}) ya llegó.
-                                    </p>
-                                    {"<p style='margin: 8px 0 0 0; font-size: 12px; color: #94a3b8;'><em>📝 Notas: " + notas + "</em></p>" if notas else ""}
-                                </div>
-                                """, unsafe_allow_html=True)
-                                
-                                # Botón en la parte inferior ocupando todo el ancho de la tarjeta
-                                if st.button("✅ Contactado", key=f"btn_done_{idx}", use_container_width=True):
-                                    try:
-                                        # Actualiza la celda en Google Sheets
-                                        sheet_agenda.update_cell(row.name + 2, 8, "CONTACTADO")
-                                        st.toast(f"¡Excelente! Cliente {cliente} contactado.", icon="✅")
-                                        st.rerun()
-                                    except Exception as e:
-                                        st.error(f"Error al actualizar en la nube: {e}")
-                                
-                                # Espaciador para no pegar las tarjetas verticalmente
-                                st.write("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
+        # Bloqueo visual por defecto
+        if sucursal_filtro == opcion_default:
+            st.info("👆 Por favor, selecciona tu sucursal en el menú de arriba para cargar tu agenda de clientes.")
         else:
-            st.info("Aún no hay clientes registrados en la agenda.")
+            mostrar_tablero = True
+            
+            # Candado para la vista global
+            if sucursal_filtro == opcion_gerencia:
+                col_clave, _ = st.columns([1, 2])
+                with col_clave:
+                    clave_ingresada = st.text_input("🔐 Clave de Autorización:", type="password", key="clave_gerencia_agenda")
+                
+                if clave_ingresada != "Flexi2026":
+                    st.warning("🔒 Vista restringida. Ingresa la clave maestra para acceder al tablero global.")
+                    mostrar_tablero = False
+            
+            # Si pasa los bloqueos, mostramos los datos
+            if mostrar_tablero:
+                # Obtener datos de la nube
+                datos = sheet_agenda.get_all_values()
+                if len(datos) > 1:
+                    df_agenda = pd.DataFrame(datos[1:], columns=datos[0])
+                    
+                    # Filtrar solo pendientes (Estatus != CONTACTADO)
+                    df_pendientes = df_agenda[df_agenda['Estatus'].astype(str).str.upper() != 'CONTACTADO'].copy()
+                    
+                    # Aplicar filtro por la sucursal seleccionada (si no es la vista global)
+                    if sucursal_filtro != opcion_gerencia:
+                        # Usamos contains para coincidir con la base
+                        df_pendientes = df_pendientes[df_pendientes['Sucursal'].astype(str).str.contains(sucursal_filtro, case=False, regex=False, na=False)]
+
+                    if df_pendientes.empty:
+                        st.success(f"✨ ¡Excelente! No hay clientes pendientes en lista de espera para {sucursal_filtro}.")
+                    else:
+                        st.caption(f"Mostrando **{len(df_pendientes)}** cliente(s) en espera para **{sucursal_filtro}**.")
+                        
+                        # --- DISEÑO EN CUADRÍCULA (2 COLUMNAS) ---
+                        pendientes_list = list(df_pendientes.iterrows())
+                        
+                        # Iterar en bloques de 2
+                        for i in range(0, len(pendientes_list), 2):
+                            cols = st.columns(2)
+                            
+                            for j in range(2):
+                                if i + j < len(pendientes_list):
+                                    idx, row = pendientes_list[i + j]
+                                    with cols[j]:
+                                        cliente = row.get('Cliente', 'Sin Nombre')
+                                        whatsapp = row.get('Whatsapp', row.get('WhatsApp', '')) 
+                                        modelo = row.get('Modelo', '').upper()
+                                        talla = row.get('Talla', '')
+                                        sucursal = row.get('Sucursal', '')
+                                        notas = row.get('Notas', '')
+
+                                        # Bloque HTML superior (Instrucción)
+                                        st.markdown(f"""
+                                        <div style="padding: 15px 15px 10px 15px; border-top: 4px solid #E30613; background-color: #1e293b; border-radius: 8px 8px 0 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                            <p style="margin: 0; font-size: 14.5px; color: #f8fafc; line-height: 1.4;">
+                                                📌 <strong>Atención {sucursal}:</strong> Favor de contactar al cliente <strong>{cliente}</strong> al teléfono <strong style="color: #fbbf24;">{whatsapp}</strong>. Su modelo <strong>{modelo}</strong> (Talla {talla}) ya llegó.
+                                            </p>
+                                            {"<p style='margin: 8px 0 0 0; font-size: 12px; color: #94a3b8;'><em>📝 Notas: " + notas + "</em></p>" if notas else ""}
+                                        </div>
+                                        """, unsafe_allow_html=True)
+                                        
+                                        # Botón en la parte inferior ocupando todo el ancho de la tarjeta
+                                        if st.button("✅ Contactado", key=f"btn_done_{idx}", use_container_width=True):
+                                            try:
+                                                # Actualiza la celda en Google Sheets
+                                                sheet_agenda.update_cell(row.name + 2, 8, "CONTACTADO")
+                                                st.toast(f"¡Excelente! Cliente {cliente} contactado.", icon="✅")
+                                                st.rerun()
+                                            except Exception as e:
+                                                st.error(f"Error al actualizar en la nube: {e}")
+                                        
+                                        # Espaciador para no pegar las tarjetas verticalmente
+                                        st.write("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
+                else:
+                    st.info("Aún no hay clientes registrados en la agenda.")
 
     # ==========================================
     # TAB 2: FORMULARIO DE REGISTRO
@@ -122,7 +144,7 @@ def mostrar_modulo_agenda(client_gs):
             col1, col2 = st.columns(2)
             
             with col1:
-                # Usamos la lista de nombres_tiendas_reales directamente
+                # El formulario de captura sigue mostrando SOLO las tiendas reales
                 sucursal_input = st.selectbox("🏢 Selecciona tu Sucursal:", nombres_tiendas_reales)
                 cliente_input = st.text_input("👤 Nombre del Cliente:")
                 whatsapp_input = st.text_input("📱 Teléfono (10 dígitos):", max_chars=10)
