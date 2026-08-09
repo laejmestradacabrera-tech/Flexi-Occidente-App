@@ -4,6 +4,7 @@ import datetime
 import urllib.parse
 import os
 import re
+import time
 
 # --- CACHÉ MAESTRO PARA EVITAR LAG Y RESETEOS EN EL MENÚ ---
 @st.cache_data
@@ -203,6 +204,69 @@ def limpiar_formulario_agenda():
 if 'agenda_reg_refresh' not in st.session_state:
     st.session_state.agenda_reg_refresh = False
 
+# --- CACHE DE AGENDA GOOGLE SHEETS ---
+# Evita leer toda la hoja en cada rerun de Streamlit.
+# La agenda se lee una vez y se conserva temporalmente en la sesión.
+AGENDA_CACHE_TTL = 20  # segundos
+
+def obtener_sheet_agenda(client_gs):
+    """Obtiene y conserva el objeto de Google Sheets durante la sesión."""
+    try:
+        if 'sheet_agenda_obj' not in st.session_state:
+            archivo = client_gs.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM')
+            st.session_state.sheet_agenda_obj = archivo.worksheet('Agenda_Clientes')
+        return st.session_state.sheet_agenda_obj
+    except Exception as e:
+        st.session_state.sheet_agenda_error = str(e)
+        return None
+
+def leer_agenda_google(sheet_agenda, forzar=False):
+    """Lee Agenda_Clientes solo cuando es necesario y conserva una copia local."""
+    ahora = time.time()
+    datos_cache = st.session_state.get('agenda_datos_cache')
+    ultima_lectura = st.session_state.get('agenda_cache_timestamp', 0)
+
+    # Usamos la copia local durante el TTL. Esto evita get_all_values() en cada rerun.
+    if not forzar and datos_cache is not None and (ahora - ultima_lectura) < AGENDA_CACHE_TTL:
+        return datos_cache, None
+
+    try:
+        datos = sheet_agenda.get_all_values()
+
+        # Mantenimiento automático de la base de datos. Solo se ejecuta si realmente falta Motivo.
+        if len(datos) > 0:
+            encabezados = [str(c).strip() for c in datos[0]]
+            if 'Motivo' not in encabezados:
+                sheet_agenda.update_cell(1, len(datos[0]) + 1, 'Motivo')
+                datos[0].append('Motivo')
+
+            # Normalizamos el ancho de todas las filas para que el DataFrame
+            # nunca falle si alguna fila histórica todavía no tiene Motivo.
+            ancho = len(datos[0])
+            for fila in datos[1:]:
+                while len(fila) < ancho:
+                    fila.append('📦 Falta de Talla' if len(fila) == ancho - 1 else '')
+                if len(fila) > ancho:
+                    del fila[ancho:]
+
+        st.session_state.agenda_datos_cache = datos
+        st.session_state.agenda_cache_timestamp = ahora
+        st.session_state.agenda_cache_error = None
+        return datos, None
+
+    except Exception as e:
+        mensaje = str(e)
+        # Si Google devuelve 429 pero tenemos una copia previa, seguimos trabajando con ella.
+        if datos_cache is not None:
+            st.session_state.agenda_cache_error = mensaje
+            return datos_cache, mensaje
+        st.session_state.agenda_cache_error = mensaje
+        return None, mensaje
+
+def invalidar_cache_agenda():
+    """Marca la copia local como actualizada sin obligar una nueva lectura."""
+    st.session_state.agenda_cache_timestamp = time.time()
+
 def mostrar_modulo_agenda(client_gs):
     # Aseguramos cargar los inventarios a la memoria
     asegurar_inventario_cargado()
@@ -224,20 +288,35 @@ def mostrar_modulo_agenda(client_gs):
         nombres_sucursales = sorted(df_tdas_global[col_nom_global].dropna().astype(str).unique().tolist())
         nombres_sucursales = [n for n in nombres_sucursales if n.strip() != '']
 
-    # 2. Conectar a Google Sheets
-    try:
-        archivo = client_gs.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM')
-        sheet_agenda = archivo.worksheet('Agenda_Clientes')
-        datos = sheet_agenda.get_all_values()
-        
-        # Mantenimiento automático de la base de datos
-        if len(datos) > 0 and 'Motivo' not in datos[0]:
-            sheet_agenda.update_cell(1, len(datos[0]) + 1, 'Motivo')
-            datos[0].append('Motivo')
-            
-    except Exception as e:
-        st.error(f"❌ Error al conectar con Google Sheets (Asegúrate de tener la pestaña 'Agenda_Clientes'). Detalles: {e}")
+    # 2. Conectar a Google Sheets sin leer la hoja en cada rerun
+    sheet_agenda = obtener_sheet_agenda(client_gs)
+    if sheet_agenda is None:
+        st.error(
+            "❌ No fue posible abrir la pestaña 'Agenda_Clientes'. "
+            f"Detalles: {st.session_state.get('sheet_agenda_error', 'Error desconocido')}"
+        )
         return
+
+    datos, error_lectura = leer_agenda_google(sheet_agenda)
+
+    if datos is None:
+        if '429' in str(error_lectura):
+            st.error(
+                "⏳ Google Sheets alcanzó temporalmente el límite de lecturas. "
+                "No se realizó ninguna modificación. Espera unos segundos y vuelve a entrar al módulo."
+            )
+        else:
+            st.error(
+                "❌ Error al leer Google Sheets. "
+                f"Detalles: {error_lectura}"
+            )
+        return
+
+    if error_lectura and '429' in str(error_lectura):
+        st.warning(
+            "⚠️ Google Sheets está limitando temporalmente las lecturas. "
+            "El sistema está trabajando con la última copia disponible y no volverá a leer la hoja en cada refresco."
+        )
 
     opcion_default = "👉 Selecciona tu sucursal..."
     opcion_gerencia = "Todas las Sucursales (Solo Gerencia)"
@@ -250,6 +329,21 @@ def mostrar_modulo_agenda(client_gs):
     # ==========================================
     with tab_alertas:
         st.markdown("### 🔔 Trámites Activos")
+
+        col_refrescar, col_estado = st.columns([1, 2])
+        with col_refrescar:
+            if st.button("🔄 Actualizar Agenda", use_container_width=True, type="secondary"):
+                datos_nuevos, error_nuevo = leer_agenda_google(sheet_agenda, forzar=True)
+                if datos_nuevos is not None:
+                    st.success("Agenda actualizada.")
+                    st.rerun()
+                elif '429' in str(error_nuevo):
+                    st.warning("⏳ Google Sheets sigue limitando las lecturas. Espera unos segundos antes de volver a actualizar.")
+                else:
+                    st.error(f"No se pudo actualizar la agenda: {error_nuevo}")
+        with col_estado:
+            edad_cache = int(max(0, time.time() - st.session_state.get('agenda_cache_timestamp', time.time())))
+            st.caption(f"📡 Última lectura de Google Sheets: hace {edad_cache} s · Cache local activo")
 
         if 'ultimo_filtro_agenda' not in st.session_state:
             st.session_state.ultimo_filtro_agenda = opcion_default
@@ -382,7 +476,20 @@ def mostrar_modulo_agenda(client_gs):
                                                 if 'estatus' not in encabezados:
                                                     raise ValueError("La hoja Agenda_Clientes no contiene la columna 'Estatus'.")
                                                 col_estatus = encabezados.index('estatus') + 1
+                                                # Actualizamos una sola celda en Google Sheets.
                                                 sheet_agenda.update_cell(idx + 2, col_estatus, "CONTACTADO")
+
+                                                # Actualizamos también la copia local para que el rerun NO vuelva a hacer get_all_values().
+                                                datos_local = [list(fila) for fila in st.session_state.get('agenda_datos_cache', datos)]
+                                                fila_local = idx + 1  # datos incluye encabezado en la posición 0.
+                                                col_local = col_estatus - 1
+                                                if 0 <= fila_local < len(datos_local):
+                                                    while len(datos_local[fila_local]) <= col_local:
+                                                        datos_local[fila_local].append('')
+                                                    datos_local[fila_local][col_local] = "CONTACTADO"
+                                                    st.session_state.agenda_datos_cache = datos_local
+                                                    invalidar_cache_agenda()
+
                                                 st.toast(f"¡Excelente! Cliente {cliente} contactado.", icon="✅")
                                                 st.rerun()
                                             except Exception as e:
@@ -393,15 +500,26 @@ def mostrar_modulo_agenda(client_gs):
                     st.markdown("---")
                     
                     with st.expander("📓 Abrir Agenda / Directorio General de Tienda", expanded=False):
-                        st.markdown("<p style='color:#64748b; font-size:13px;'>Esta sección muestra todo tu padrón de clientes pendientes (Faltantes y Avisos de Promoción) para consulta telefónica pasiva. Los registros no se borran desde aquí.</p>", unsafe_allow_html=True)
-                        
-                        if df_pendientes.empty:
+                        st.markdown("<p style='color:#64748b; font-size:13px;'>Esta sección muestra <strong>todo tu padrón histórico de clientes</strong> (Faltantes y Avisos de Promoción), incluyendo los que ya fueron contactados. Los registros no se borran desde aquí.</p>", unsafe_allow_html=True)
+
+                        # IMPORTANTE: el padrón es histórico y NO debe depender del Estatus.
+                        # df_pendientes se utiliza únicamente para el panel de seguimiento.
+                        # Aquí mostramos todos los registros de df_agenda, incluidos CONTACTADO.
+                        df_directorio = df_agenda.copy()
+                        if sucursal_filtro != opcion_gerencia:
+                            df_directorio = df_directorio[
+                                df_directorio['Sucursal'].astype(str).str.contains(
+                                    sucursal_filtro, case=False, regex=False, na=False
+                                )
+                            ]
+
+                        if df_directorio.empty:
                             st.info("Tu directorio de clientes está vacío.")
                         else:
                             df_mostrar = pd.DataFrame()
-                            df_mostrar['CLIENTE'] = df_pendientes['Cliente']
-                            df_mostrar['TELÉFONO'] = df_pendientes['Whatsapp']
-                            df_mostrar['MOTIVO DEL REGISTRO'] = df_pendientes['Motivo']
+                            df_mostrar['CLIENTE'] = df_directorio['Cliente']
+                            df_mostrar['TELÉFONO'] = df_directorio['Whatsapp']
+                            df_mostrar['MOTIVO DEL REGISTRO'] = df_directorio['Motivo']
                             
                             def format_modelo_talla(row):
                                 mod = str(row.get('Modelo', '')).strip()
@@ -412,9 +530,10 @@ def mostrar_modulo_agenda(client_gs):
                                     return f"Mod. {mod}"
                                 return ""
                                 
-                            df_mostrar['MODELO Y TALLA'] = df_pendientes.apply(format_modelo_talla, axis=1)
-                            df_mostrar['NOTAS ADICIONALES'] = df_pendientes['Notas']
+                            df_mostrar['MODELO Y TALLA'] = df_directorio.apply(format_modelo_talla, axis=1)
+                            df_mostrar['NOTAS ADICIONALES'] = df_directorio['Notas']
                             
+                            st.caption(f"Mostrando **{len(df_directorio)}** clientes registrados, incluyendo clientes ya contactados.")
                             st.table(df_mostrar)
                 else:
                     st.info("Aún no hay registros en la base de datos.")
@@ -527,6 +646,15 @@ def mostrar_modulo_agenda(client_gs):
                 
                 try:
                     sheet_agenda.append_row(fila_nueva)
+
+                    # Actualizamos la copia local después del append para evitar una lectura completa inmediata.
+                    datos_local = [list(fila) for fila in st.session_state.get('agenda_datos_cache', datos)]
+                    if not datos_local:
+                        datos_local = [['Fecha', 'Sucursal', 'Cliente', 'Whatsapp', 'Modelo', 'Talla', 'Notas', 'Estatus', 'Motivo']]
+                    datos_local.append(fila_nueva)
+                    st.session_state.agenda_datos_cache = datos_local
+                    invalidar_cache_agenda()
+
                     st.success(f"✅ ¡Cliente {cliente_input} registrado exitosamente bajo el motivo: {motivo_input.split(' ')[1]}!")
                     st.info("💡 Formulario guardado. Presiona 'Limpiar Formulario' para borrar estos datos y registrar uno nuevo.")
                 except Exception as e:
