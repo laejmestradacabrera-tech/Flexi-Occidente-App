@@ -20,6 +20,27 @@ def cargar_nombres_tiendas():
             pass
     return ["Sin Sucursales Cargadas"]
 
+def asegurar_inventario_cargado():
+    """Puente de memoria: Asegura que la agenda pueda leer el inventario local"""
+    try:
+        if 'df_ventas' not in st.session_state:
+            archivos_v = [f for f in os.listdir('.') if 'Ventas' in f and f.endswith(('.xlsx', '.csv'))]
+            if archivos_v:
+                arch = sorted(archivos_v)[-1]
+                st.session_state.df_ventas = pd.read_excel(arch) if arch.endswith('.xlsx') else pd.read_csv(arch)
+                
+        if 'df_tallas' not in st.session_state:
+            archivos_t = [f for f in os.listdir('.') if 'Valores de tallas' in f and f.endswith(('.xlsx', '.csv'))]
+            if archivos_t:
+                arch = sorted(archivos_t)[-1]
+                if arch.endswith('.xlsx'):
+                    try: st.session_state.df_tallas = pd.read_excel(arch, sheet_name="Hoja1")
+                    except: st.session_state.df_tallas = pd.read_excel(arch)
+                else:
+                    st.session_state.df_tallas = pd.read_csv(arch)
+    except Exception:
+        pass
+
 def verificar_inventario_local(sucursal_str, modelo, talla):
     """Cruce silencioso con el Kárdex para saber si el zapato ya llegó a bodega"""
     try:
@@ -70,6 +91,9 @@ def verificar_inventario_local(sucursal_str, modelo, talla):
         return False
 
 def mostrar_modulo_agenda(client_gs):
+    # Aseguramos cargar los archivos a la memoria (Darle "ojos" al módulo)
+    asegurar_inventario_cargado()
+
     st.markdown("<h2 style='color: #4338ca;'>📓 Agenda de Clientes y Recuperación de Ventas</h2>", unsafe_allow_html=True)
     st.write("Registra clientes en piso de venta, cruza faltantes de talla con el inventario y gestiona tu cartera de clientes.")
 
