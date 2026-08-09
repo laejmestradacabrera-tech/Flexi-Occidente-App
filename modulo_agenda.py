@@ -20,6 +20,41 @@ def cargar_nombres_tiendas():
             pass
     return ["Sin Sucursales Cargadas"]
 
+def obtener_id_tienda(sucursal_str):
+    """Traduce el nombre de la sucursal a su número de ID para cruce de Kárdex"""
+    # 1. Si ya viene con el número (ej: "56 - PLAZAS OUTLET")
+    match = re.search(r'\d+', str(sucursal_str))
+    if match:
+        return int(match.group())
+        
+    # 2. Si viene solo nombre (ej: "PLAZAS OUTLET"), buscamos en su catálogo
+    archivos = [f for f in os.listdir('.') if 'CORREO DE TIENDAS' in f.upper() and f.endswith(('.xlsx', '.csv'))]
+    if archivos:
+        archivo = sorted(archivos)[-1]
+        try:
+            df = pd.read_excel(archivo) if archivo.endswith('.xlsx') else pd.read_csv(archivo)
+            df.columns = df.columns.astype(str).str.strip().str.upper()
+            col_nom = 'NOMBRE' if 'NOMBRE' in df.columns else (df.columns[1] if len(df.columns) > 1 else df.columns[0])
+            col_id = next((c for c in df.columns if c in ['TIENDA', 'SUCURSAL', 'NUMERO', 'ID']), df.columns[0])
+            
+            fila = df[df[col_nom].astype(str).str.strip().str.upper() == str(sucursal_str).strip().upper()]
+            if not fila.empty:
+                val_id = str(fila.iloc[0][col_id])
+                match2 = re.search(r'\d+', val_id)
+                if match2:
+                    return int(match2.group())
+        except Exception:
+            pass
+    return -1
+
+def clean_talla(t):
+    """Normaliza tallas a string evitando que 25.5 se trunque o 25.0 no coincida con 25"""
+    try:
+        f = float(t)
+        return str(int(f)) if f.is_integer() else str(f)
+    except:
+        return str(t).strip()
+
 def asegurar_inventario_cargado():
     """Puente de memoria: Asegura que la agenda pueda leer el inventario local"""
     try:
@@ -50,14 +85,13 @@ def verificar_inventario_local(sucursal_str, modelo, talla):
         df_v = st.session_state.df_ventas
         df_t = st.session_state.df_tallas
         
-        # Extraer número de sucursal
-        match = re.search(r'\d+', str(sucursal_str))
-        tda_int = int(match.group()) if match else -1
+        # Traducción robusta de Nombre de Tienda a ID numérico
+        tda_int = obtener_id_tienda(sucursal_str)
+        if tda_int == -1: return False
         
         # Limpiar modelo y talla para cruce exacto
         mod_cln = str(modelo).replace(' ', '').replace('-', '').upper()
-        try: t_buscada = str(int(float(talla)))
-        except: t_buscada = str(talla).strip()
+        t_buscada = clean_talla(talla)
         
         # Preparar base de ventas para filtro rápido
         if 'tienda_int_chk' not in df_v.columns:
@@ -77,8 +111,7 @@ def verificar_inventario_local(sucursal_str, modelo, talla):
                     if col_ex in tallas_row.columns:
                         val_matriz = tallas_row.iloc[0].get(col_ex, '')
                         if pd.notna(val_matriz) and str(val_matriz).strip() != '':
-                            try: v_mat_str = str(int(float(val_matriz)))
-                            except: v_mat_str = str(val_matriz).strip()
+                            v_mat_str = clean_talla(val_matriz)
                             
                             if v_mat_str == t_buscada:
                                 # ¡Talla encontrada en matriz! Checar si hay existencia > 0
@@ -89,6 +122,15 @@ def verificar_inventario_local(sucursal_str, modelo, talla):
         return False
     except:
         return False
+
+def limpiar_campos_formulario():
+    """Fuerza la limpieza total de los text_inputs asignándoles cadenas vacías."""
+    st.session_state.agenda_cli_reg = ""
+    st.session_state.agenda_wpp_reg = ""
+    st.session_state.agenda_mod_reg = ""
+    st.session_state.agenda_not_reg_falta = ""
+    st.session_state.agenda_not_reg_promo = ""
+    st.session_state.agenda_tal_reg = 25.0
 
 def mostrar_modulo_agenda(client_gs):
     # Aseguramos cargar los archivos a la memoria (Darle "ojos" al módulo)
@@ -140,7 +182,7 @@ def mostrar_modulo_agenda(client_gs):
         if sucursal_filtro == opcion_default:
             st.info("👆 Por favor, selecciona tu sucursal en el menú superior para cargar tu agenda.")
         else:
-            # --- NUEVO BOTÓN DE LIMPIEZA VISUAL (RESET) ---
+            # --- BOTÓN DE LIMPIEZA VISUAL (RESET) ---
             if st.button("🧹 Limpiar Pantalla / Cerrar Vista", use_container_width=True, type="secondary"):
                 st.session_state.ultimo_filtro_agenda = opcion_default
                 if "filtro_sucursal_agenda" in st.session_state:
@@ -240,7 +282,7 @@ def mostrar_modulo_agenda(client_gs):
                                             
                                         st.markdown(html_tarjeta, unsafe_allow_html=True)
                                         
-                                        # Botón para limpiar registro (ocupa todo el ancho, pero se destaca si el zapato ya llegó)
+                                        # Botón para limpiar registro
                                         btn_type = "primary" if zapato_llegado else "secondary"
                                         if st.button("✅ Marcar como Contactado", key=f"btn_done_{idx}", use_container_width=True, type=btn_type):
                                             try:
@@ -261,7 +303,6 @@ def mostrar_modulo_agenda(client_gs):
                         if df_pendientes.empty:
                             st.info("Tu directorio de clientes está vacío.")
                         else:
-                            # Utilizamos una tabla nativa (st.table) para aprovechar los estilos CSS globales que ya tienes
                             df_mostrar = pd.DataFrame()
                             df_mostrar['CLIENTE'] = df_pendientes['Cliente']
                             df_mostrar['TELÉFONO'] = df_pendientes['Whatsapp']
@@ -270,7 +311,6 @@ def mostrar_modulo_agenda(client_gs):
                             def format_modelo_talla(row):
                                 mod = str(row.get('Modelo', '')).strip()
                                 tal = str(row.get('Talla', '')).strip()
-                                # Si tiene modelo y no es NaN
                                 if mod and mod.upper() != 'NAN':
                                     if tal and tal.upper() != 'NAN' and tal != '':
                                         return f"Mod. {mod} (T. {tal})"
@@ -290,7 +330,11 @@ def mostrar_modulo_agenda(client_gs):
     with tab_registro:
         st.markdown("### 📝 Captura de Datos en Caja")
         
-        # Eliminamos el st.form para evitar el error NotFoundError (React DOM) al hacer cambios dinámicos en la interfaz
+        # Monitor de éxito para mostrarlo después del reseteo del formulario
+        if 'mensaje_exito_agenda' in st.session_state:
+            st.success(st.session_state.mensaje_exito_agenda)
+            del st.session_state.mensaje_exito_agenda
+
         motivo_input = st.selectbox("📌 Motivo del Registro:", ["📦 Falta de Talla (Quiebre)", "🏷️ Agenda (Aviso de Promociones)"], key="agenda_motivo_reg")
         
         col1, col2 = st.columns(2)
@@ -301,7 +345,6 @@ def mostrar_modulo_agenda(client_gs):
             whatsapp_input = st.text_input("📱 Teléfono (10 dígitos):", max_chars=10, key="agenda_wpp_reg")
         
         with col2:
-            # Condición en tiempo real (Ahora es completamente estable sin el st.form)
             if "Falta" in motivo_input:
                 modelo_input = st.text_input("👟 Modelo Buscado:", key="agenda_mod_reg")
                 talla_input = st.number_input("📏 Talla (Ej. 25.0):", min_value=10.0, max_value=35.0, step=0.5, value=25.0, key="agenda_tal_reg")
@@ -322,11 +365,7 @@ def mostrar_modulo_agenda(client_gs):
             
         with col_btn2:
             if st.button("🧹 Limpiar Formulario", type="secondary", use_container_width=True):
-                # Limpieza manual del formulario para compensar que quitamos el clear_on_submit del st.form
-                claves_a_limpiar = ['agenda_cli_reg', 'agenda_wpp_reg', 'agenda_mod_reg', 'agenda_not_reg_falta', 'agenda_not_reg_promo']
-                for key in claves_a_limpiar:
-                    if key in st.session_state:
-                        del st.session_state[key]
+                limpiar_campos_formulario()
                 st.rerun()
         
         if btn_guardar:
@@ -337,7 +376,7 @@ def mostrar_modulo_agenda(client_gs):
             elif len(whatsapp_input) < 10 or not whatsapp_input.isdigit():
                 st.error("⚠️ El número de Teléfono debe tener 10 dígitos numéricos.")
             else:
-                # --- ESCUDO DE INVENTARIO: Evitar guardar quiebres falsos ---
+                # --- ESCUDO DE INVENTARIO ABSOLUTO ---
                 bloquear_registro = False
                 if "Falta" in motivo_input:
                     if verificar_inventario_local(sucursal_input, modelo_input, talla_input):
@@ -347,7 +386,7 @@ def mostrar_modulo_agenda(client_gs):
                 if not bloquear_registro:
                     fecha_hoy = (datetime.datetime.utcnow() - datetime.timedelta(hours=6)).strftime("%d/%m/%Y")
                     
-                    # Estructura alineada a 9 columnas: Fecha, Sucursal, Cliente, Whatsapp, Modelo, Talla, Notas, Estatus, Motivo
+                    # Estructura alineada a 9 columnas
                     fila_nueva = [
                         fecha_hoy, sucursal_input, cliente_input, whatsapp_input, 
                         modelo_input.upper(), str(talla_input), notas_input, "ESPERANDO", motivo_input
@@ -355,12 +394,10 @@ def mostrar_modulo_agenda(client_gs):
                     
                     try:
                         sheet_agenda.append_row(fila_nueva)
-                        st.success(f"✅ ¡Cliente {cliente_input} registrado exitosamente bajo el motivo: {motivo_input.split(' ')[1]}!")
-                        
-                        # Limpieza automática después de guardar con éxito
-                        claves_a_limpiar = ['agenda_cli_reg', 'agenda_wpp_reg', 'agenda_mod_reg', 'agenda_not_reg_falta', 'agenda_not_reg_promo']
-                        for key in claves_a_limpiar:
-                            if key in st.session_state:
-                                del st.session_state[key]
+                        # Guardamos el mensaje antes de borrar la memoria
+                        st.session_state.mensaje_exito_agenda = f"✅ ¡Cliente {cliente_input} registrado exitosamente bajo el motivo: {motivo_input.split(' ')[1]}!"
+                        # Blanqueamos formulario y recargamos instantáneamente
+                        limpiar_campos_formulario()
+                        st.rerun()
                     except Exception as e:
                         st.error(f"❌ Error al guardar en la nube: {e}")
