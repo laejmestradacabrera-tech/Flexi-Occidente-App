@@ -20,41 +20,6 @@ def cargar_nombres_tiendas():
             pass
     return ["Sin Sucursales Cargadas"]
 
-def obtener_id_tienda(sucursal_str):
-    """Traduce el nombre de la sucursal a su número de ID con la misma robustez que la Bitácora"""
-    # 1. Si ya viene con el número (ej: "56 - PLAZAS OUTLET")
-    match = re.search(r'\d+', str(sucursal_str))
-    if match:
-        return int(match.group())
-        
-    # 2. Si viene solo nombre (ej: "PLAZAS OUTLET"), buscamos en su catálogo iterando columnas
-    archivos = [f for f in os.listdir('.') if 'CORREO DE TIENDAS' in f.upper() and f.endswith(('.xlsx', '.csv'))]
-    if archivos:
-        archivo = sorted(archivos)[-1]
-        try:
-            df = pd.read_excel(archivo) if archivo.endswith('.xlsx') else pd.read_csv(archivo)
-            df.columns = df.columns.astype(str).str.strip().str.upper()
-            col_nom = 'NOMBRE' if 'NOMBRE' in df.columns else (df.columns[1] if len(df.columns) > 1 else df.columns[0])
-            
-            fila = df[df[col_nom].astype(str).str.strip().str.upper() == str(sucursal_str).strip().upper()]
-            if not fila.empty:
-                # Buscar en columnas candidatas de ID
-                for col in df.columns:
-                    if col.strip().upper() in ['TIENDA', 'SUCURSAL', 'NUMERO', 'ID']:
-                        val_id = str(fila[col].values[0])
-                        match2 = re.search(r'\d+', val_id)
-                        if match2:
-                            return int(match2.group())
-                
-                # Si no hay columna clara, tomar la primera
-                val_id = str(fila.iloc[:, 0].values[0])
-                match2 = re.search(r'\d+', val_id)
-                if match2:
-                    return int(match2.group())
-        except Exception:
-            pass
-    return -1
-
 def clean_talla(t):
     """Normaliza tallas a string evitando que 25.5 se trunque o 25.0 no coincida con 25"""
     try:
@@ -84,7 +49,7 @@ def asegurar_inventario_cargado():
     except Exception:
         pass
 
-def verificar_inventario_local(sucursal_str, modelo, talla):
+def verificar_inventario_local(tda_int, modelo, talla):
     """Cruce silencioso con el Kárdex para saber si el zapato ya llegó a bodega"""
     try:
         if 'df_ventas' not in st.session_state or 'df_tallas' not in st.session_state:
@@ -92,10 +57,6 @@ def verificar_inventario_local(sucursal_str, modelo, talla):
             
         df_v = st.session_state.df_ventas
         df_t = st.session_state.df_tallas
-        
-        # Traducción robusta de Nombre de Tienda a ID numérico
-        tda_int = obtener_id_tienda(sucursal_str)
-        if tda_int == -1: return False
         
         # Limpiar modelo y talla para cruce exacto
         mod_cln = str(modelo).replace(' ', '').replace('-', '').upper()
@@ -131,17 +92,18 @@ def verificar_inventario_local(sucursal_str, modelo, talla):
     except:
         return False
 
-# Inicializamos el contador de llaves para resetear el formulario sin errores de React
-if 'agenda_form_key' not in st.session_state:
-    st.session_state.agenda_form_key = 0
-
-def resetear_formulario():
-    """Genera una llave nueva para blanquear visualmente los campos sin conflicto de variables"""
-    st.session_state.agenda_form_key += 1
+# Inicializamos estados para la limpieza de la pantalla de registro
+if 'agenda_reg_refresh' not in st.session_state:
+    st.session_state.agenda_reg_refresh = False
 
 def mostrar_modulo_agenda(client_gs):
     # Aseguramos cargar los archivos a la memoria (Darle "ojos" al módulo)
     asegurar_inventario_cargado()
+
+    # Si se solicitó un refresh, limpiamos el estado y forzamos reinicio visual
+    if st.session_state.get('agenda_reg_refresh', False):
+        st.session_state.agenda_reg_refresh = False
+        # No usamos rerun aquí, permitimos que el script fluya, los widgets tomarán sus defaults
 
     st.markdown("<h2 style='color: #4338ca;'>📓 Agenda de Clientes y Recuperación de Ventas</h2>", unsafe_allow_html=True)
     st.write("Registra clientes en piso de venta, cruza faltantes de talla con el inventario y gestiona tu cartera de clientes.")
@@ -242,6 +204,16 @@ def mostrar_modulo_agenda(client_gs):
                         
                         pendientes_list = list(df_faltas.iterrows())
                         
+                        # Carga de tiendas para traducir nombre a ID para la alerta
+                        df_tiendas_alertas = pd.DataFrame()
+                        arch_tiendas = [f for f in os.listdir('.') if 'CORREO DE TIENDAS' in f.upper() and f.endswith(('.xlsx', '.csv'))]
+                        if arch_tiendas:
+                            try:
+                                arch = sorted(arch_tiendas)[-1]
+                                df_tiendas_alertas = pd.read_excel(arch) if arch.endswith('.xlsx') else pd.read_csv(arch)
+                                df_tiendas_alertas.columns = df_tiendas_alertas.columns.astype(str).str.strip().str.upper()
+                            except: pass
+
                         for i in range(0, len(pendientes_list), 2):
                             cols = st.columns(2)
                             
@@ -256,8 +228,23 @@ def mostrar_modulo_agenda(client_gs):
                                         sucursal = row.get('Sucursal', '')
                                         notas = row.get('Notas', '')
 
-                                        # Cruce con inventario local
-                                        zapato_llegado = verificar_inventario_local(sucursal, modelo, talla)
+                                        # Obtener ID de la tienda desde el archivo maestro para la alerta
+                                        tda_num_alerta = -1
+                                        if not df_tiendas_alertas.empty:
+                                            col_nom_alerta = 'NOMBRE' if 'NOMBRE' in df_tiendas_alertas.columns else (df_tiendas_alertas.columns[1] if len(df_tiendas_alertas.columns) > 1 else df_tiendas_alertas.columns[0])
+                                            fila_alerta = df_tiendas_alertas[df_tiendas_alertas[col_nom_alerta].astype(str).str.strip().str.upper() == str(sucursal).strip().upper()]
+                                            
+                                            if not fila_alerta.empty:
+                                                for col in df_tiendas_alertas.columns:
+                                                    if col.strip().upper() in ['TIENDA', 'SUCURSAL', 'NUMERO', 'ID']:
+                                                        try:
+                                                            match_num = re.search(r'\d+', str(fila_alerta[col].values[0]))
+                                                            if match_num: tda_num_alerta = int(match_num.group())
+                                                        except: pass
+                                                        break
+
+                                        # Cruce con inventario local usando el ID exacto
+                                        zapato_llegado = verificar_inventario_local(tda_num_alerta, modelo, talla)
 
                                         # Renderizado dinámico de la tarjeta (Semáforo)
                                         if zapato_llegado:
@@ -332,79 +319,123 @@ def mostrar_modulo_agenda(client_gs):
                     st.info("Aún no hay registros en la base de datos.")
 
     # ==========================================
-    # TAB 2: FORMULARIO DE REGISTRO DUAL
+    # TAB 2: FORMULARIO DE REGISTRO DUAL (CLON DE BITÁCORA)
     # ==========================================
     with tab_registro:
         st.markdown("### 📝 Captura de Datos en Caja")
-        
-        # Monitor de éxito para mostrarlo después del reseteo del formulario
-        if 'mensaje_exito_agenda' in st.session_state:
-            st.success(st.session_state.mensaje_exito_agenda)
-            del st.session_state.mensaje_exito_agenda
 
-        # Usamos el contador "k" para forzar a que Streamlit renderice campos nuevos y limpios
-        k = st.session_state.agenda_form_key
+        # 1. Extractor Robusto de Tiendas (Idéntico a Bitácora)
+        df_tdas_reg = pd.DataFrame()
+        archivos_t = [f for f in os.listdir('.') if 'CORREO DE TIENDAS' in f.upper() and f.endswith(('.xlsx', '.csv'))]
+        if archivos_t:
+            try:
+                arch = sorted(archivos_t)[-1]
+                df_tdas_reg = pd.read_excel(arch) if arch.endswith('.xlsx') else pd.read_csv(arch)
+                df_tdas_reg.columns = df_tdas_reg.columns.astype(str).str.strip().str.upper()
+            except: pass
 
-        motivo_input = st.selectbox("📌 Motivo del Registro:", ["📦 Falta de Talla (Quiebre)", "🏷️ Agenda (Aviso de Promociones)"], key=f"agenda_motivo_reg_{k}")
-        
-        col1, col2 = st.columns(2)
+        if df_tdas_reg.empty:
+            st.warning("No se pudo cargar el archivo de sucursales.")
+            nombres_sucursales = ["Sin Sucursales"]
+        else:
+            col_nom_reg = 'NOMBRE' if 'NOMBRE' in df_tdas_reg.columns else (df_tdas_reg.columns[1] if len(df_tdas_reg.columns) > 1 else df_tdas_reg.columns[0])
+            nombres_sucursales = sorted(df_tdas_reg[col_nom_reg].dropna().astype(str).unique().tolist())
+            nombres_sucursales = [n for n in nombres_sucursales if n.strip() != '']
+
+        col1, col2 = st.columns([2, 1])
         
         with col1:
-            sucursal_input = st.selectbox("🏢 Selecciona tu Sucursal:", nombres_tiendas_reales, key=f"agenda_suc_reg_{k}")
-            cliente_input = st.text_input("👤 Nombre del Cliente:", key=f"agenda_cli_reg_{k}")
-            whatsapp_input = st.text_input("📱 Teléfono (10 dígitos):", max_chars=10, key=f"agenda_wpp_reg_{k}")
+            sucursal_input = st.selectbox("Selecciona la Tienda:", nombres_sucursales, key="agenda_reg_sucursal")
+            
+        # Extracción del Número de Tienda (ID)
+        tda_num_defecto = ""
+        if not df_tdas_reg.empty:
+            fila_tienda = df_tdas_reg[df_tdas_reg[col_nom_reg] == sucursal_input]
+            if not fila_tienda.empty:
+                for col in df_tdas_reg.columns:
+                    if col.strip().upper() in ['TIENDA', 'SUCURSAL', 'NUMERO', 'ID']:
+                        tda_num_defecto = str(fila_tienda[col].values[0])
+                        break
         
         with col2:
-            if "Falta" in motivo_input:
-                modelo_input = st.text_input("👟 Modelo Buscado:", key=f"agenda_mod_reg_{k}")
-                talla_input = st.number_input("📏 Talla (Ej. 25.0):", min_value=10.0, max_value=35.0, step=0.5, value=25.0, key=f"agenda_tal_reg_{k}")
-                notas_input = st.text_area("📝 Notas (Opcional):", height=68, key=f"agenda_not_reg_falta_{k}")
-            else:
-                modelo_input = ""
-                talla_input = ""
-                st.info("💡 En modo Agenda (Promociones) no se requiere capturar Modelo ni Talla.")
-                st.write("<br>", unsafe_allow_html=True)
-                notas_input = st.text_area("📝 Notas (Opcional):", height=68, key=f"agenda_not_reg_promo_{k}")
-        
-        st.write("<br>", unsafe_allow_html=True)
+            st.markdown("**N° Sucursal en SAP/Inventario:**")
+            st.info(f"🏪 {tda_num_defecto if tda_num_defecto else 'No encontrado'}")
 
+        motivo_input = st.selectbox("📌 Motivo del Registro:", ["📦 Falta de Talla (Quiebre)", "🏷️ Agenda (Aviso de Promociones)"], key="agenda_reg_motivo")
+        
+        cliente_input = st.text_input("👤 Nombre del Cliente:", key="agenda_reg_cliente")
+        whatsapp_input = st.text_input("📱 Teléfono (10 dígitos):", max_chars=10, key="agenda_reg_telefono")
+        
+        modelo_input = ""
+        talla_input = 0.0
+        
+        # Condicional simple, igual que en la Bitácora
+        if "Falta" in motivo_input:
+            col_mod, col_tal = st.columns(2)
+            with col_mod:
+                modelo_input = st.text_input("👟 Modelo Buscado:", key="agenda_reg_modelo")
+            with col_tal:
+                talla_input = st.number_input("📏 Talla (Ej. 250 o 25.0):", min_value=1.0, max_value=350.0, step=0.5, value=25.0, key="agenda_reg_talla")
+        else:
+            st.info("💡 En modo Agenda (Promociones) no se requiere capturar Modelo ni Talla.")
+            
+        notas_input = st.text_area("📝 Notas (Opcional):", key="agenda_reg_notas")
+
+        st.write("<br>", unsafe_allow_html=True)
         col_btn1, col_btn2 = st.columns(2)
         
         with col_btn1:
             btn_guardar = st.button("💾 Guardar Cliente", type="primary", use_container_width=True)
             
         with col_btn2:
-            # Ahora el botón usa un "callback" directo para evitar el StreamlitAPIException
-            st.button("🧹 Limpiar Formulario", type="secondary", use_container_width=True, on_click=resetear_formulario)
-        
+            if st.button("🧹 Limpiar Formulario", type="secondary", use_container_width=True):
+                st.session_state.agenda_reg_refresh = True
+                st.rerun()
+
         if btn_guardar:
+            puede_guardar = True
+            
             if not cliente_input:
                 st.error("⚠️ El nombre del cliente es obligatorio.")
-            elif "Falta" in motivo_input and not modelo_input:
-                st.error("⚠️ Para 'Falta de Talla' es obligatorio ingresar el Modelo buscado.")
+                puede_guardar = False
             elif len(whatsapp_input) < 10 or not whatsapp_input.isdigit():
                 st.error("⚠️ El número de Teléfono debe tener 10 dígitos numéricos.")
-            else:
-                # --- ESCUDO DE INVENTARIO ABSOLUTO ---
-                bloquear_registro = False
-                if "Falta" in motivo_input:
-                    if verificar_inventario_local(sucursal_input, modelo_input, talla_input):
-                        bloquear_registro = True
-                        st.error(f"⛔ ¡ALTO! El modelo {modelo_input.upper()} (Talla {talla_input}) SÍ tiene existencia física en {sucursal_input}. Ve a bodega y entrégalo al cliente.")
+                puede_guardar = False
                 
-                if not bloquear_registro:
-                    fecha_hoy = (datetime.datetime.utcnow() - datetime.timedelta(hours=6)).strftime("%d/%m/%Y")
-                    
-                    # Estructura alineada a 9 columnas
-                    fila_nueva = [
-                        fecha_hoy, sucursal_input, cliente_input, whatsapp_input, 
-                        modelo_input.upper(), str(talla_input), notas_input, "ESPERANDO", motivo_input
-                    ]
-                    
+            if "Falta" in motivo_input and puede_guardar:
+                if not modelo_input:
+                    st.error("⚠️ Para reportar falta de tallas, debes escribir el Modelo.")
+                    puede_guardar = False
+                elif not tda_num_defecto.strip().isdigit():
+                    st.error("❌ No se detectó un N° de Sucursal válido. El sistema no puede cruzar el inventario.")
+                    puede_guardar = False
+                else:
+                    # --- ESCUDO DE INVENTARIO: Llamamos a la validación robusta ---
                     try:
-                        sheet_agenda.append_row(fila_nueva)
-                        st.session_state.mensaje_exito_agenda = f"✅ ¡Cliente {cliente_input} registrado exitosamente bajo el motivo: {motivo_input.split(' ')[1]}!"
-                        resetear_formulario()
-                        st.rerun()
+                        import app # Importar el módulo principal para usar su validador si está disponible, si no, usamos el local
+                        # Para no depender de importaciones circulares complejas, usamos la función local pero con el ID exacto
+                        tienda_id_int = int(re.search(r'\d+', tda_num_defecto).group())
+                        if verificar_inventario_local(tienda_id_int, modelo_input, talla_input):
+                            st.error(f"⛔ ¡ALTO! El modelo {modelo_input.upper()} (Talla {talla_input}) SÍ tiene existencia física en la sucursal {tienda_id_int}. Ve a bodega y entrégalo al cliente.")
+                            puede_guardar = False
                     except Exception as e:
-                        st.error(f"❌ Error al guardar en la nube: {e}")
+                        st.error(f"Error técnico en el cruce de inventario: {e}")
+                        puede_guardar = False
+
+            if puede_guardar:
+                fecha_hoy = (datetime.datetime.utcnow() - datetime.timedelta(hours=6)).strftime("%d/%m/%Y")
+                
+                # Estructura alineada a 9 columnas
+                fila_nueva = [
+                    fecha_hoy, sucursal_input, cliente_input, whatsapp_input, 
+                    modelo_input.upper(), str(talla_input), notas_input, "ESPERANDO", motivo_input
+                ]
+                
+                try:
+                    sheet_agenda.append_row(fila_nueva)
+                    st.success(f"✅ ¡Cliente {cliente_input} registrado exitosamente bajo el motivo: {motivo_input.split(' ')[1]}!")
+                    
+                    # Activamos el refresh para que la pantalla se limpie tras mostrar el mensaje de éxito (al próximo clic)
+                    st.info("💡 Formulario guardado. Presiona 'Limpiar Formulario' o cambia de pestaña para continuar.")
+                except Exception as e:
+                    st.error(f"❌ Error al guardar en la nube: {e}")
