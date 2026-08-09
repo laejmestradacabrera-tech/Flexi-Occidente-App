@@ -5,20 +5,20 @@ import urllib.parse
 import os
 import re
 
-def cargar_nombres_tiendas():
-    """Función que lee automáticamente el archivo de tiendas real del monitor"""
+# --- CACHÉ MAESTRO PARA EVITAR LAG Y RESETEOS EN EL MENÚ ---
+@st.cache_data
+def obtener_catalogo_tiendas():
+    """Carga el catálogo de tiendas una sola vez en memoria para estabilizar los selectbox"""
     archivos = [f for f in os.listdir('.') if 'CORREO DE TIENDAS' in f.upper() and f.endswith(('.xlsx', '.csv'))]
     if archivos:
         archivo = sorted(archivos)[-1]
         try:
             df = pd.read_excel(archivo) if archivo.endswith('.xlsx') else pd.read_csv(archivo)
             df.columns = df.columns.astype(str).str.strip().str.upper()
-            col_nom = 'NOMBRE' if 'NOMBRE' in df.columns else df.columns[1]
-            nombres = df[col_nom].dropna().astype(str).unique().tolist()
-            return sorted([n for n in nombres if n.strip() != ''])
+            return df
         except Exception:
             pass
-    return ["Sin Sucursales Cargadas"]
+    return pd.DataFrame()
 
 def clean_talla(t):
     """Normaliza tallas a string evitando que 25.5 se trunque o 25.0 no coincida con 25"""
@@ -110,13 +110,32 @@ def limpiar_formulario_agenda():
         if key in st.session_state:
             del st.session_state[key]
 
+# Inicializamos estados para la limpieza de la pantalla de registro
+if 'agenda_reg_refresh' not in st.session_state:
+    st.session_state.agenda_reg_refresh = False
+
 def mostrar_modulo_agenda(client_gs):
+    # Aseguramos cargar los inventarios a la memoria
     asegurar_inventario_cargado()
+
+    # Si se solicitó un refresh, limpiamos el estado y permitimos reinicio visual
+    if st.session_state.get('agenda_reg_refresh', False):
+        st.session_state.agenda_reg_refresh = False
 
     st.markdown("<h2 style='color: #4338ca;'>📓 Agenda de Clientes y Recuperación de Ventas</h2>", unsafe_allow_html=True)
     st.write("Registra clientes en piso de venta, cruza faltantes de talla con el inventario y gestiona tu cartera de clientes.")
 
-    # 1. Conectar a Google Sheets
+    # 1. Cargar el Catálogo de Tiendas de forma global y estable
+    df_tdas_global = obtener_catalogo_tiendas()
+    nombres_sucursales = ["Sin Sucursales Cargadas"]
+    col_nom_global = 'NOMBRE'
+    
+    if not df_tdas_global.empty:
+        col_nom_global = 'NOMBRE' if 'NOMBRE' in df_tdas_global.columns else (df_tdas_global.columns[1] if len(df_tdas_global.columns) > 1 else df_tdas_global.columns[0])
+        nombres_sucursales = sorted(df_tdas_global[col_nom_global].dropna().astype(str).unique().tolist())
+        nombres_sucursales = [n for n in nombres_sucursales if n.strip() != '']
+
+    # 2. Conectar a Google Sheets
     try:
         archivo = client_gs.open_by_key('1lGlVEBgu9QsrH9PYTTuoRKQeWnYiR7OwUElCsfkDgoM')
         sheet_agenda = archivo.worksheet('Agenda_Clientes')
@@ -131,11 +150,9 @@ def mostrar_modulo_agenda(client_gs):
         st.error(f"❌ Error al conectar con Google Sheets (Asegúrate de tener la pestaña 'Agenda_Clientes'). Detalles: {e}")
         return
 
-    nombres_tiendas_reales = cargar_nombres_tiendas()
-    
     opcion_default = "👉 Selecciona tu sucursal..."
     opcion_gerencia = "Todas las Sucursales (Solo Gerencia)"
-    lista_sucursales = [opcion_default, opcion_gerencia] + nombres_tiendas_reales
+    lista_sucursales_menu = [opcion_default, opcion_gerencia] + nombres_sucursales
 
     tab_alertas, tab_registro = st.tabs(["🚨 Panel de Alertas y Seguimiento", "📝 Nuevo Registro en Piso"])
 
@@ -148,7 +165,7 @@ def mostrar_modulo_agenda(client_gs):
         if 'ultimo_filtro_agenda' not in st.session_state:
             st.session_state.ultimo_filtro_agenda = opcion_default
 
-        sucursal_filtro = st.selectbox("🏪 Selecciona tu Sucursal:", lista_sucursales, key="filtro_sucursal_agenda")
+        sucursal_filtro = st.selectbox("🏪 Selecciona tu Sucursal:", lista_sucursales_menu, key="filtro_sucursal_agenda")
 
         if sucursal_filtro != st.session_state.ultimo_filtro_agenda:
             st.session_state.ultimo_filtro_agenda = sucursal_filtro
@@ -207,15 +224,6 @@ def mostrar_modulo_agenda(client_gs):
                         st.caption(f"Mostrando **{len(df_faltas)}** registros de calzado en espera.")
                         
                         pendientes_list = list(df_faltas.iterrows())
-                        
-                        df_tiendas_alertas = pd.DataFrame()
-                        arch_tiendas = [f for f in os.listdir('.') if 'CORREO DE TIENDAS' in f.upper() and f.endswith(('.xlsx', '.csv'))]
-                        if arch_tiendas:
-                            try:
-                                arch = sorted(arch_tiendas)[-1]
-                                df_tiendas_alertas = pd.read_excel(arch) if arch.endswith('.xlsx') else pd.read_csv(arch)
-                                df_tiendas_alertas.columns = df_tiendas_alertas.columns.astype(str).str.strip().str.upper()
-                            except: pass
 
                         for i in range(0, len(pendientes_list), 2):
                             cols = st.columns(2)
@@ -232,12 +240,10 @@ def mostrar_modulo_agenda(client_gs):
                                         notas = row.get('Notas', '')
 
                                         tda_num_alerta = -1
-                                        if not df_tiendas_alertas.empty:
-                                            col_nom_alerta = 'NOMBRE' if 'NOMBRE' in df_tiendas_alertas.columns else (df_tiendas_alertas.columns[1] if len(df_tiendas_alertas.columns) > 1 else df_tiendas_alertas.columns[0])
-                                            fila_alerta = df_tiendas_alertas[df_tiendas_alertas[col_nom_alerta].astype(str).str.strip().str.upper() == str(sucursal).strip().upper()]
-                                            
+                                        if not df_tdas_global.empty:
+                                            fila_alerta = df_tdas_global[df_tdas_global[col_nom_global].astype(str).str.strip().str.upper() == str(sucursal).strip().upper()]
                                             if not fila_alerta.empty:
-                                                for col in df_tiendas_alertas.columns:
+                                                for col in df_tdas_global.columns:
                                                     if col.strip().upper() in ['TIENDA', 'SUCURSAL', 'NUMERO', 'ID']:
                                                         try:
                                                             match_num = re.search(r'\d+', str(fila_alerta[col].values[0]))
@@ -322,33 +328,16 @@ def mostrar_modulo_agenda(client_gs):
     with tab_registro:
         st.markdown("### 📝 Captura de Datos en Caja")
 
-        df_tdas_reg = pd.DataFrame()
-        archivos_t = [f for f in os.listdir('.') if 'CORREO DE TIENDAS' in f.upper() and f.endswith(('.xlsx', '.csv'))]
-        if archivos_t:
-            try:
-                arch = sorted(archivos_t)[-1]
-                df_tdas_reg = pd.read_excel(arch) if arch.endswith('.xlsx') else pd.read_csv(arch)
-                df_tdas_reg.columns = df_tdas_reg.columns.astype(str).str.strip().str.upper()
-            except: pass
-
-        if df_tdas_reg.empty:
-            st.warning("No se pudo cargar el archivo de sucursales.")
-            nombres_sucursales = ["Sin Sucursales"]
-        else:
-            col_nom_reg = 'NOMBRE' if 'NOMBRE' in df_tdas_reg.columns else (df_tdas_reg.columns[1] if len(df_tdas_reg.columns) > 1 else df_tdas_reg.columns[0])
-            nombres_sucursales = sorted(df_tdas_reg[col_nom_reg].dropna().astype(str).unique().tolist())
-            nombres_sucursales = [n for n in nombres_sucursales if n.strip() != '']
-
         col1, col2 = st.columns([2, 1])
         
         with col1:
             sucursal_input = st.selectbox("Selecciona la Tienda:", nombres_sucursales, key="agenda_reg_sucursal")
             
         tda_num_defecto = ""
-        if not df_tdas_reg.empty:
-            fila_tienda = df_tdas_reg[df_tdas_reg[col_nom_reg] == sucursal_input]
+        if not df_tdas_global.empty and sucursal_input != "Sin Sucursales Cargadas":
+            fila_tienda = df_tdas_global[df_tdas_global[col_nom_global] == sucursal_input]
             if not fila_tienda.empty:
-                for col in df_tdas_reg.columns:
+                for col in df_tdas_global.columns:
                     if col.strip().upper() in ['TIENDA', 'SUCURSAL', 'NUMERO', 'ID']:
                         tda_num_defecto = str(fila_tienda[col].values[0])
                         break
@@ -400,13 +389,13 @@ def mostrar_modulo_agenda(client_gs):
                 if not modelo_input:
                     st.error("⚠️ Para reportar falta de tallas, debes escribir el Modelo.")
                     puede_guardar = False
-                elif not tda_num_defecto.strip().isdigit():
+                elif not re.search(r'\d+', tda_num_defecto):
                     st.error("❌ No se detectó un N° de Sucursal válido. El sistema no puede cruzar el inventario.")
                     puede_guardar = False
                 else:
                     # --- ESCUDO DE INVENTARIO ABSOLUTO ---
                     try:
-                        tienda_id_int = int(tda_num_defecto.strip())
+                        tienda_id_int = int(re.search(r'\d+', tda_num_defecto).group())
                         if verificar_inventario_local(tienda_id_int, modelo_input, talla_input):
                             st.error(f"⛔ ¡ALTO! El modelo {modelo_input.upper()} (Talla {talla_input}) SÍ tiene existencia física en la sucursal {tienda_id_int}. Ve a bodega y entrégalo al cliente.")
                             puede_guardar = False
