@@ -21,13 +21,13 @@ def cargar_nombres_tiendas():
     return ["Sin Sucursales Cargadas"]
 
 def obtener_id_tienda(sucursal_str):
-    """Traduce el nombre de la sucursal a su número de ID para cruce de Kárdex"""
+    """Traduce el nombre de la sucursal a su número de ID con la misma robustez que la Bitácora"""
     # 1. Si ya viene con el número (ej: "56 - PLAZAS OUTLET")
     match = re.search(r'\d+', str(sucursal_str))
     if match:
         return int(match.group())
         
-    # 2. Si viene solo nombre (ej: "PLAZAS OUTLET"), buscamos en su catálogo
+    # 2. Si viene solo nombre (ej: "PLAZAS OUTLET"), buscamos en su catálogo iterando columnas
     archivos = [f for f in os.listdir('.') if 'CORREO DE TIENDAS' in f.upper() and f.endswith(('.xlsx', '.csv'))]
     if archivos:
         archivo = sorted(archivos)[-1]
@@ -35,11 +35,19 @@ def obtener_id_tienda(sucursal_str):
             df = pd.read_excel(archivo) if archivo.endswith('.xlsx') else pd.read_csv(archivo)
             df.columns = df.columns.astype(str).str.strip().str.upper()
             col_nom = 'NOMBRE' if 'NOMBRE' in df.columns else (df.columns[1] if len(df.columns) > 1 else df.columns[0])
-            col_id = next((c for c in df.columns if c in ['TIENDA', 'SUCURSAL', 'NUMERO', 'ID']), df.columns[0])
             
             fila = df[df[col_nom].astype(str).str.strip().str.upper() == str(sucursal_str).strip().upper()]
             if not fila.empty:
-                val_id = str(fila.iloc[0][col_id])
+                # Buscar en columnas candidatas de ID
+                for col in df.columns:
+                    if col.strip().upper() in ['TIENDA', 'SUCURSAL', 'NUMERO', 'ID']:
+                        val_id = str(fila[col].values[0])
+                        match2 = re.search(r'\d+', val_id)
+                        if match2:
+                            return int(match2.group())
+                
+                # Si no hay columna clara, tomar la primera
+                val_id = str(fila.iloc[:, 0].values[0])
                 match2 = re.search(r'\d+', val_id)
                 if match2:
                     return int(match2.group())
@@ -123,14 +131,13 @@ def verificar_inventario_local(sucursal_str, modelo, talla):
     except:
         return False
 
-def limpiar_campos_formulario():
-    """Fuerza la limpieza total de los text_inputs asignándoles cadenas vacías."""
-    st.session_state.agenda_cli_reg = ""
-    st.session_state.agenda_wpp_reg = ""
-    st.session_state.agenda_mod_reg = ""
-    st.session_state.agenda_not_reg_falta = ""
-    st.session_state.agenda_not_reg_promo = ""
-    st.session_state.agenda_tal_reg = 25.0
+# Inicializamos el contador de llaves para resetear el formulario sin errores de React
+if 'agenda_form_key' not in st.session_state:
+    st.session_state.agenda_form_key = 0
+
+def resetear_formulario():
+    """Genera una llave nueva para blanquear visualmente los campos sin conflicto de variables"""
+    st.session_state.agenda_form_key += 1
 
 def mostrar_modulo_agenda(client_gs):
     # Aseguramos cargar los archivos a la memoria (Darle "ojos" al módulo)
@@ -335,26 +342,29 @@ def mostrar_modulo_agenda(client_gs):
             st.success(st.session_state.mensaje_exito_agenda)
             del st.session_state.mensaje_exito_agenda
 
-        motivo_input = st.selectbox("📌 Motivo del Registro:", ["📦 Falta de Talla (Quiebre)", "🏷️ Agenda (Aviso de Promociones)"], key="agenda_motivo_reg")
+        # Usamos el contador "k" para forzar a que Streamlit renderice campos nuevos y limpios
+        k = st.session_state.agenda_form_key
+
+        motivo_input = st.selectbox("📌 Motivo del Registro:", ["📦 Falta de Talla (Quiebre)", "🏷️ Agenda (Aviso de Promociones)"], key=f"agenda_motivo_reg_{k}")
         
         col1, col2 = st.columns(2)
         
         with col1:
-            sucursal_input = st.selectbox("🏢 Selecciona tu Sucursal:", nombres_tiendas_reales, key="agenda_suc_reg")
-            cliente_input = st.text_input("👤 Nombre del Cliente:", key="agenda_cli_reg")
-            whatsapp_input = st.text_input("📱 Teléfono (10 dígitos):", max_chars=10, key="agenda_wpp_reg")
+            sucursal_input = st.selectbox("🏢 Selecciona tu Sucursal:", nombres_tiendas_reales, key=f"agenda_suc_reg_{k}")
+            cliente_input = st.text_input("👤 Nombre del Cliente:", key=f"agenda_cli_reg_{k}")
+            whatsapp_input = st.text_input("📱 Teléfono (10 dígitos):", max_chars=10, key=f"agenda_wpp_reg_{k}")
         
         with col2:
             if "Falta" in motivo_input:
-                modelo_input = st.text_input("👟 Modelo Buscado:", key="agenda_mod_reg")
-                talla_input = st.number_input("📏 Talla (Ej. 25.0):", min_value=10.0, max_value=35.0, step=0.5, value=25.0, key="agenda_tal_reg")
-                notas_input = st.text_area("📝 Notas (Opcional):", height=68, key="agenda_not_reg_falta")
+                modelo_input = st.text_input("👟 Modelo Buscado:", key=f"agenda_mod_reg_{k}")
+                talla_input = st.number_input("📏 Talla (Ej. 25.0):", min_value=10.0, max_value=35.0, step=0.5, value=25.0, key=f"agenda_tal_reg_{k}")
+                notas_input = st.text_area("📝 Notas (Opcional):", height=68, key=f"agenda_not_reg_falta_{k}")
             else:
                 modelo_input = ""
                 talla_input = ""
                 st.info("💡 En modo Agenda (Promociones) no se requiere capturar Modelo ni Talla.")
                 st.write("<br>", unsafe_allow_html=True)
-                notas_input = st.text_area("📝 Notas (Opcional):", height=68, key="agenda_not_reg_promo")
+                notas_input = st.text_area("📝 Notas (Opcional):", height=68, key=f"agenda_not_reg_promo_{k}")
         
         st.write("<br>", unsafe_allow_html=True)
 
@@ -364,9 +374,8 @@ def mostrar_modulo_agenda(client_gs):
             btn_guardar = st.button("💾 Guardar Cliente", type="primary", use_container_width=True)
             
         with col_btn2:
-            if st.button("🧹 Limpiar Formulario", type="secondary", use_container_width=True):
-                limpiar_campos_formulario()
-                st.rerun()
+            # Ahora el botón usa un "callback" directo para evitar el StreamlitAPIException
+            st.button("🧹 Limpiar Formulario", type="secondary", use_container_width=True, on_click=resetear_formulario)
         
         if btn_guardar:
             if not cliente_input:
@@ -394,10 +403,8 @@ def mostrar_modulo_agenda(client_gs):
                     
                     try:
                         sheet_agenda.append_row(fila_nueva)
-                        # Guardamos el mensaje antes de borrar la memoria
                         st.session_state.mensaje_exito_agenda = f"✅ ¡Cliente {cliente_input} registrado exitosamente bajo el motivo: {motivo_input.split(' ')[1]}!"
-                        # Blanqueamos formulario y recargamos instantáneamente
-                        limpiar_campos_formulario()
+                        resetear_formulario()
                         st.rerun()
                     except Exception as e:
                         st.error(f"❌ Error al guardar en la nube: {e}")
