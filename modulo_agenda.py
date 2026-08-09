@@ -410,16 +410,10 @@ def mostrar_modulo_agenda(client_gs):
                     st.error("❌ No se detectó un N° de Sucursal válido. El sistema no puede cruzar el inventario.")
                     puede_guardar = False
                 else:
-                    # --- ESCUDO DE INVENTARIO: Llamamos a la validación robusta ---
-                    try:
-                        import app # Importar el módulo principal para usar su validador si está disponible, si no, usamos el local
-                        # Para no depender de importaciones circulares complejas, usamos la función local pero con el ID exacto
-                        tienda_id_int = int(re.search(r'\d+', tda_num_defecto).group())
-                        if verificar_inventario_local(tienda_id_int, modelo_input, talla_input):
-                            st.error(f"⛔ ¡ALTO! El modelo {modelo_input.upper()} (Talla {talla_input}) SÍ tiene existencia física en la sucursal {tienda_id_int}. Ve a bodega y entrégalo al cliente.")
-                            puede_guardar = False
-                    except Exception as e:
-                        st.error(f"Error técnico en el cruce de inventario: {e}")
+                    # --- ESCUDO DE INVENTARIO: Llamamos a la validación robusta local ---
+                    tienda_id_int = int(tda_num_defecto.strip())
+                    if verificar_inventario_local(tienda_id_int, modelo_input, talla_input):
+                        st.error(f"⛔ ¡ALTO! El modelo {modelo_input.upper()} (Talla {talla_input}) SÍ tiene existencia física en la sucursal {tienda_id_int}. Ve a bodega y entrégalo al cliente.")
                         puede_guardar = False
 
             if puede_guardar:
