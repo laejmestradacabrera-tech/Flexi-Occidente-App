@@ -21,86 +21,175 @@ def obtener_catalogo_tiendas():
     return pd.DataFrame()
 
 def clean_talla(t):
-    """Normaliza tallas a string evitando que 25.5 se trunque o 25.0 no coincida con 25"""
+    """
+    Normaliza la talla al formato que utiliza Ventas.xlsx / Valores de tallas.xlsx.
+
+    El inventario trabaja con tallas en décimas de centímetro:
+        220, 225, 230, 235...
+
+    La tienda puede capturar la talla en formato comercial:
+        22, 22.5, 23, 23.5...
+
+    Por eso ambos formatos se convierten al mismo valor canónico:
+        22   -> 220
+        22.5 -> 225
+        25   -> 250
+        25.5 -> 255
+        250  -> 250
+        255  -> 255
+    """
     try:
-        f = float(t)
-        return str(int(f)) if f.is_integer() else str(f)
-    except:
+        if t is None or (isinstance(t, float) and pd.isna(t)):
+            return ""
+
+        texto = str(t).strip().replace(',', '.')
+        if not texto:
+            return ""
+
+        f = float(texto)
+
+        # Formato comercial (22, 22.5, 25, 25.5, etc.)
+        # se convierte al formato del archivo de inventario (220, 225, 250, 255...).
+        if 1 <= f < 100:
+            f = round(f * 10)
+
+        # El inventario trabaja con valores enteros.
+        return str(int(round(f)))
+    except (TypeError, ValueError):
         return str(t).strip()
 
 def asegurar_inventario_cargado():
-    """Puente de memoria: Asegura que la agenda pueda leer el inventario local"""
+    """Carga una sola vez los archivos maestros de inventario y tallas."""
     try:
         if 'df_ventas' not in st.session_state:
-            archivos_v = [f for f in os.listdir('.') if 'Ventas' in f and f.endswith(('.xlsx', '.csv'))]
+            archivos_v = [
+                f for f in os.listdir('.')
+                if f.lower().startswith('ventas') and f.lower().endswith(('.xlsx', '.csv'))
+            ]
             if archivos_v:
-                arch = sorted(archivos_v)[-1]
-                st.session_state.df_ventas = pd.read_excel(arch) if arch.endswith('.xlsx') else pd.read_csv(arch)
-                
+                # Preferimos el archivo Ventas.xlsx; si existe más de uno,
+                # tomamos el más reciente por nombre ordenado como respaldo.
+                arch = next((f for f in archivos_v if f.lower() == 'ventas.xlsx'), sorted(archivos_v)[-1])
+                st.session_state.df_ventas = (
+                    pd.read_excel(arch) if arch.lower().endswith('.xlsx') else pd.read_csv(arch)
+                )
+
         if 'df_tallas' not in st.session_state:
-            archivos_t = [f for f in os.listdir('.') if 'Valores de tallas' in f and f.endswith(('.xlsx', '.csv'))]
+            archivos_t = [
+                f for f in os.listdir('.')
+                if f.lower().startswith('valores de tallas') and f.lower().endswith(('.xlsx', '.csv'))
+            ]
             if archivos_t:
-                arch = sorted(archivos_t)[-1]
-                if arch.endswith('.xlsx'):
-                    try: st.session_state.df_tallas = pd.read_excel(arch, sheet_name="Hoja1")
-                    except: st.session_state.df_tallas = pd.read_excel(arch)
+                arch = next((f for f in archivos_t if f.lower() == 'valores de tallas.xlsx'), sorted(archivos_t)[-1])
+                if arch.lower().endswith('.xlsx'):
+                    try:
+                        st.session_state.df_tallas = pd.read_excel(arch, sheet_name='Hoja1')
+                    except Exception:
+                        st.session_state.df_tallas = pd.read_excel(arch)
                 else:
                     st.session_state.df_tallas = pd.read_csv(arch)
-    except Exception:
-        pass
+    except Exception as e:
+        st.session_state.inventario_carga_error = str(e)
 
-def verificar_inventario_local(tda_int, modelo, talla):
-    """Cruce robusto con Kárdex clonando la lógica exacta de la Bitácora"""
+def validar_inventario_local(tda_int, modelo, talla):
+    """
+    Valida inventario y devuelve un estado explícito:
+        EXISTE     -> hay existencia física de la talla solicitada.
+        NO_EXISTE  -> el modelo/talla no tiene existencia.
+        ERROR      -> no fue posible validar; nunca debe interpretarse como quiebre.
+    """
     try:
         if 'df_ventas' not in st.session_state or 'df_tallas' not in st.session_state:
-            return False
-            
-        # Utilizamos copias para no afectar el dataframe global en memoria
+            return 'ERROR'
+
         df_v = st.session_state.df_ventas.copy()
         df_t = st.session_state.df_tallas.copy()
-        
-        # NORMALIZACIÓN ABSOLUTA A MINÚSCULAS (Idéntico a validar_captura_stock en app_occidente.py)
+
         df_v.columns = df_v.columns.astype(str).str.strip().str.lower()
         df_t.columns = df_t.columns.astype(str).str.strip().str.lower()
-        
+
         mod_cln = str(modelo).replace(' ', '').replace('-', '').upper()
         t_buscada = clean_talla(talla)
-        
-        if 'tienda' not in df_v.columns or 'modelo' not in df_v.columns:
-            return False
-            
-        df_v['tienda_int_chk'] = pd.to_numeric(df_v['tienda'].astype(str).str.extract(r'(\d+)', expand=False), errors='coerce').fillna(-1).astype(int)
-        
-        # Filtramos por tienda y modelo
-        df_filtro = df_v[(df_v['tienda_int_chk'] == tda_int) & (df_v['modelo'].astype(str).str.replace(' ', '').str.replace('-', '').str.upper() == mod_cln)]
-        
-        if df_filtro.empty: 
-            return False
-        
-        # Encontramos la columna de departamento en Valores de Tallas
-        col_dpto_tallas = 'valor' if 'valor' in df_t.columns else df_t.columns[0]
-        
-        for idx, row in df_filtro.iterrows():
+
+        if not t_buscada:
+            return 'ERROR'
+
+        columnas_obligatorias = {'tienda', 'modelo', 'departamento'}
+        if not columnas_obligatorias.issubset(set(df_v.columns)):
+            return 'ERROR'
+
+        if 'valor' not in df_t.columns:
+            return 'ERROR'
+
+        # Convertimos el número de tienda a entero de forma robusta.
+        tienda_series = pd.to_numeric(
+            df_v['tienda'].astype(str).str.extract(r'(\d+)', expand=False),
+            errors='coerce'
+        )
+        df_v['tienda_int_chk'] = tienda_series.fillna(-1).astype(int)
+
+        # Normalizamos modelo para evitar diferencias por espacios/guiones.
+        modelos_norm = (
+            df_v['modelo'].astype(str)
+            .str.replace(' ', '', regex=False)
+            .str.replace('-', '', regex=False)
+            .str.upper()
+        )
+
+        df_filtro = df_v[
+            (df_v['tienda_int_chk'] == int(tda_int)) &
+            (modelos_norm == mod_cln)
+        ]
+
+        # Si no hay el modelo en esa tienda, es un quiebre real de modelo.
+        if df_filtro.empty:
+            return 'NO_EXISTE'
+
+        # Buscamos la matriz correspondiente al departamento.
+        for _, row in df_filtro.iterrows():
             dpto = str(row.get('departamento', '')).strip().lower()
-            tallas_row = df_t[df_t[col_dpto_tallas].astype(str).str.strip().str.lower() == dpto]
-            
-            if not tallas_row.empty:
-                for i in range(1, 16):
-                    col_ex = f'ex{i}'
-                    if col_ex in tallas_row.columns and col_ex in row:
-                        val_matriz = tallas_row.iloc[0].get(col_ex, '')
-                        if pd.notna(val_matriz) and str(val_matriz).strip() != '' and str(val_matriz).strip().lower() != 'nan':
-                            v_mat_str = clean_talla(val_matriz)
-                            
-                            if v_mat_str == t_buscada:
-                                # ¡Talla encontrada en matriz! Checar si hay existencia física
-                                existencia = row.get(col_ex, 0)
-                                try: e_num = float(existencia)
-                                except: e_num = 0.0
-                                if e_num > 0: return True
-        return False
+            tallas_row = df_t[
+                df_t['valor'].astype(str).str.strip().str.lower() == dpto
+            ]
+
+            if tallas_row.empty:
+                # El modelo existe, pero no conocemos cómo mapear sus tallas.
+                return 'ERROR'
+
+            for i in range(1, 16):
+                col_ex = f'ex{i}'
+
+                if col_ex not in tallas_row.columns or col_ex not in row.index:
+                    continue
+
+                val_matriz = tallas_row.iloc[0].get(col_ex, '')
+
+                if pd.isna(val_matriz) or str(val_matriz).strip() == '':
+                    continue
+
+                if clean_talla(val_matriz) != t_buscada:
+                    continue
+
+                # Talla encontrada: ahora sí revisamos existencia física.
+                existencia = row.get(col_ex, 0)
+                try:
+                    e_num = float(existencia)
+                except (TypeError, ValueError):
+                    return 'ERROR'
+
+                return 'EXISTE' if e_num > 0 else 'NO_EXISTE'
+
+        # El modelo existe, pero la talla no está contemplada en su matriz.
+        return 'NO_EXISTE'
+
     except Exception as e:
-        return False
+        st.session_state.ultimo_error_inventario = str(e)
+        return 'ERROR'
+
+
+def verificar_inventario_local(tda_int, modelo, talla):
+    """Compatibilidad con el resto del módulo: True solo cuando hay existencia."""
+    return validar_inventario_local(tda_int, modelo, talla) == 'EXISTE'
 
 # --- CALLBACK DE LIMPIEZA ---
 # Esta función nativa se ejecuta ANTES de refrescar la pantalla, previniendo el StreamlitAPIException
@@ -194,11 +283,14 @@ def mostrar_modulo_agenda(client_gs):
                 with col_clave:
                     clave_ingresada = st.text_input("🔐 Clave de Autorización:", type="password", key="clave_gerencia_agenda")
                 
-                clave_maestra = "Flexi2026"
-                try: clave_maestra = st.secrets.get("CLAVE_GERENCIA", "Flexi2026")
-                except: pass
-                
-                if clave_ingresada != clave_maestra:
+                # La clave debe existir en st.secrets; no dejamos una contraseña
+                # corporativa expuesta como respaldo dentro del código.
+                try:
+                    clave_maestra = st.secrets["CLAVE_GERENCIA"]
+                except Exception:
+                    clave_maestra = None
+
+                if not clave_maestra or clave_ingresada != clave_maestra:
                     st.warning("🔒 Vista restringida. Ingresa la clave corporativa para acceder al tablero global.")
                     mostrar_tablero = False
             
@@ -285,7 +377,12 @@ def mostrar_modulo_agenda(client_gs):
                                         btn_type = "primary" if zapato_llegado else "secondary"
                                         if st.button("✅ Marcar como Contactado", key=f"btn_done_{idx}", use_container_width=True, type=btn_type):
                                             try:
-                                                sheet_agenda.update_cell(idx + 2, 8, "CONTACTADO")
+                                                # No asumimos que Estatus está siempre en la columna 8.
+                                                encabezados = [str(c).strip().lower() for c in datos[0]]
+                                                if 'estatus' not in encabezados:
+                                                    raise ValueError("La hoja Agenda_Clientes no contiene la columna 'Estatus'.")
+                                                col_estatus = encabezados.index('estatus') + 1
+                                                sheet_agenda.update_cell(idx + 2, col_estatus, "CONTACTADO")
                                                 st.toast(f"¡Excelente! Cliente {cliente} contactado.", icon="✅")
                                                 st.rerun()
                                             except Exception as e:
@@ -359,7 +456,7 @@ def mostrar_modulo_agenda(client_gs):
             with col_mod:
                 modelo_input = st.text_input("👟 Modelo Buscado:", key="agenda_reg_modelo")
             with col_tal:
-                talla_input = st.number_input("📏 Talla (Ej. 250 o 25.0):", min_value=1.0, max_value=350.0, step=0.5, value=25.0, key="agenda_reg_talla")
+                talla_input = st.number_input("📏 Talla (Ej. 25, 25.5, 250 o 255):", min_value=1.0, max_value=350.0, step=0.5, value=25.0, key="agenda_reg_talla")
         else:
             st.info("💡 En modo Agenda (Promociones) no se requiere capturar Modelo ni Talla.")
             
@@ -394,13 +491,30 @@ def mostrar_modulo_agenda(client_gs):
                     puede_guardar = False
                 else:
                     # --- ESCUDO DE INVENTARIO ABSOLUTO ---
+                    # Un error de validación NUNCA se interpreta como ausencia de producto.
                     try:
                         tienda_id_int = int(re.search(r'\d+', tda_num_defecto).group())
-                        if verificar_inventario_local(tienda_id_int, modelo_input, talla_input):
-                            st.error(f"⛔ ¡ALTO! El modelo {modelo_input.upper()} (Talla {talla_input}) SÍ tiene existencia física en la sucursal {tienda_id_int}. Ve a bodega y entrégalo al cliente.")
+                        resultado_inventario = validar_inventario_local(
+                            tienda_id_int, modelo_input, talla_input
+                        )
+
+                        if resultado_inventario == 'EXISTE':
+                            st.error(
+                                f"⛔ ¡ALTO! El modelo {modelo_input.upper()} "
+                                f"(Talla {talla_input}) SÍ tiene existencia física "
+                                f"en la sucursal {tienda_id_int}. Ve a bodega y entrégalo al cliente."
+                            )
+                            puede_guardar = False
+
+                        elif resultado_inventario == 'ERROR':
+                            st.error(
+                                "⚠️ No fue posible validar el inventario de esta talla. "
+                                "Por seguridad, el sistema NO permitirá registrar el quiebre. "
+                                "Revisa que Ventas.xlsx y Valores de tallas.xlsx estén cargados correctamente."
+                            )
                             puede_guardar = False
                     except Exception as e:
-                        st.error(f"Error técnico en el cruce de inventario: {e}")
+                        st.error(f"Error técnico en el cruce de inventario. No se guardó el registro: {e}")
                         puede_guardar = False
 
             if puede_guardar:
