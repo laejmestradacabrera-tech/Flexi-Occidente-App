@@ -119,7 +119,8 @@ def mostrar_modulo_agenda(client_gs):
             # --- NUEVO BOTÓN DE LIMPIEZA VISUAL (RESET) ---
             if st.button("🧹 Limpiar Pantalla / Cerrar Vista", use_container_width=True, type="secondary"):
                 st.session_state.ultimo_filtro_agenda = opcion_default
-                st.session_state.filtro_sucursal_agenda = opcion_default
+                if "filtro_sucursal_agenda" in st.session_state:
+                    del st.session_state["filtro_sucursal_agenda"]
                 if "clave_gerencia_agenda" in st.session_state:
                     st.session_state.clave_gerencia_agenda = ""
                 st.rerun()
