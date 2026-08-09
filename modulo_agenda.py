@@ -290,58 +290,77 @@ def mostrar_modulo_agenda(client_gs):
     with tab_registro:
         st.markdown("### 📝 Captura de Datos en Caja")
         
-        # El selector de motivo DEBE estar afuera del st.form para que cambie la interfaz dinámicamente antes de guardar
-        motivo_input = st.selectbox("📌 Motivo del Registro:", ["📦 Falta de Talla (Quiebre)", "🏷️ Agenda (Aviso de Promociones)"])
+        # Eliminamos el st.form para evitar el error NotFoundError (React DOM) al hacer cambios dinámicos en la interfaz
+        motivo_input = st.selectbox("📌 Motivo del Registro:", ["📦 Falta de Talla (Quiebre)", "🏷️ Agenda (Aviso de Promociones)"], key="agenda_motivo_reg")
         
-        with st.form("form_nuevo_cliente", clear_on_submit=True):
-            col1, col2 = st.columns(2)
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            sucursal_input = st.selectbox("🏢 Selecciona tu Sucursal:", nombres_tiendas_reales, key="agenda_suc_reg")
+            cliente_input = st.text_input("👤 Nombre del Cliente:", key="agenda_cli_reg")
+            whatsapp_input = st.text_input("📱 Teléfono (10 dígitos):", max_chars=10, key="agenda_wpp_reg")
+        
+        with col2:
+            # Condición en tiempo real (Ahora es completamente estable sin el st.form)
+            if "Falta" in motivo_input:
+                modelo_input = st.text_input("👟 Modelo Buscado:", key="agenda_mod_reg")
+                talla_input = st.number_input("📏 Talla (Ej. 25.0):", min_value=10.0, max_value=35.0, step=0.5, value=25.0, key="agenda_tal_reg")
+                notas_input = st.text_area("📝 Notas (Opcional):", height=68, key="agenda_not_reg_falta")
+            else:
+                modelo_input = ""
+                talla_input = ""
+                st.info("💡 En modo Agenda (Promociones) no se requiere capturar Modelo ni Talla.")
+                st.write("<br>", unsafe_allow_html=True)
+                notas_input = st.text_area("📝 Notas (Opcional):", height=68, key="agenda_not_reg_promo")
+        
+        st.write("<br>", unsafe_allow_html=True)
+
+        col_btn1, col_btn2 = st.columns(2)
+        
+        with col_btn1:
+            btn_guardar = st.button("💾 Guardar Cliente", type="primary", use_container_width=True)
             
-            with col1:
-                sucursal_input = st.selectbox("🏢 Selecciona tu Sucursal:", nombres_tiendas_reales)
-                cliente_input = st.text_input("👤 Nombre del Cliente:")
-                whatsapp_input = st.text_input("📱 Teléfono (10 dígitos):", max_chars=10)
-            
-            with col2:
-                # Condición en tiempo real: Si selecciona "Agenda", estos campos se ocultan
+        with col_btn2:
+            if st.button("🧹 Limpiar Formulario", type="secondary", use_container_width=True):
+                # Limpieza manual del formulario para compensar que quitamos el clear_on_submit del st.form
+                claves_a_limpiar = ['agenda_cli_reg', 'agenda_wpp_reg', 'agenda_mod_reg', 'agenda_not_reg_falta', 'agenda_not_reg_promo']
+                for key in claves_a_limpiar:
+                    if key in st.session_state:
+                        del st.session_state[key]
+                st.rerun()
+        
+        if btn_guardar:
+            if not cliente_input:
+                st.error("⚠️ El nombre del cliente es obligatorio.")
+            elif "Falta" in motivo_input and not modelo_input:
+                st.error("⚠️ Para 'Falta de Talla' es obligatorio ingresar el Modelo buscado.")
+            elif len(whatsapp_input) < 10 or not whatsapp_input.isdigit():
+                st.error("⚠️ El número de Teléfono debe tener 10 dígitos numéricos.")
+            else:
+                # --- ESCUDO DE INVENTARIO: Evitar guardar quiebres falsos ---
+                bloquear_registro = False
                 if "Falta" in motivo_input:
-                    modelo_input = st.text_input("👟 Modelo Buscado:")
-                    talla_input = st.number_input("📏 Talla (Ej. 25.0):", min_value=10.0, max_value=35.0, step=0.5, value=25.0)
-                    notas_input = st.text_area("📝 Notas (Opcional):", height=68)
-                else:
-                    modelo_input = ""
-                    talla_input = ""
-                    st.info("💡 En modo Agenda (Promociones) no se requiere capturar Modelo ni Talla.")
-                    st.write("<br>", unsafe_allow_html=True)
-                    notas_input = st.text_area("📝 Notas (Opcional):", height=68)
-            
-            btn_guardar = st.form_submit_button("💾 Guardar Cliente", type="primary")
-            
-            if btn_guardar:
-                if not cliente_input:
-                    st.error("⚠️ El nombre del cliente es obligatorio.")
-                elif "Falta" in motivo_input and not modelo_input:
-                    st.error("⚠️ Para 'Falta de Talla' es obligatorio ingresar el Modelo buscado.")
-                elif len(whatsapp_input) < 10 or not whatsapp_input.isdigit():
-                    st.error("⚠️ El número de Teléfono debe tener 10 dígitos numéricos.")
-                else:
-                    # --- ESCUDO DE INVENTARIO: Evitar guardar quiebres falsos ---
-                    bloquear_registro = False
-                    if "Falta" in motivo_input:
-                        if verificar_inventario_local(sucursal_input, modelo_input, talla_input):
-                            bloquear_registro = True
-                            st.error(f"⛔ ¡ALTO! El modelo {modelo_input.upper()} (Talla {talla_input}) SÍ tiene existencia física en {sucursal_input}. Ve a bodega y entrégalo al cliente.")
+                    if verificar_inventario_local(sucursal_input, modelo_input, talla_input):
+                        bloquear_registro = True
+                        st.error(f"⛔ ¡ALTO! El modelo {modelo_input.upper()} (Talla {talla_input}) SÍ tiene existencia física en {sucursal_input}. Ve a bodega y entrégalo al cliente.")
+                
+                if not bloquear_registro:
+                    fecha_hoy = (datetime.datetime.utcnow() - datetime.timedelta(hours=6)).strftime("%d/%m/%Y")
                     
-                    if not bloquear_registro:
-                        fecha_hoy = (datetime.datetime.utcnow() - datetime.timedelta(hours=6)).strftime("%d/%m/%Y")
+                    # Estructura alineada a 9 columnas: Fecha, Sucursal, Cliente, Whatsapp, Modelo, Talla, Notas, Estatus, Motivo
+                    fila_nueva = [
+                        fecha_hoy, sucursal_input, cliente_input, whatsapp_input, 
+                        modelo_input.upper(), str(talla_input), notas_input, "ESPERANDO", motivo_input
+                    ]
+                    
+                    try:
+                        sheet_agenda.append_row(fila_nueva)
+                        st.success(f"✅ ¡Cliente {cliente_input} registrado exitosamente bajo el motivo: {motivo_input.split(' ')[1]}!")
                         
-                        # Estructura alineada a 9 columnas: Fecha, Sucursal, Cliente, Whatsapp, Modelo, Talla, Notas, Estatus, Motivo
-                        fila_nueva = [
-                            fecha_hoy, sucursal_input, cliente_input, whatsapp_input, 
-                            modelo_input.upper(), str(talla_input), notas_input, "ESPERANDO", motivo_input
-                        ]
-                        
-                        try:
-                            sheet_agenda.append_row(fila_nueva)
-                            st.success(f"✅ ¡Cliente {cliente_input} registrado exitosamente bajo el motivo: {motivo_input.split(' ')[1]}!")
-                        except Exception as e:
-                            st.error(f"❌ Error al guardar en la nube: {e}")
+                        # Limpieza automática después de guardar con éxito
+                        claves_a_limpiar = ['agenda_cli_reg', 'agenda_wpp_reg', 'agenda_mod_reg', 'agenda_not_reg_falta', 'agenda_not_reg_promo']
+                        for key in claves_a_limpiar:
+                            if key in st.session_state:
+                                del st.session_state[key]
+                    except Exception as e:
+                        st.error(f"❌ Error al guardar en la nube: {e}")
