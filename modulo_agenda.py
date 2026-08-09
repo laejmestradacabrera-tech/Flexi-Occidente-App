@@ -50,60 +50,68 @@ def asegurar_inventario_cargado():
         pass
 
 def verificar_inventario_local(tda_int, modelo, talla):
-    """Cruce silencioso con el Kárdex para saber si el zapato ya llegó a bodega"""
+    """Cruce robusto con Kárdex clonando la lógica exacta de la Bitácora"""
     try:
         if 'df_ventas' not in st.session_state or 'df_tallas' not in st.session_state:
             return False
             
-        df_v = st.session_state.df_ventas
-        df_t = st.session_state.df_tallas
+        # Utilizamos copias para no afectar el dataframe global en memoria
+        df_v = st.session_state.df_ventas.copy()
+        df_t = st.session_state.df_tallas.copy()
         
-        # Limpiar modelo y talla para cruce exacto
+        # NORMALIZACIÓN ABSOLUTA A MINÚSCULAS (Idéntico a validar_captura_stock en app_occidente.py)
+        df_v.columns = df_v.columns.astype(str).str.strip().str.lower()
+        df_t.columns = df_t.columns.astype(str).str.strip().str.lower()
+        
         mod_cln = str(modelo).replace(' ', '').replace('-', '').upper()
         t_buscada = clean_talla(talla)
         
-        # Preparar base de ventas para filtro rápido
-        if 'tienda_int_chk' not in df_v.columns:
-            df_v['tienda_int_chk'] = pd.to_numeric(df_v['Tienda'].astype(str).str.extract(r'(\d+)', expand=False), errors='coerce').fillna(-1).astype(int)
+        if 'tienda' not in df_v.columns or 'modelo' not in df_v.columns:
+            return False
             
-        df_filtro = df_v[(df_v['tienda_int_chk'] == tda_int) & (df_v['Modelo'].astype(str).str.replace(' ', '').str.replace('-', '').str.upper() == mod_cln)]
+        df_v['tienda_int_chk'] = pd.to_numeric(df_v['tienda'].astype(str).str.extract(r'(\d+)', expand=False), errors='coerce').fillna(-1).astype(int)
         
-        if df_filtro.empty: return False
+        # Filtramos por tienda y modelo
+        df_filtro = df_v[(df_v['tienda_int_chk'] == tda_int) & (df_v['modelo'].astype(str).str.replace(' ', '').str.replace('-', '').str.upper() == mod_cln)]
+        
+        if df_filtro.empty: 
+            return False
+        
+        # Encontramos la columna de departamento en Valores de Tallas
+        col_dpto_tallas = 'valor' if 'valor' in df_t.columns else df_t.columns[0]
         
         for idx, row in df_filtro.iterrows():
-            dpto = str(row.get('Departamento', '')).strip().lower()
-            tallas_row = df_t[df_t.iloc[:,0].astype(str).str.strip().str.lower() == dpto]
+            dpto = str(row.get('departamento', '')).strip().lower()
+            tallas_row = df_t[df_t[col_dpto_tallas].astype(str).str.strip().str.lower() == dpto]
             
             if not tallas_row.empty:
                 for i in range(1, 16):
                     col_ex = f'ex{i}'
-                    if col_ex in tallas_row.columns:
+                    if col_ex in tallas_row.columns and col_ex in row:
                         val_matriz = tallas_row.iloc[0].get(col_ex, '')
-                        if pd.notna(val_matriz) and str(val_matriz).strip() != '':
+                        if pd.notna(val_matriz) and str(val_matriz).strip() != '' and str(val_matriz).strip().lower() != 'nan':
                             v_mat_str = clean_talla(val_matriz)
                             
                             if v_mat_str == t_buscada:
-                                # ¡Talla encontrada en matriz! Checar si hay existencia > 0
+                                # ¡Talla encontrada en matriz! Checar si hay existencia física
                                 existencia = row.get(col_ex, 0)
                                 try: e_num = float(existencia)
                                 except: e_num = 0.0
                                 if e_num > 0: return True
         return False
-    except:
+    except Exception as e:
         return False
 
-# Inicializamos estados para la limpieza de la pantalla de registro
-if 'agenda_reg_refresh' not in st.session_state:
-    st.session_state.agenda_reg_refresh = False
+# --- CALLBACK DE LIMPIEZA ---
+# Esta función nativa se ejecuta ANTES de refrescar la pantalla, previniendo el StreamlitAPIException
+def limpiar_formulario_agenda():
+    claves = ["agenda_reg_sucursal", "agenda_reg_motivo", "agenda_reg_cliente", "agenda_reg_telefono", "agenda_reg_modelo", "agenda_reg_talla", "agenda_reg_notas"]
+    for key in claves:
+        if key in st.session_state:
+            del st.session_state[key]
 
 def mostrar_modulo_agenda(client_gs):
-    # Aseguramos cargar los archivos a la memoria (Darle "ojos" al módulo)
     asegurar_inventario_cargado()
-
-    # Si se solicitó un refresh, limpiamos el estado y forzamos reinicio visual
-    if st.session_state.get('agenda_reg_refresh', False):
-        st.session_state.agenda_reg_refresh = False
-        # No usamos rerun aquí, permitimos que el script fluya, los widgets tomarán sus defaults
 
     st.markdown("<h2 style='color: #4338ca;'>📓 Agenda de Clientes y Recuperación de Ventas</h2>", unsafe_allow_html=True)
     st.write("Registra clientes en piso de venta, cruza faltantes de talla con el inventario y gestiona tu cartera de clientes.")
@@ -114,7 +122,7 @@ def mostrar_modulo_agenda(client_gs):
         sheet_agenda = archivo.worksheet('Agenda_Clientes')
         datos = sheet_agenda.get_all_values()
         
-        # Mantenimiento automático de la base de datos (Agrega columna Motivo si no existe)
+        # Mantenimiento automático de la base de datos
         if len(datos) > 0 and 'Motivo' not in datos[0]:
             sheet_agenda.update_cell(1, len(datos[0]) + 1, 'Motivo')
             datos[0].append('Motivo')
@@ -151,7 +159,6 @@ def mostrar_modulo_agenda(client_gs):
         if sucursal_filtro == opcion_default:
             st.info("👆 Por favor, selecciona tu sucursal en el menú superior para cargar tu agenda.")
         else:
-            # --- BOTÓN DE LIMPIEZA VISUAL (RESET) ---
             if st.button("🧹 Limpiar Pantalla / Cerrar Vista", use_container_width=True, type="secondary"):
                 st.session_state.ultimo_filtro_agenda = opcion_default
                 if "filtro_sucursal_agenda" in st.session_state:
@@ -182,19 +189,16 @@ def mostrar_modulo_agenda(client_gs):
                 if len(datos) > 1:
                     df_agenda = pd.DataFrame(datos[1:], columns=datos[0])
                     
-                    # Rellenar motivos vacíos con 'Falta de Talla' para respetar registros históricos
                     if 'Motivo' in df_agenda.columns:
                         df_agenda['Motivo'] = df_agenda['Motivo'].replace('', '📦 Falta de Talla').fillna('📦 Falta de Talla')
                     else:
                         df_agenda['Motivo'] = '📦 Falta de Talla'
                     
-                    # Filtro maestro de pendientes
                     df_pendientes = df_agenda[df_agenda['Estatus'].astype(str).str.upper() != 'CONTACTADO'].copy()
                     
                     if sucursal_filtro != opcion_gerencia:
                         df_pendientes = df_pendientes[df_pendientes['Sucursal'].astype(str).str.contains(sucursal_filtro, case=False, regex=False, na=False)]
 
-                    # --- SECCIÓN A: ALERTAS DE QUIEBRE (MOTOR INTELIGENTE) ---
                     df_faltas = df_pendientes[df_pendientes['Motivo'].astype(str).str.contains('Falta', case=False, na=False)]
                     
                     if df_faltas.empty:
@@ -204,7 +208,6 @@ def mostrar_modulo_agenda(client_gs):
                         
                         pendientes_list = list(df_faltas.iterrows())
                         
-                        # Carga de tiendas para traducir nombre a ID para la alerta
                         df_tiendas_alertas = pd.DataFrame()
                         arch_tiendas = [f for f in os.listdir('.') if 'CORREO DE TIENDAS' in f.upper() and f.endswith(('.xlsx', '.csv'))]
                         if arch_tiendas:
@@ -228,7 +231,6 @@ def mostrar_modulo_agenda(client_gs):
                                         sucursal = row.get('Sucursal', '')
                                         notas = row.get('Notas', '')
 
-                                        # Obtener ID de la tienda desde el archivo maestro para la alerta
                                         tda_num_alerta = -1
                                         if not df_tiendas_alertas.empty:
                                             col_nom_alerta = 'NOMBRE' if 'NOMBRE' in df_tiendas_alertas.columns else (df_tiendas_alertas.columns[1] if len(df_tiendas_alertas.columns) > 1 else df_tiendas_alertas.columns[0])
@@ -243,10 +245,8 @@ def mostrar_modulo_agenda(client_gs):
                                                         except: pass
                                                         break
 
-                                        # Cruce con inventario local usando el ID exacto
                                         zapato_llegado = verificar_inventario_local(tda_num_alerta, modelo, talla)
 
-                                        # Renderizado dinámico de la tarjeta (Semáforo)
                                         if zapato_llegado:
                                             html_tarjeta = f"""
                                             <div style="padding: 15px; border: 2px solid #22c55e; background-color: #1e293b; border-radius: 8px 8px 0 0; box-shadow: 0 0 15px rgba(34,197,94,0.3);">
@@ -276,7 +276,6 @@ def mostrar_modulo_agenda(client_gs):
                                             
                                         st.markdown(html_tarjeta, unsafe_allow_html=True)
                                         
-                                        # Botón para limpiar registro
                                         btn_type = "primary" if zapato_llegado else "secondary"
                                         if st.button("✅ Marcar como Contactado", key=f"btn_done_{idx}", use_container_width=True, type=btn_type):
                                             try:
@@ -290,7 +289,6 @@ def mostrar_modulo_agenda(client_gs):
 
                     st.markdown("---")
                     
-                    # --- SECCIÓN B: AGENDA COMPLETA (DIRECTORIO PASIVO) ---
                     with st.expander("📓 Abrir Agenda / Directorio General de Tienda", expanded=False):
                         st.markdown("<p style='color:#64748b; font-size:13px;'>Esta sección muestra todo tu padrón de clientes pendientes (Faltantes y Avisos de Promoción) para consulta telefónica pasiva. Los registros no se borran desde aquí.</p>", unsafe_allow_html=True)
                         
@@ -319,12 +317,11 @@ def mostrar_modulo_agenda(client_gs):
                     st.info("Aún no hay registros en la base de datos.")
 
     # ==========================================
-    # TAB 2: FORMULARIO DE REGISTRO DUAL (CLON DE BITÁCORA)
+    # TAB 2: FORMULARIO DE REGISTRO DUAL
     # ==========================================
     with tab_registro:
         st.markdown("### 📝 Captura de Datos en Caja")
 
-        # 1. Extractor Robusto de Tiendas (Idéntico a Bitácora)
         df_tdas_reg = pd.DataFrame()
         archivos_t = [f for f in os.listdir('.') if 'CORREO DE TIENDAS' in f.upper() and f.endswith(('.xlsx', '.csv'))]
         if archivos_t:
@@ -347,7 +344,6 @@ def mostrar_modulo_agenda(client_gs):
         with col1:
             sucursal_input = st.selectbox("Selecciona la Tienda:", nombres_sucursales, key="agenda_reg_sucursal")
             
-        # Extracción del Número de Tienda (ID)
         tda_num_defecto = ""
         if not df_tdas_reg.empty:
             fila_tienda = df_tdas_reg[df_tdas_reg[col_nom_reg] == sucursal_input]
@@ -369,7 +365,6 @@ def mostrar_modulo_agenda(client_gs):
         modelo_input = ""
         talla_input = 0.0
         
-        # Condicional simple, igual que en la Bitácora
         if "Falta" in motivo_input:
             col_mod, col_tal = st.columns(2)
             with col_mod:
@@ -388,9 +383,8 @@ def mostrar_modulo_agenda(client_gs):
             btn_guardar = st.button("💾 Guardar Cliente", type="primary", use_container_width=True)
             
         with col_btn2:
-            if st.button("🧹 Limpiar Formulario", type="secondary", use_container_width=True):
-                st.session_state.agenda_reg_refresh = True
-                st.rerun()
+            # Vinculamos la función de limpieza al callback on_click
+            st.button("🧹 Limpiar Formulario", type="secondary", use_container_width=True, on_click=limpiar_formulario_agenda)
 
         if btn_guardar:
             puede_guardar = True
@@ -410,16 +404,19 @@ def mostrar_modulo_agenda(client_gs):
                     st.error("❌ No se detectó un N° de Sucursal válido. El sistema no puede cruzar el inventario.")
                     puede_guardar = False
                 else:
-                    # --- ESCUDO DE INVENTARIO: Llamamos a la validación robusta local ---
-                    tienda_id_int = int(tda_num_defecto.strip())
-                    if verificar_inventario_local(tienda_id_int, modelo_input, talla_input):
-                        st.error(f"⛔ ¡ALTO! El modelo {modelo_input.upper()} (Talla {talla_input}) SÍ tiene existencia física en la sucursal {tienda_id_int}. Ve a bodega y entrégalo al cliente.")
+                    # --- ESCUDO DE INVENTARIO ABSOLUTO ---
+                    try:
+                        tienda_id_int = int(tda_num_defecto.strip())
+                        if verificar_inventario_local(tienda_id_int, modelo_input, talla_input):
+                            st.error(f"⛔ ¡ALTO! El modelo {modelo_input.upper()} (Talla {talla_input}) SÍ tiene existencia física en la sucursal {tienda_id_int}. Ve a bodega y entrégalo al cliente.")
+                            puede_guardar = False
+                    except Exception as e:
+                        st.error(f"Error técnico en el cruce de inventario: {e}")
                         puede_guardar = False
 
             if puede_guardar:
                 fecha_hoy = (datetime.datetime.utcnow() - datetime.timedelta(hours=6)).strftime("%d/%m/%Y")
                 
-                # Estructura alineada a 9 columnas
                 fila_nueva = [
                     fecha_hoy, sucursal_input, cliente_input, whatsapp_input, 
                     modelo_input.upper(), str(talla_input), notas_input, "ESPERANDO", motivo_input
@@ -428,8 +425,6 @@ def mostrar_modulo_agenda(client_gs):
                 try:
                     sheet_agenda.append_row(fila_nueva)
                     st.success(f"✅ ¡Cliente {cliente_input} registrado exitosamente bajo el motivo: {motivo_input.split(' ')[1]}!")
-                    
-                    # Activamos el refresh para que la pantalla se limpie tras mostrar el mensaje de éxito (al próximo clic)
-                    st.info("💡 Formulario guardado. Presiona 'Limpiar Formulario' o cambia de pestaña para continuar.")
+                    st.info("💡 Formulario guardado. Presiona 'Limpiar Formulario' para borrar estos datos y registrar uno nuevo.")
                 except Exception as e:
                     st.error(f"❌ Error al guardar en la nube: {e}")
