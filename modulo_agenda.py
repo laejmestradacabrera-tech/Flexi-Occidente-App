@@ -226,32 +226,26 @@ def mostrar_modulo_agenda(client_gs):
                         if df_pendientes.empty:
                             st.info("Tu directorio de clientes está vacío.")
                         else:
-                            html_dir = """
-                            <div style='overflow-x:auto;'>
-                            <table style='width:100%; border-collapse: collapse; font-family: sans-serif; background-color: #1e293b; color: #f8fafc; border-radius: 8px; overflow: hidden;'>
-                                <thead>
-                                    <tr style='background-color: #0f172a; border-bottom: 2px solid #334155; text-align: left; font-size: 12px; color: #cbd5e1; text-transform: uppercase;'>
-                                        <th style='padding: 12px; border-right: 1px solid #334155;'>Cliente</th>
-                                        <th style='padding: 12px; border-right: 1px solid #334155;'>Teléfono</th>
-                                        <th style='padding: 12px; border-right: 1px solid #334155;'>Motivo del Registro</th>
-                                        <th style='padding: 12px; border-right: 1px solid #334155;'>Modelo y Talla</th>
-                                        <th style='padding: 12px;'>Notas Adicionales</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                            """
-                            for _, r in df_pendientes.iterrows():
-                                html_dir += f"""
-                                <tr style='border-bottom: 1px solid #334155; font-size: 14px;'>
-                                    <td style='padding: 12px; font-weight: bold; border-right: 1px solid #334155;'>{r.get('Cliente', '')}</td>
-                                    <td style='padding: 12px; color: #fbbf24; border-right: 1px solid #334155;'>{r.get('Whatsapp', '')}</td>
-                                    <td style='padding: 12px; border-right: 1px solid #334155;'>{r.get('Motivo', '')}</td>
-                                    <td style='padding: 12px; border-right: 1px solid #334155;'>Mod. {r.get('Modelo', '')} (T. {r.get('Talla', '')})</td>
-                                    <td style='padding: 12px; color: #94a3b8; font-size: 12px;'>{r.get('Notas', '')}</td>
-                                </tr>
-                                """
-                            html_dir += "</tbody></table></div>"
-                            st.markdown(html_dir, unsafe_allow_html=True)
+                            # Utilizamos una tabla nativa (st.table) para aprovechar los estilos CSS globales que ya tienes
+                            df_mostrar = pd.DataFrame()
+                            df_mostrar['CLIENTE'] = df_pendientes['Cliente']
+                            df_mostrar['TELÉFONO'] = df_pendientes['Whatsapp']
+                            df_mostrar['MOTIVO DEL REGISTRO'] = df_pendientes['Motivo']
+                            
+                            def format_modelo_talla(row):
+                                mod = str(row.get('Modelo', '')).strip()
+                                tal = str(row.get('Talla', '')).strip()
+                                # Si tiene modelo y no es NaN
+                                if mod and mod.upper() != 'NAN':
+                                    if tal and tal.upper() != 'NAN' and tal != '':
+                                        return f"Mod. {mod} (T. {tal})"
+                                    return f"Mod. {mod}"
+                                return ""
+                                
+                            df_mostrar['MODELO Y TALLA'] = df_pendientes.apply(format_modelo_talla, axis=1)
+                            df_mostrar['NOTAS ADICIONALES'] = df_pendientes['Notas']
+                            
+                            st.table(df_mostrar)
                 else:
                     st.info("Aún no hay registros en la base de datos.")
 
@@ -261,20 +255,29 @@ def mostrar_modulo_agenda(client_gs):
     with tab_registro:
         st.markdown("### 📝 Captura de Datos en Caja")
         
+        # El selector de motivo DEBE estar afuera del st.form para que cambie la interfaz dinámicamente antes de guardar
+        motivo_input = st.selectbox("📌 Motivo del Registro:", ["📦 Falta de Talla (Quiebre)", "🏷️ Agenda (Aviso de Promociones)"])
+        
         with st.form("form_nuevo_cliente", clear_on_submit=True):
             col1, col2 = st.columns(2)
             
             with col1:
                 sucursal_input = st.selectbox("🏢 Selecciona tu Sucursal:", nombres_tiendas_reales)
-                motivo_input = st.selectbox("📌 Motivo del Registro:", ["📦 Falta de Talla (Quiebre)", "🏷️ Agenda (Aviso de Promociones)"])
                 cliente_input = st.text_input("👤 Nombre del Cliente:")
                 whatsapp_input = st.text_input("📱 Teléfono (10 dígitos):", max_chars=10)
             
             with col2:
-                st.write("<br>", unsafe_allow_html=True) # Espaciador
-                modelo_input = st.text_input("👟 Modelo (Opcional en Promociones):")
-                talla_input = st.number_input("📏 Talla (Ej. 25.0):", min_value=10.0, max_value=35.0, step=0.5, value=25.0)
-                notas_input = st.text_area("📝 Notas (Opcional):", height=68)
+                # Condición en tiempo real: Si selecciona "Agenda", estos campos se ocultan
+                if "Falta" in motivo_input:
+                    modelo_input = st.text_input("👟 Modelo Buscado:")
+                    talla_input = st.number_input("📏 Talla (Ej. 25.0):", min_value=10.0, max_value=35.0, step=0.5, value=25.0)
+                    notas_input = st.text_area("📝 Notas (Opcional):", height=68)
+                else:
+                    modelo_input = ""
+                    talla_input = ""
+                    st.info("💡 En modo Agenda (Promociones) no se requiere capturar Modelo ni Talla.")
+                    st.write("<br>", unsafe_allow_html=True)
+                    notas_input = st.text_area("📝 Notas (Opcional):", height=68)
             
             btn_guardar = st.form_submit_button("💾 Guardar Cliente", type="primary")
             
