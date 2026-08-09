@@ -116,6 +116,16 @@ def mostrar_modulo_agenda(client_gs):
         if sucursal_filtro == opcion_default:
             st.info("👆 Por favor, selecciona tu sucursal en el menú superior para cargar tu agenda.")
         else:
+            # --- NUEVO BOTÓN DE LIMPIEZA VISUAL (RESET) ---
+            if st.button("🧹 Limpiar Pantalla / Cerrar Vista", use_container_width=True, type="secondary"):
+                st.session_state.ultimo_filtro_agenda = opcion_default
+                st.session_state.filtro_sucursal_agenda = opcion_default
+                if "clave_gerencia_agenda" in st.session_state:
+                    st.session_state.clave_gerencia_agenda = ""
+                st.rerun()
+                
+            st.write("<br>", unsafe_allow_html=True)
+            
             mostrar_tablero = True
             
             # Blindaje de Seguridad usando st.secrets
@@ -289,16 +299,24 @@ def mostrar_modulo_agenda(client_gs):
                 elif len(whatsapp_input) < 10 or not whatsapp_input.isdigit():
                     st.error("⚠️ El número de Teléfono debe tener 10 dígitos numéricos.")
                 else:
-                    fecha_hoy = (datetime.datetime.utcnow() - datetime.timedelta(hours=6)).strftime("%d/%m/%Y")
+                    # --- ESCUDO DE INVENTARIO: Evitar guardar quiebres falsos ---
+                    bloquear_registro = False
+                    if "Falta" in motivo_input:
+                        if verificar_inventario_local(sucursal_input, modelo_input, talla_input):
+                            bloquear_registro = True
+                            st.error(f"⛔ ¡ALTO! El modelo {modelo_input.upper()} (Talla {talla_input}) SÍ tiene existencia física en {sucursal_input}. Ve a bodega y entrégalo al cliente.")
                     
-                    # Estructura alineada a 9 columnas: Fecha, Sucursal, Cliente, Whatsapp, Modelo, Talla, Notas, Estatus, Motivo
-                    fila_nueva = [
-                        fecha_hoy, sucursal_input, cliente_input, whatsapp_input, 
-                        modelo_input.upper(), str(talla_input), notas_input, "ESPERANDO", motivo_input
-                    ]
-                    
-                    try:
-                        sheet_agenda.append_row(fila_nueva)
-                        st.success(f"✅ ¡Cliente {cliente_input} registrado exitosamente bajo el motivo: {motivo_input.split(' ')[1]}!")
-                    except Exception as e:
-                        st.error(f"❌ Error al guardar en la nube: {e}")
+                    if not bloquear_registro:
+                        fecha_hoy = (datetime.datetime.utcnow() - datetime.timedelta(hours=6)).strftime("%d/%m/%Y")
+                        
+                        # Estructura alineada a 9 columnas: Fecha, Sucursal, Cliente, Whatsapp, Modelo, Talla, Notas, Estatus, Motivo
+                        fila_nueva = [
+                            fecha_hoy, sucursal_input, cliente_input, whatsapp_input, 
+                            modelo_input.upper(), str(talla_input), notas_input, "ESPERANDO", motivo_input
+                        ]
+                        
+                        try:
+                            sheet_agenda.append_row(fila_nueva)
+                            st.success(f"✅ ¡Cliente {cliente_input} registrado exitosamente bajo el motivo: {motivo_input.split(' ')[1]}!")
+                        except Exception as e:
+                            st.error(f"❌ Error al guardar en la nube: {e}")
