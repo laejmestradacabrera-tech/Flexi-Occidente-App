@@ -435,8 +435,8 @@ def mostrar_modulo_agenda(client_gs):
                                                         except: pass
                                                         break
 
-                                        # En alertas extraemos la tupla pero ignoramos el error visualmente para no saturar
-                                        zapato_llegado, _ = verificar_inventario_local(tda_num_alerta, modelo, talla)
+                                        # En alertas verificamos si hay existencia
+                                        zapato_llegado = verificar_inventario_local(tda_num_alerta, modelo, talla)
 
                                         if zapato_llegado:
                                             html_tarjeta = f"""
