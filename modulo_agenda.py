@@ -187,95 +187,14 @@ def validar_inventario_local(tda_int, modelo, talla):
         st.session_state.ultimo_error_inventario = str(e)
         return 'ERROR'
 
-
 def verificar_inventario_local(tda_int, modelo, talla):
     """Compatibilidad con el resto del módulo: True solo cuando hay existencia."""
     return validar_inventario_local(tda_int, modelo, talla) == 'EXISTE'
 
-
-def obtener_existencia_talla_local(tda_int, modelo, talla):
-    """Devuelve la existencia física actual de una tienda/modelo/talla.
-    Se usa para controlar pares registrados como no vendibles sin modificar Ventas.xlsx.
-    """
-    try:
-        if 'df_ventas' not in st.session_state or 'df_tallas' not in st.session_state:
-            return None
-
-        df_v = st.session_state.df_ventas.copy()
-        df_t = st.session_state.df_tallas.copy()
-        df_v.columns = df_v.columns.astype(str).str.strip().str.lower()
-        df_t.columns = df_t.columns.astype(str).str.strip().str.lower()
-
-        mod_cln = str(modelo).replace(' ', '').replace('-', '').upper()
-        t_buscada = clean_talla(talla)
-        if not t_buscada:
-            return None
-
-        tienda_series = pd.to_numeric(
-            df_v['tienda'].astype(str).str.extract(r'(\d+)', expand=False),
-            errors='coerce'
-        )
-        df_v['tienda_int_chk'] = tienda_series.fillna(-1).astype(int)
-        modelos_norm = (
-            df_v['modelo'].astype(str)
-            .str.replace(' ', '', regex=False)
-            .str.replace('-', '', regex=False)
-            .str.upper()
-        )
-        df_filtro = df_v[(df_v['tienda_int_chk'] == int(tda_int)) & (modelos_norm == mod_cln)]
-        if df_filtro.empty:
-            return 0.0
-
-        existencia_total = 0.0
-        encontro_talla = False
-
-        for _, row in df_filtro.iterrows():
-            dpto = str(row.get('departamento', '')).strip().lower()
-            tallas_row = df_t[df_t['valor'].astype(str).str.strip().str.lower() == dpto]
-            if tallas_row.empty:
-                return None
-
-            for i in range(1, 16):
-                col_ex = f'ex{i}'
-                if col_ex not in tallas_row.columns or col_ex not in row.index:
-                    continue
-                val_matriz = tallas_row.iloc[0].get(col_ex, '')
-                if pd.isna(val_matriz) or str(val_matriz).strip() == '':
-                    continue
-                if clean_talla(val_matriz) != t_buscada:
-                    continue
-
-                encontro_talla = True
-                try:
-                    existencia_total += float(row.get(col_ex, 0) or 0)
-                except (TypeError, ValueError):
-                    return None
-                break
-
-        return existencia_total if encontro_talla else 0.0
-    except Exception as e:
-        st.session_state.ultimo_error_inventario = str(e)
-        return None
-
-
-NO_VENDIBLE_PREFIX = '[NO_VENDIBLE]'
-
-def extraer_no_vendible(notas):
-    """Extrae la marca de par no vendible y la existencia registrada originalmente."""
-    texto = str(notas or '').strip()
-    if not texto.upper().startswith(NO_VENDIBLE_PREFIX):
-        return False, None, ''
-    m = re.search(r'EXISTENCIA_REGISTRO=(\d+(?:\.\d+)?)', texto, flags=re.I)
-    snapshot = float(m.group(1)) if m else None
-    motivo = ''
-    if 'MOTIVO=' in texto.upper():
-        motivo = texto.split('MOTIVO=', 1)[1].strip()
-    return True, snapshot, motivo
-
 # --- CALLBACK DE LIMPIEZA ---
 # Esta función nativa se ejecuta ANTES de refrescar la pantalla, previniendo el StreamlitAPIException
 def limpiar_formulario_agenda():
-    claves = ["agenda_reg_sucursal", "agenda_reg_motivo", "agenda_reg_cliente", "agenda_reg_telefono", "agenda_reg_modelo", "agenda_reg_talla", "agenda_reg_notas", "agenda_par_no_vendible", "agenda_motivo_no_vendible"]
+    claves = ["agenda_reg_sucursal", "agenda_reg_motivo", "agenda_reg_cliente", "agenda_reg_telefono", "agenda_reg_modelo", "agenda_reg_talla", "agenda_reg_notas"]
     for key in claves:
         if key in st.session_state:
             del st.session_state[key]
@@ -457,14 +376,13 @@ def mostrar_modulo_agenda(client_gs):
                 with col_clave:
                     clave_ingresada = st.text_input("🔐 Clave de Autorización:", type="password", key="clave_gerencia_agenda")
                 
-                # La clave debe existir en st.secrets; no dejamos una contraseña
-                # corporativa expuesta como respaldo dentro del código.
+                # --- SOLUCIÓN APLICADA: LLAVE MAESTRA DE RESPALDO ---
                 try:
-                    clave_maestra = st.secrets["CLAVE_GERENCIA"]
+                    clave_maestra = st.secrets.get("CLAVE_GERENCIA", "Flexi2026")
                 except Exception:
-                    clave_maestra = None
+                    clave_maestra = "Flexi2026"
 
-                if not clave_maestra or clave_ingresada != clave_maestra:
+                if clave_ingresada != clave_maestra:
                     st.warning("🔒 Vista restringida. Ingresa la clave corporativa para acceder al tablero global.")
                     mostrar_tablero = False
             
@@ -517,39 +435,10 @@ def mostrar_modulo_agenda(client_gs):
                                                         except: pass
                                                         break
 
-                                        es_no_vendible, existencia_ref, motivo_nv = extraer_no_vendible(notas)
-                                        existencia_actual = obtener_existencia_talla_local(tda_num_alerta, modelo, talla) if es_no_vendible else None
+                                        # En alertas extraemos la tupla pero ignoramos el error visualmente para no saturar
+                                        zapato_llegado, _ = verificar_inventario_local(tda_num_alerta, modelo, talla)
 
-                                        # Para un registro no vendible, la existencia original NO significa
-                                        # que el producto ya esté disponible. Solo avisamos cuando la
-                                        # existencia actual aumenta respecto a la registrada.
-                                        if es_no_vendible:
-                                            zapato_llegado = (
-                                                existencia_actual is not None and
-                                                existencia_ref is not None and
-                                                existencia_actual > existencia_ref
-                                            )
-                                        else:
-                                            zapato_llegado = verificar_inventario_local(tda_num_alerta, modelo, talla)
-
-                                        if es_no_vendible and not zapato_llegado:
-                                            html_tarjeta = f"""
-                                            <div style="padding: 15px; border: 2px solid #f59e0b; background-color: #1e293b; border-radius: 8px 8px 0 0; box-shadow: 0 0 12px rgba(245,158,11,0.18);">
-                                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                                    <span style="color: #f59e0b; font-weight: 900; font-size: 13px; letter-spacing: 1px;">🟠 PAR NO VENDIBLE</span>
-                                                    <span style="color: #94a3b8; font-size: 11px;">Falta de Talla</span>
-                                                </div>
-                                                <p style="margin: 0; font-size: 14.5px; color: #f8fafc; line-height: 1.4;">
-                                                    <strong>{cliente}</strong> ({whatsapp})<br>El inventario registra el par de <strong>{modelo}</strong> (Talla {talla}), pero fue reportado como no vendible.
-                                                </p>
-                                                <p style="margin: 8px 0 0 0; font-size: 12px; color: #fbbf24;">
-                                                    Existencia al registrar: <strong>{existencia_ref:g}</strong> · Existencia actual: <strong>{(existencia_actual if existencia_actual is not None else 0):g}</strong>
-                                                </p>
-                                                {"<p style='margin: 8px 0 0 0; font-size: 12px; color: #94a3b8;'><em>Motivo: " + motivo_nv + "</em></p>" if motivo_nv else ""}
-                                                {"<p style='margin: 8px 0 0 0; font-size: 12px; color: #64748b;'><em>📝 " + notas.replace(NO_VENDIBLE_PREFIX, '').strip() + "</em></p>" if notas.replace(NO_VENDIBLE_PREFIX, '').strip() else ""}
-                                            </div>
-                                            """
-                                        elif zapato_llegado:
+                                        if zapato_llegado:
                                             html_tarjeta = f"""
                                             <div style="padding: 15px; border: 2px solid #22c55e; background-color: #1e293b; border-radius: 8px 8px 0 0; box-shadow: 0 0 15px rgba(34,197,94,0.3);">
                                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -691,29 +580,6 @@ def mostrar_modulo_agenda(client_gs):
             
         notas_input = st.text_area("📝 Notas (Opcional):", key="agenda_reg_notas")
 
-        # Validación previa para detectar el caso especial: existe el par, pero no es vendible.
-        resultado_inventario_form = None
-        tienda_id_form = None
-        if "Falta" in motivo_input and modelo_input and re.search(r'\d+', tda_num_defecto):
-            tienda_id_form = int(re.search(r'\d+', tda_num_defecto).group())
-            resultado_inventario_form = validar_inventario_local(tienda_id_form, modelo_input, talla_input)
-
-            if resultado_inventario_form == 'EXISTE':
-                st.warning(
-                    f"⚠️ El sistema detecta existencia física para {modelo_input.upper()} · talla {talla_input} en la tienda {tienda_id_form}. "
-                    "Revisa piso y bodega."
-                )
-                st.checkbox(
-                    "🔴 El par existe, pero está en mal estado / NO es vendible y por eso necesito registrar el quiebre.",
-                    key="agenda_par_no_vendible"
-                )
-                if st.session_state.get("agenda_par_no_vendible", False):
-                    st.text_input(
-                        "📝 Motivo del par no vendible (obligatorio):",
-                        placeholder="Ej. manchado, roto, detalle de fabricación, maltratado...",
-                        key="agenda_motivo_no_vendible"
-                    )
-
         st.write("<br>", unsafe_allow_html=True)
         col_btn1, col_btn2 = st.columns(2)
         
@@ -751,23 +617,12 @@ def mostrar_modulo_agenda(client_gs):
                         )
 
                         if resultado_inventario == 'EXISTE':
-                            # Permitimos el registro SOLO cuando la encargada confirma que
-                            # el único par disponible no es vendible. Guardamos un marcador
-                            # en Notas con la existencia de referencia para detectar después
-                            # cuando la existencia aumente.
-                            no_vendible = st.session_state.get("agenda_par_no_vendible", False)
-                            motivo_no_vendible = st.session_state.get("agenda_motivo_no_vendible", "").strip()
-
-                            if not no_vendible:
-                                st.error(
-                                    f"⛔ ¡ALTO! El modelo {modelo_input.upper()} "
-                                    f"(Talla {talla_input}) SÍ tiene existencia física "
-                                    f"en la sucursal {tienda_id_int}. Si el par está en mal estado, marca la opción de par no vendible."
-                                )
-                                puede_guardar = False
-                            elif not motivo_no_vendible:
-                                st.error("⚠️ Indica el motivo por el que el par no es vendible antes de guardar.")
-                                puede_guardar = False
+                            st.error(
+                                f"⛔ ¡ALTO! El modelo {modelo_input.upper()} "
+                                f"(Talla {talla_input}) SÍ tiene existencia física "
+                                f"en la sucursal {tienda_id_int}. Ve a bodega y entrégalo al cliente."
+                            )
+                            puede_guardar = False
 
                         elif resultado_inventario == 'ERROR':
                             st.error(
@@ -782,41 +637,24 @@ def mostrar_modulo_agenda(client_gs):
 
             if puede_guardar:
                 fecha_hoy = (datetime.datetime.utcnow() - datetime.timedelta(hours=6)).strftime("%d/%m/%Y")
-
-                # Si existe pero fue declarado no vendible, conservamos la información
-                # en la columna Notas existente. No necesitamos otra hoja ni otra columna.
-                notas_guardado = notas_input.strip()
-                if "Falta" in motivo_input and resultado_inventario_form == 'EXISTE' and st.session_state.get("agenda_par_no_vendible", False):
-                    existencia_ref = obtener_existencia_talla_local(tienda_id_form, modelo_input, talla_input)
-                    if existencia_ref is None:
-                        st.error("⚠️ No fue posible obtener la existencia de referencia. El registro no se guardó para evitar una alerta incorrecta posteriormente.")
-                        puede_guardar = False
-                    else:
-                        motivo_nv = st.session_state.get("agenda_motivo_no_vendible", "").strip()
-                        marcador = f"{NO_VENDIBLE_PREFIX} EXISTENCIA_REGISTRO={existencia_ref:g} MOTIVO={motivo_nv}"
-                        notas_guardado = f"{marcador} | {notas_guardado}" if notas_guardado else marcador
-
-                if puede_guardar:
-                    fila_nueva = [
-                        fecha_hoy, sucursal_input, cliente_input, whatsapp_input, 
-                        modelo_input.upper(), str(talla_input), notas_guardado, "ESPERANDO", motivo_input
-                    ]
                 
-                    try:
-                        sheet_agenda.append_row(fila_nueva)
+                fila_nueva = [
+                    fecha_hoy, sucursal_input, cliente_input, whatsapp_input, 
+                    modelo_input.upper(), str(talla_input), notas_input, "ESPERANDO", motivo_input
+                ]
+                
+                try:
+                    sheet_agenda.append_row(fila_nueva)
 
-                        # Actualizamos la copia local después del append para evitar una lectura completa inmediata.
-                        datos_local = [list(fila) for fila in st.session_state.get('agenda_datos_cache', datos)]
-                        if not datos_local:
-                            datos_local = [['Fecha', 'Sucursal', 'Cliente', 'Whatsapp', 'Modelo', 'Talla', 'Notas', 'Estatus', 'Motivo']]
-                        datos_local.append(fila_nueva)
-                        st.session_state.agenda_datos_cache = datos_local
-                        invalidar_cache_agenda()
+                    # Actualizamos la copia local después del append para evitar una lectura completa inmediata.
+                    datos_local = [list(fila) for fila in st.session_state.get('agenda_datos_cache', datos)]
+                    if not datos_local:
+                        datos_local = [['Fecha', 'Sucursal', 'Cliente', 'Whatsapp', 'Modelo', 'Talla', 'Notas', 'Estatus', 'Motivo']]
+                    datos_local.append(fila_nueva)
+                    st.session_state.agenda_datos_cache = datos_local
+                    invalidar_cache_agenda()
 
-                        if "[NO_VENDIBLE]" in notas_guardado:
-                            st.success(f"✅ Cliente {cliente_input} registrado como quiebre por par no vendible. El sistema avisará cuando la existencia aumente.")
-                        else:
-                            st.success(f"✅ ¡Cliente {cliente_input} registrado exitosamente bajo el motivo: {motivo_input.split(' ')[1]}!")
-                        st.info("💡 Formulario guardado. Presiona 'Limpiar Formulario' para borrar estos datos y registrar uno nuevo.")
-                    except Exception as e:
-                        st.error(f"❌ Error al guardar en la nube: {e}")
+                    st.success(f"✅ ¡Cliente {cliente_input} registrado exitosamente bajo el motivo: {motivo_input.split(' ')[1]}!")
+                    st.info("💡 Formulario guardado. Presiona 'Limpiar Formulario' para borrar estos datos y registrar uno nuevo.")
+                except Exception as e:
+                    st.error(f"❌ Error al guardar en la nube: {e}")
