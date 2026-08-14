@@ -187,6 +187,7 @@ def validar_inventario_local(tda_int, modelo, talla):
         st.session_state.ultimo_error_inventario = str(e)
         return 'ERROR'
 
+
 def verificar_inventario_local(tda_int, modelo, talla):
     """Compatibilidad con el resto del módulo: True solo cuando hay existencia."""
     return validar_inventario_local(tda_int, modelo, talla) == 'EXISTE'
@@ -376,13 +377,14 @@ def mostrar_modulo_agenda(client_gs):
                 with col_clave:
                     clave_ingresada = st.text_input("🔐 Clave de Autorización:", type="password", key="clave_gerencia_agenda")
                 
-                # --- SOLUCIÓN APLICADA: LLAVE MAESTRA DE RESPALDO ---
+                # La clave debe existir en st.secrets; no dejamos una contraseña
+                # corporativa expuesta como respaldo dentro del código.
                 try:
-                    clave_maestra = st.secrets.get("CLAVE_GERENCIA", "Flexi2026")
+                    clave_maestra = st.secrets["CLAVE_GERENCIA"]
                 except Exception:
-                    clave_maestra = "Flexi2026"
+                    clave_maestra = None
 
-                if clave_ingresada != clave_maestra:
+                if not clave_maestra or clave_ingresada != clave_maestra:
                     st.warning("🔒 Vista restringida. Ingresa la clave corporativa para acceder al tablero global.")
                     mostrar_tablero = False
             
@@ -435,7 +437,6 @@ def mostrar_modulo_agenda(client_gs):
                                                         except: pass
                                                         break
 
-                                        # En alertas verificamos si hay existencia
                                         zapato_llegado = verificar_inventario_local(tda_num_alerta, modelo, talla)
 
                                         if zapato_llegado:
