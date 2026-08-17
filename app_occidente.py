@@ -268,8 +268,8 @@ def validar_captura_stock(tienda_id, modelo, talla_input, df_ventas, df_tallas):
                                         return False, f"⛔ CAPTURA BLOQUEADA: El sistema registra {int(existencia_num)} par(es) de la talla {talla_buscada_str} (Modelo {modelo_buscado}) físicamente en la sucursal {tda_buscada}."
                                     else:
                                         st.write(f"✅ La existencia es {existencia_num}. Permitiendo captura (Quiebre válido).")
-                            else:
-                                st.write(f"❌ **ERROR:** La columna [{col_ex}] NO existe en el archivo Ventas.xlsx")
+            else:
+                st.write(f"❌ **ERROR:** La columna [{col_ex}] NO existe en el archivo Ventas.xlsx")
         return True, ""
     except Exception as e:
         st.error(f"Error interno en validación: {e}")
@@ -633,15 +633,30 @@ if st.session_state.vista_actual == 'Inicio':
 
     if archivo_conv:
         try:
-            df_c = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
-            df_c = df_c[~df_c.iloc[:,0].astype(str).str.contains('3004|3015|Total|TOTAL|Resumen', na=False)]
-            c_cv = next((c for c in df_c.columns if 'Conv' in c and 'Actual' in c), None)
-            c_tk = next((c for c in df_c.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
+            df_c_raw = pd.read_excel(archivo_conv) if archivo_conv.endswith('.xlsx') else pd.read_csv(archivo_conv)
+            c_cv = next((c for c in df_c_raw.columns if 'Conv' in c and 'Actual' in c), None)
+            c_tk = next((c for c in df_c_raw.columns if 'Ticket' in c or 'Uds/Tkt' in c or 'Prom' in c), None)
+            
             if c_cv and c_tk:
-                conv_mean = df_c[c_cv].apply(lambda x: x*100 if x < 1 else x).mean()
-                tkt_mean = df_c[c_tk].mean()
-                conv_val = f"{conv_mean:.2f}%"
-                tkt_val = f"{tkt_mean:.2f}"
+                # 1. Buscar la fila de "Total" o "Resumen" para extraer el dato exacto de la Zona
+                fila_total = df_c_raw[df_c_raw.iloc[:,0].astype(str).str.contains('Total|TOTAL|Resumen', case=False, na=False)]
+                
+                if not fila_total.empty:
+                    # Extraer el valor real de la fila Total (El 11.09% oficial)
+                    conv_oficial = pd.to_numeric(fila_total.iloc[0][c_cv], errors='coerce')
+                    tkt_oficial = pd.to_numeric(fila_total.iloc[0][c_tk], errors='coerce')
+                else:
+                    # Respaldo si un día no viene la fila total: Promedio excluyendo outliers
+                    df_c_clean = df_c_raw[~df_c_raw.iloc[:,0].astype(str).str.contains('3004|3015', na=False)]
+                    conv_oficial = pd.to_numeric(df_c_clean[c_cv], errors='coerce').mean()
+                    tkt_oficial = pd.to_numeric(df_c_clean[c_tk], errors='coerce').mean()
+
+                # Convertir a formato porcentaje si viene en decimal
+                conv_oficial = conv_oficial * 100 if pd.notna(conv_oficial) and conv_oficial <= 1 else (conv_oficial if pd.notna(conv_oficial) else 0.0)
+                tkt_oficial = tkt_oficial if pd.notna(tkt_oficial) else 0.0
+                
+                conv_val = f"{conv_oficial:.2f}%"
+                tkt_val = f"{tkt_oficial:.2f}"
         except: pass
 
     if archivo_comp:
@@ -709,14 +724,14 @@ if st.session_state.vista_actual == 'Inicio':
                 <div class="kpi-icon-lobby"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg></div>
                 <div class="kpi-data-lobby">
                     <h3>{conv_val}</h3>
-                    <p>Conversión Promedio</p>
+                    <p>Conversión Regional</p>
                 </div>
             </div>
             <div class="kpi-card-lobby">
                 <div class="kpi-icon-lobby"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"></path><line x1="12" y1="18" x2="12" y2="6"></line></svg></div>
                 <div class="kpi-data-lobby">
                     <h3>{tkt_val}</h3>
-                    <p>Ticket Promedio</p>
+                    <p>Ticket Regional</p>
                 </div>
             </div>
             <div class="kpi-card-lobby">
@@ -1438,6 +1453,9 @@ elif st.session_state.vista_actual == 'Operativo':
         else:
             st.warning("⚠️ No se detectó conexión a Google Sheets. Revisa tus credenciales.")
 
+# ==============================================================================
+# PANTALLA 4: MÓDULO ESTRATÉGICO GERENCIAL
+# ==============================================================================
 elif st.session_state.vista_actual == 'Estrategico':
     col_nav1, col_nav2 = st.columns([4, 1])
     with col_nav1:
