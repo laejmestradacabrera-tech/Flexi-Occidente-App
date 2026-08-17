@@ -226,6 +226,31 @@ def extraer_existencia_inicial(notas):
     except (TypeError, ValueError):
         return None
 
+def recepcion_confirmada(notas):
+    """True cuando la tienda confirmó que la nueva unidad ya fue recibida físicamente."""
+    return '[RECEPCION_CONFIRMADA]' in str(notas or '').upper()
+
+
+def actualizar_nota_fila(sheet_agenda, datos, fila_idx_cero_based, nueva_nota):
+    """Actualiza Notas usando su encabezado real y sincroniza la copia local."""
+    encabezados = [str(c).strip().lower() for c in (datos[0] if datos else [])]
+    if 'notas' not in encabezados:
+        raise ValueError("La hoja Agenda_Clientes no contiene la columna 'Notas'.")
+
+    col_notas = encabezados.index('notas') + 1
+    sheet_agenda.update_cell(fila_idx_cero_based + 2, col_notas, nueva_nota)
+
+    datos_local = [list(fila) for fila in st.session_state.get('agenda_datos_cache', datos)]
+    fila_local = fila_idx_cero_based + 1
+    col_local = col_notas - 1
+    if 0 <= fila_local < len(datos_local):
+        while len(datos_local[fila_local]) <= col_local:
+            datos_local[fila_local].append('')
+        datos_local[fila_local][col_local] = nueva_nota
+        st.session_state.agenda_datos_cache = datos_local
+        invalidar_cache_agenda()
+
+
 def limpiar_formulario_agenda():
     st.session_state["agenda_reg_motivo"] = "📦 Falta de Talla (Quiebre)"
     st.session_state["agenda_reg_cliente"] = ""
@@ -443,36 +468,45 @@ def mostrar_modulo_agenda(client_gs):
 
                                         motivo_registro = str(row.get('Motivo', '📦 Falta de Talla'))
                                         es_no_vendible = ('NO_VENDIBLE' in notas.upper() or 'NO VENDIBLE' in motivo_registro.upper())
+                                        confirmada = recepcion_confirmada(notas)
 
                                         existencia_actual = obtener_existencia_local(tda_num_alerta, modelo, talla)
                                         existencia_registro = extraer_existencia_inicial(notas)
 
-                                        # REGLA DE LA FOTO UNIVERSAL
+                                        # REGLA: la existencia en sistema NO equivale a recepción física.
+                                        # Para cualquier quiebre, el incremento de inventario queda en
+                                        # "pendiente de recepción" hasta que la encargada lo confirme.
                                         if existencia_registro is None:
-                                            # Compatibilidad con registros antiguos que no tenían foto
-                                            if es_no_vendible:
-                                                estado_alerta = 'ERROR'
-                                            else:
-                                                estado_alerta = 'DISPONIBLE' if existencia_actual is not None and existencia_actual > 0 else 'PENDIENTE'
+                                            nueva_existencia = existencia_actual is not None and existencia_actual > 0
                                         else:
-                                            # Alerta SOLO SI el inventario supera estrictamente la fotografía tomada
-                                            estado_alerta = 'DISPONIBLE' if existencia_actual is not None and existencia_actual > existencia_registro else 'PENDIENTE'
+                                            nueva_existencia = existencia_actual is not None and existencia_actual > existencia_registro
+
+                                        if confirmada and existencia_actual is not None and existencia_actual > 0:
+                                            estado_alerta = 'DISPONIBLE'
+                                        elif nueva_existencia:
+                                            estado_alerta = 'PENDIENTE_RECEPCION'
+                                        elif existencia_registro is None and es_no_vendible:
+                                            estado_alerta = 'ERROR'
+                                        else:
+                                            estado_alerta = 'PENDIENTE'
 
                                         zapato_llegado = estado_alerta == 'DISPONIBLE'
 
-                                        if es_no_vendible and estado_alerta == 'PENDIENTE':
-                                            encabezado = '🟠 PAR NO VENDIBLE — PENDIENTE'
-                                            color_borde = '#f59e0b'
-                                            mensaje = (
-                                                f'El inventario actual ({existencia_actual:g} par(es)) no supera la existencia registrada como no vendible ({existencia_registro:g}).'
-                                                if existencia_actual is not None and existencia_registro is not None
-                                                else 'El sistema no detectó una nueva unidad vendible.'
-                                            )
+                                        if estado_alerta == 'PENDIENTE_RECEPCION':
+                                            encabezado = '🟡 NUEVA EXISTENCIA DETECTADA'
+                                            subtitulo = 'Par No Vendible' if es_no_vendible else 'Falta de Talla'
+                                            if existencia_registro is not None and existencia_actual is not None:
+                                                mensaje = (
+                                                    f'El inventario en sistema pasó de {existencia_registro:g} a {existencia_actual:g} par(es). '
+                                                    'Aún debes confirmar que la nueva unidad ya fue recibida físicamente en tienda.'
+                                                )
+                                            else:
+                                                mensaje = 'Se detectó existencia en sistema. Aún debes confirmar la recepción física en tienda.'
                                             html_tarjeta = f"""
-                                            <div style="padding: 15px; border: 2px solid {color_borde}; background-color: #1e293b; border-radius: 8px 8px 0 0;">
+                                            <div style="padding: 15px; border: 2px solid #f59e0b; background-color: #1e293b; border-radius: 8px 8px 0 0;">
                                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                                    <span style="color: {color_borde}; font-weight: 900; font-size: 13px; letter-spacing: 1px;">{encabezado}</span>
-                                                    <span style="color: #94a3b8; font-size: 11px;">Par No Vendible</span>
+                                                    <span style="color: #f59e0b; font-weight: 900; font-size: 13px; letter-spacing: 1px;">{encabezado}</span>
+                                                    <span style="color: #94a3b8; font-size: 11px;">{subtitulo}</span>
                                                 </div>
                                                 <p style="margin: 0; font-size: 14.5px; color: #f8fafc; line-height: 1.4;">
                                                     <span style="font-size: 13px; color: #38bdf8; font-weight: bold;">📍 Sucursal: {sucursal}</span><br>
@@ -504,7 +538,8 @@ def mostrar_modulo_agenda(client_gs):
                                                 </div>
                                                 <p style="margin: 0; font-size: 14.5px; color: #f8fafc; line-height: 1.4;">
                                                     <span style="font-size: 13px; color: #38bdf8; font-weight: bold;">📍 Sucursal: {sucursal}</span><br>
-                                                    Llamar al cliente <strong>{cliente}</strong> al <strong style="color: #fbbf24;">{whatsapp}</strong>.<br>El modelo <strong>{modelo}</strong> (Talla {talla}) ya superó la existencia registrada y está disponible.
+                                                    Llamar al cliente <strong>{cliente}</strong> al <strong style="color: #fbbf24;">{whatsapp}</strong>.<br>
+                                                    El producto fue <strong>confirmado físicamente en tienda</strong> y está disponible para el cliente.
                                                 </p>
                                                 {"<p style='margin: 8px 0 0 0; font-size: 12px; color: #94a3b8;'><em>📝 Notas: " + notas + "</em></p>" if notas else ""}
                                             </div>
@@ -514,7 +549,7 @@ def mostrar_modulo_agenda(client_gs):
                                             <div style="padding: 15px; border: 1px solid #334155; background-color: #0f172a; border-radius: 8px 8px 0 0;">
                                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                                                     <span style="color: #64748b; font-weight: 700; font-size: 12px;">⏳ Esperando llegada...</span>
-                                                    <span style="color: #475569; font-size: 11px;">Falta de Talla</span>
+                                                    <span style="color: #475569; font-size: 11px;">{"Par No Vendible" if es_no_vendible else "Falta de Talla"}</span>
                                                 </div>
                                                 <p style="margin: 0; font-size: 14.5px; color: #cbd5e1; line-height: 1.4;">
                                                     <span style="font-size: 13px; color: #38bdf8; font-weight: bold;">📍 Sucursal: {sucursal}</span><br>
@@ -523,9 +558,21 @@ def mostrar_modulo_agenda(client_gs):
                                                 {"<p style='margin: 8px 0 0 0; font-size: 12px; color: #64748b;'><em>📝 Notas: " + notas + "</em></p>" if notas else ""}
                                             </div>
                                             """
-                                            
+
                                         st.markdown(html_tarjeta, unsafe_allow_html=True)
                                         
+                                        if estado_alerta == 'PENDIENTE_RECEPCION':
+                                            if st.button("📦 Confirmar recepción física", key=f"btn_receive_{idx}", use_container_width=True, type="primary"):
+                                                try:
+                                                    nueva_nota = notas.strip()
+                                                    if '[RECEPCION_CONFIRMADA]' not in nueva_nota.upper():
+                                                        nueva_nota = f"{nueva_nota} [RECEPCION_CONFIRMADA]".strip()
+                                                    actualizar_nota_fila(sheet_agenda, datos, idx, nueva_nota)
+                                                    st.toast(f"Recepción confirmada: {modelo} talla {talla}.", icon="📦")
+                                                    st.rerun()
+                                                except Exception as e:
+                                                    st.error(f"No se pudo confirmar la recepción física: {e}")
+
                                         btn_type = "primary" if zapato_llegado else "secondary"
                                         if st.button("✅ Marcar como Contactado", key=f"btn_done_{idx}", use_container_width=True, type=btn_type):
                                             try:
