@@ -207,9 +207,19 @@ def validar_captura_stock(tienda_id, modelo, talla_input, df_ventas, df_tallas):
         
         try: talla_buscada_str = str(int(float(talla_input)))
         except: talla_buscada_str = str(talla_input).strip()
+
+        # MANEJO AVANZADO DE TALLAS COMERCIALES (EJ. 22 vs 220)
+        try:
+            talla_num = float(talla_input)
+            if talla_num < 100:
+                talla_buscada_str_2 = str(int(talla_num * 10))
+            else:
+                talla_buscada_str_2 = str(int(talla_num / 10.0))
+        except:
+            talla_buscada_str_2 = talla_buscada_str
             
         with st.expander("🔍 MODO DEPURACIÓN: AUDITORÍA DE CRUCE DE TALLAS", expanded=True):
-            st.write(f"**Buscando:** Tienda N°=[{tda_buscada}], Modelo=[{modelo_buscado}], Talla Capturada=[{talla_buscada_str}]")
+            st.write(f"**Buscando:** Tienda N°=[{tda_buscada}], Modelo=[{modelo_buscado}], Talla Capturada=[{talla_buscada_str}] o [{talla_buscada_str_2}]")
             
             if df_filtro.empty:
                 st.write(f"❌ **Resultado:** El modelo {modelo_buscado} no existe en el inventario de la Tienda {tda_buscada}. (Quiebre válido).")
@@ -237,12 +247,12 @@ def validar_captura_stock(tienda_id, modelo, talla_input, df_ventas, df_tallas):
                             try: talla_matriz_str = str(int(float(talla_matriz)))
                             except: talla_matriz_str = str(talla_matriz).strip()
                                 
-                            if talla_matriz_str == talla_buscada_str:
-                                st.write(f"🎯 **¡COINCIDENCIA ENCONTRADA!** Talla Matriz [{talla_matriz_str}] == Talla Captura [{talla_buscada_str}] en la columna **{col_ex}**")
+                            if talla_matriz_str == talla_buscada_str or talla_matriz_str == talla_buscada_str_2:
+                                st.write(f"🎯 **¡COINCIDENCIA ENCONTRADA!** Talla Matriz [{talla_matriz_str}] == Talla Captura [{talla_input}] en la columna **{col_ex}**")
                                 
                                 # ESCUDO GLOBAL EN LA BITÁCORA PARA PREVENIR CAPTURAS FANTASMAS
                                 try:
-                                    t_num = float(talla_buscada_str)
+                                    t_num = float(talla_input)
                                     if t_num >= 100: t_num = t_num / 10.0
                                 except:
                                     t_num = 0.0
@@ -268,13 +278,9 @@ def validar_captura_stock(tienda_id, modelo, talla_input, df_ventas, df_tallas):
                                         return False, f"⛔ CAPTURA BLOQUEADA: El sistema registra {int(existencia_num)} par(es) de la talla {talla_buscada_str} (Modelo {modelo_buscado}) físicamente en la sucursal {tda_buscada}."
                                     else:
                                         st.write(f"✅ La existencia es {existencia_num}. Permitiendo captura (Quiebre válido).")
-                                        return True, "" # <-- Corrección principal de salida inmediata
-                                else:
-                                    st.write(f"❌ **ERROR:** La columna [{col_ex}] NO existe en el archivo Ventas.xlsx")
-                                    return True, ""
-                                    
+                                        return True, ""
         # Si termina de buscar en todas las matrices y no encontró la talla
-        st.write(f"⚠️ No se encontró la talla {talla_buscada_str} en la matriz de '{dpto_venta}' para validar. Permitiendo captura.")
+        st.write(f"⚠️ No se encontró la talla {talla_input} en la matriz de '{dpto_venta}' para validar. Permitiendo captura.")
         return True, ""
     except Exception as e:
         st.error(f"Error interno en validación: {e}")
