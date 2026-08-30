@@ -192,18 +192,22 @@ def cargar_archivos_locales():
 
 def validar_captura_stock(tienda_id, modelo, talla_input, df_ventas, df_tallas):
     try:
-        df_ventas.columns = df_ventas.columns.astype(str).str.strip().str.lower()
-        df_tallas.columns = df_tallas.columns.astype(str).str.strip().str.lower()
+        # CLONAMOS los dataframes para no desconfigurar (KeyError) el resto del monitor
+        df_v_local = df_ventas.copy()
+        df_t_local = df_tallas.copy()
+        
+        df_v_local.columns = df_v_local.columns.astype(str).str.strip().str.lower()
+        df_t_local.columns = df_t_local.columns.astype(str).str.strip().str.lower()
         
         try: tda_buscada = int(str(tienda_id).strip())
         except: tda_buscada = -1
             
-        df_ventas['tienda_int'] = pd.to_numeric(df_ventas['tienda'], errors='coerce').fillna(-1).astype(int)
+        df_v_local['tienda_int'] = pd.to_numeric(df_v_local['tienda'], errors='coerce').fillna(-1).astype(int)
         
         modelo_buscado = str(modelo).replace(' ', '').replace('-', '').upper()
-        df_ventas['modelo_cln'] = df_ventas['modelo'].astype(str).str.replace(' ', '', regex=False).str.replace('-', '', regex=False).str.upper()
+        df_v_local['modelo_cln'] = df_v_local['modelo'].astype(str).str.replace(' ', '', regex=False).str.replace('-', '', regex=False).str.upper()
         
-        df_filtro = df_ventas[(df_ventas['tienda_int'] == tda_buscada) & (df_ventas['modelo_cln'] == modelo_buscado)]
+        df_filtro = df_v_local[(df_v_local['tienda_int'] == tda_buscada) & (df_v_local['modelo_cln'] == modelo_buscado)]
         
         try: talla_buscada_str = str(int(float(talla_input)))
         except: talla_buscada_str = str(talla_input).strip()
@@ -227,13 +231,13 @@ def validar_captura_stock(tienda_id, modelo, talla_input, df_ventas, df_tallas):
                 
             st.write(f"✅ Se encontraron {len(df_filtro)} fila(s) del modelo. Cruzando con archivo de Tallas...")
             
-            col_dpto = 'valor' if 'valor' in df_tallas.columns else df_tallas.columns[0]
-            df_tallas['dpto_cln'] = df_tallas[col_dpto].astype(str).str.strip().str.lower()
+            col_dpto = 'valor' if 'valor' in df_t_local.columns else df_t_local.columns[0]
+            df_t_local['dpto_cln'] = df_t_local[col_dpto].astype(str).str.strip().str.lower()
             
             for idx, row_venta in df_filtro.iterrows():
                 dpto_venta = str(row_venta.get('departamento', '')).strip().lower()
                 st.write(f"--- \n**Analizando Departamento:** '{dpto_venta}'")
-                tallas_row = df_tallas[df_tallas['dpto_cln'] == dpto_venta]
+                tallas_row = df_t_local[df_t_local['dpto_cln'] == dpto_venta]
                 
                 if tallas_row.empty:
                     st.warning(f"⚠️ No se encontró el departamento '{dpto_venta}' en Valores de tallas.xlsx")
@@ -279,6 +283,7 @@ def validar_captura_stock(tienda_id, modelo, talla_input, df_ventas, df_tallas):
                                     else:
                                         st.write(f"✅ La existencia es {existencia_num}. Permitiendo captura (Quiebre válido).")
                                         return True, ""
+                
         # Si termina de buscar en todas las matrices y no encontró la talla
         st.write(f"⚠️ No se encontró la talla {talla_input} en la matriz de '{dpto_venta}' para validar. Permitiendo captura.")
         return True, ""
