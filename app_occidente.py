@@ -268,8 +268,13 @@ def validar_captura_stock(tienda_id, modelo, talla_input, df_ventas, df_tallas):
                                         return False, f"⛔ CAPTURA BLOQUEADA: El sistema registra {int(existencia_num)} par(es) de la talla {talla_buscada_str} (Modelo {modelo_buscado}) físicamente en la sucursal {tda_buscada}."
                                     else:
                                         st.write(f"✅ La existencia es {existencia_num}. Permitiendo captura (Quiebre válido).")
-            else:
-                st.write(f"❌ **ERROR:** La columna [{col_ex}] NO existe en el archivo Ventas.xlsx")
+                                        return True, "" # <-- Corrección principal de salida inmediata
+                                else:
+                                    st.write(f"❌ **ERROR:** La columna [{col_ex}] NO existe en el archivo Ventas.xlsx")
+                                    return True, ""
+                                    
+        # Si termina de buscar en todas las matrices y no encontró la talla
+        st.write(f"⚠️ No se encontró la talla {talla_buscada_str} en la matriz de '{dpto_venta}' para validar. Permitiendo captura.")
         return True, ""
     except Exception as e:
         st.error(f"Error interno en validación: {e}")
