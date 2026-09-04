@@ -4,3 +4,4 @@ fpdf
 gspread
 oauth2client
 feedparser
+googletrans==4.0.0-rc1
