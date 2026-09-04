@@ -3,9 +3,9 @@ import pandas as pd
 from datetime import datetime
 
 def recolectar_noticias():
-    print("Iniciando fase 2: Agente de Inteligencia (Filtro Calzado y Macro)...")
+    print("Iniciando fase 2: Agente de Inteligencia (Filtro Robusto Calzado y Macro)...")
     
-    # 1. Fuentes estratégicas: Calzado, Retail General, Logística y Macroeconomía (MX/Latam)
+    # Fuentes estratégicas
     fuentes = {
         "Mercado de Calzado (Global)": "https://footwearnews.com/feed/",
         "Piso de Ventas y Retail": "https://www.retaildive.com/feeds/news/",
@@ -13,7 +13,7 @@ def recolectar_noticias():
         "Logística y Suministro": "https://www.supplychaindive.com/feeds/news/"
     }
     
-    # 2. El Filtro Inteligente: Solo pasará información que contenga estos temas vitales
+    # Filtro Inteligente: Palabras en minúsculas
     palabras_clave = [
         "shoe", "footwear", "calzado", "sneaker", "zapatos", "retail", 
         "store", "tienda", "consumer", "consumidor", "inflation", 
@@ -29,12 +29,15 @@ def recolectar_noticias():
             articulos_agregados = 0
             
             for entry in feed.entries:
-                # Unimos título y descripción para escanear de qué trata la noticia
-                texto_analizar = (entry.title + " " + getattr(entry, 'description', '')).lower()
+                # Extracción robusta de texto: Buscamos en título, resumen y descripción si existen
+                texto_analizar = entry.title.lower()
+                if hasattr(entry, 'summary'):
+                    texto_analizar += " " + entry.summary.lower()
+                elif hasattr(entry, 'description'):
+                    texto_analizar += " " + entry.description.lower()
                 
-                # 3. Verificamos si alguna palabra clave está en el texto de la noticia
+                # Verificamos si alguna palabra clave está en todo el texto escaneado
                 if any(palabra in texto_analizar for palabra in palabras_clave):
-                    # Formateo de fecha por si la fuente no la provee
                     fecha_pub = entry.published if hasattr(entry, 'published') else "Reciente"
                     
                     datos.append({
@@ -46,20 +49,23 @@ def recolectar_noticias():
                     })
                     articulos_agregados += 1
                     
-                # Limitamos a los 5 artículos MÁS RELEVANTES por categoría para no saturar tu lectura
+                # Límite de las 5 más relevantes
                 if articulos_agregados >= 5:
                     break
         except Exception as e:
             print(f"Error leyendo la fuente {categoria}: {e}")
             
-    # 4. Guardado y actualización
-    if datos:
-        df = pd.DataFrame(datos)
-        nombre_archivo = "datos_inteligencia.csv"
-        df.to_csv(nombre_archivo, index=False)
-        print(f"✅ Extracción inteligente exitosa. {len(df)} artículos filtrados guardados.")
+    # Guardado y actualización forzada
+    # Si 'datos' está vacío, creamos un DataFrame vacío con las columnas correctas
+    if not datos:
+        df = pd.DataFrame(columns=["Categoría", "Título", "Fecha", "Enlace", "Última Actualización"])
+        print("⚠️ No se encontraron artículos relevantes hoy. Limpiando tabla.")
     else:
-        print("⚠️ No se encontraron artículos relevantes bajo los criterios de hoy.")
+        df = pd.DataFrame(datos)
+        print(f"✅ Extracción inteligente exitosa. {len(df)} artículos filtrados guardados.")
+
+    nombre_archivo = "datos_inteligencia.csv"
+    df.to_csv(nombre_archivo, index=False)
 
 if __name__ == "__main__":
     recolectar_noticias()
