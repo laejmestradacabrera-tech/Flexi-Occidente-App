@@ -305,7 +305,7 @@ def enviar_correo_ejecutivo(tienda_objetivo, conversion, ticket, meta_conv, meta
         asunto = f"🚀 Desempeño Comercial y Reto Acumulado - Tienda {tienda_objetivo}"
         
         cuerpo = f"Estimada encargada y equipo de la Tienda {tienda_objetivo}:\n\n"
-        cuerpo += "Les compartimos el análisis de resultados comerciales de su sucursal, obtenido directamente tras la última actualización del monitor.\n\n"
+        cuerpo += "Les compartimos el análisis de resultados comerciales de su sucursal, obtained directamente tras la última actualización del monitor.\n\n"
         cuerpo += "--------------------------------------------------------------------------------\n"
         
         if logro_conv and logro_ticket:
@@ -2337,8 +2337,8 @@ elif st.session_state.vista_actual == 'Estrategico':
             if st.button("Actualizar datos del mercado ahora", type="secondary"):
                 with st.spinner("Buscando nueva información..."):
                     try:
-                        import subprocess
-                        subprocess.run(["python", "agente_inteligencia.py"])
+                        import agente_inteligencia
+                        agente_inteligencia.recolectar_noticias()
                         st.rerun()
                     except Exception as e:
                         st.error(f"No se pudo ejecutar el agente: {e}")
@@ -2349,10 +2349,10 @@ elif st.session_state.vista_actual == 'Estrategico':
             if st.button("Generar archivo inicial de datos"):
                 with st.spinner("Ejecutando agente por primera vez..."):
                     try:
-                        import subprocess
-                        subprocess.run(["python", "agente_inteligencia.py"])
+                        import agente_inteligencia
+                        agente_inteligencia.recolectar_noticias()
                         st.rerun()
                     except Exception as e:
-                        st.error("Asegúrate de que 'agente_inteligencia.py' esté en la misma carpeta.")
+                        st.error(f"Error de conexión con el agente. Detalle: {e}")
 
 st.markdown("""<div class="footer">KPI's desarrollados por el LAE. José Martín Estrada Cabrera | © 2026 Todos los Derechos Reservados</div>""", unsafe_allow_html=True)
