@@ -7,18 +7,25 @@ def recolectar_noticias():
     
     # Fuentes estratégicas
     fuentes = {
-        "Mercado de Calzado (Global)": "https://footwearnews.com/feed/",
+        "Mercado de Calzado (Global)": "https://wwd.com/footwear-news/feed/",
         "Piso de Ventas y Retail": "https://www.retaildive.com/feeds/news/",
-        "Economía y Consumidor (MX)": "https://www.forbes.com.mx/category/negocios/feed/",
-        "Logística y Suministro": "https://www.supplychaindive.com/feeds/news/"
+        "Logística y Suministro": "https://www.supplychaindive.com/feeds/news/",
+        "Entorno Económico México": "https://www.forbes.com.mx/feed/"
     }
     
-    # Filtro Inteligente: Palabras en minúsculas
+    # Filtro Inteligente: Palabras en minúsculas (MÁS ESTRICTO)
     palabras_clave = [
-        "shoe", "footwear", "calzado", "sneaker", "zapatos", "retail", 
-        "store", "tienda", "consumer", "consumidor", "inflation", 
-        "inflación", "supply", "logística", "inventario", "inventory",
-        "ventas", "sales", "economy", "economía", "precio", "tasas"
+        "shoe", "footwear", "calzado", "sneaker", "zapatos", "botas", "zapatería", 
+        "leather", "piel", "suela", "apparel",
+        "inflation", "inflación", "supply chain", "interest rates", "tasas de interés"
+    ]
+    
+    # LISTA NEGRA: Si la noticia tiene esto, se va a la basura automáticamente
+    # Lululemon NO está aquí porque sí es competencia en lifestyle/calzado
+    palabras_basura = [
+        "makeup", "beauty", "cosmetics", "maquillaje", "belleza", "grocery", 
+        "supermarket", "food", "comida", "ulta", "dollar general", 
+        "target", "walmart", "beverage", "skincare", "kroger"
     ]
     
     datos = []
@@ -29,15 +36,15 @@ def recolectar_noticias():
             articulos_agregados = 0
             
             for entry in feed.entries:
-                # Extracción robusta de texto: Buscamos en título, resumen y descripción si existen
+                # Extracción robusta de texto
                 texto_analizar = entry.title.lower()
                 if hasattr(entry, 'summary'):
                     texto_analizar += " " + entry.summary.lower()
                 elif hasattr(entry, 'description'):
                     texto_analizar += " " + entry.description.lower()
                 
-                # Verificamos si alguna palabra clave está en todo el texto escaneado
-                if any(palabra in texto_analizar for palabra in palabras_clave):
+                # LA NUEVA PRUEBA DE FUEGO: Tiene que tener palabras clave Y NO tener palabras basura
+                if any(palabra in texto_analizar for palabra in palabras_clave) and not any(basura in texto_analizar for basura in palabras_basura):
                     fecha_pub = entry.published if hasattr(entry, 'published') else "Reciente"
                     
                     datos.append({
