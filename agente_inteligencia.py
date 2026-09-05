@@ -1,14 +1,17 @@
 # ============================================================
 # 🧠 INTELIGENCIA COMERCIAL FLEXI
+# VERSIÓN SEGURA - NO ALTERA ARCHIVOS NI OTRAS PESTAÑAS
 # ============================================================
 
 import os
 import re
 import hashlib
-import feedparser
+from datetime import datetime
+
 import pandas as pd
 import streamlit as st
-from datetime import datetime
+import requests
+import feedparser
 
 
 # ============================================================
@@ -20,36 +23,48 @@ ARCHIVO_INTELIGENCIA = "datos_inteligencia.csv"
 META_CONVERSION = 10.9
 META_TICKET = 1.29
 
+USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 "
+    "(KHTML, like Gecko) "
+    "Chrome/126.0 Safari/537.36"
+)
+
 
 # ============================================================
-# FUENTES
+# FUENTES DE INTELIGENCIA
 # ============================================================
 
-FUENTES = {
+FUENTES_INTELIGENCIA = {
 
     "Mercado de Calzado": {
         "url": "https://wwd.com/footwear-news/feed/",
-        "tipo": "Calzado"
+        "tipo": "Calzado",
+        "max": 8
     },
 
-    "Retail": {
+    "Retail Dive": {
         "url": "https://www.retaildive.com/feeds/news/",
-        "tipo": "Retail"
+        "tipo": "Retail",
+        "max": 8
     },
 
-    "Supply Chain": {
+    "Supply Chain Dive": {
         "url": "https://www.supplychaindive.com/feeds/news/",
-        "tipo": "Supply Chain"
+        "tipo": "Supply Chain",
+        "max": 8
     },
 
-    "Economía México": {
+    "El Economista": {
         "url": "https://www.eleconomista.com.mx/rss/empresas/",
-        "tipo": "Macroeconomía"
+        "tipo": "Macroeconomía",
+        "max": 8
     },
 
     "INEGI": {
         "url": "https://www.inegi.org.mx/rss/noticias.xml",
-        "tipo": "INEGI"
+        "tipo": "INEGI",
+        "max": 8
     }
 }
 
@@ -59,80 +74,156 @@ FUENTES = {
 # ============================================================
 
 CLAVES_CALZADO = [
-    "shoe", "shoes", "footwear", "calzado",
-    "zapato", "zapatos", "sneaker", "sneakers",
-    "boots", "botas", "zapatería",
-    "leather", "piel", "suela"
+    "shoe",
+    "shoes",
+    "footwear",
+    "calzado",
+    "zapato",
+    "zapatos",
+    "sneaker",
+    "sneakers",
+    "boots",
+    "botas",
+    "zapatería",
+    "zapateria",
+    "leather",
+    "piel",
+    "suela"
 ]
+
 
 CLAVES_RETAIL = [
-    "retail", "store", "stores", "tienda",
-    "tiendas", "sales", "ventas",
-    "consumer", "consumidor",
-    "shopping mall", "mall",
-    "centro comercial", "plaza",
-    "shopping center", "traffic",
-    "foot traffic", "afluencia",
-    "opening", "apertura",
-    "closure", "cierre",
-    "expansion", "expansión"
+    "retail",
+    "store",
+    "stores",
+    "tienda",
+    "tiendas",
+    "sales",
+    "ventas",
+    "consumer",
+    "consumidor",
+    "shopping mall",
+    "mall",
+    "shopping center",
+    "centro comercial",
+    "plaza",
+    "traffic",
+    "foot traffic",
+    "afluencia",
+    "opening",
+    "apertura",
+    "closure",
+    "cierre",
+    "expansion",
+    "expansión"
 ]
+
 
 CLAVES_SUPPLY = [
-    "supply chain", "logistics",
-    "logística", "inventario",
-    "inventory", "stock", "shortage",
-    "quiebre", "warehouse",
-    "almacén", "distribution",
-    "distribución", "shipping",
-    "freight", "transport"
+    "supply chain",
+    "logistics",
+    "logística",
+    "inventario",
+    "inventory",
+    "stock",
+    "shortage",
+    "quiebre",
+    "quiebres",
+    "warehouse",
+    "almacén",
+    "distribution",
+    "distribución",
+    "shipping",
+    "freight",
+    "transport",
+    "transporte"
 ]
+
 
 CLAVES_MACRO = [
-    "inflación", "inflation",
-    "pib", "gdp",
-    "consumidor", "consumer",
-    "consumo", "consumption",
-    "tasas", "interest",
-    "interés", "economía",
-    "economy", "empleo",
-    "employment", "desempleo",
-    "unemployment", "ventas",
-    "sales", "comercio",
-    "commerce", "precio",
-    "prices", "poder adquisitivo",
-    "banco de méxico", "banxico",
+    "inflación",
+    "inflation",
+    "pib",
+    "gdp",
+    "consumidor",
+    "consumer",
+    "consumo",
+    "consumption",
+    "tasas",
+    "interest",
+    "interés",
+    "economía",
+    "economy",
+    "empleo",
+    "employment",
+    "desempleo",
+    "unemployment",
+    "ventas",
+    "sales",
+    "comercio",
+    "commerce",
+    "precio",
+    "prices",
+    "poder adquisitivo",
+    "banco de méxico",
+    "banxico",
     "confianza del consumidor",
-    "ingreso", "income"
+    "ingreso",
+    "income",
+    "salario",
+    "salarios"
 ]
+
 
 CLAVES_MEXICO = [
-    "méxico", "mexico", "mexican",
-    "mexicana", "banxico",
-    "banco de méxico", "inegi",
-    "peso mexicano", "consumo interno"
+    "méxico",
+    "mexico",
+    "mexican",
+    "mexicana",
+    "mexicanos",
+    "banxico",
+    "banco de méxico",
+    "inegi",
+    "peso mexicano",
+    "consumo interno"
 ]
+
 
 CLAVES_COMPETENCIA = [
-    "nike", "adidas", "puma",
-    "skechers", "new balance",
-    "hush puppies", "clarks",
-    "aldo", "flexi"
+    "nike",
+    "adidas",
+    "puma",
+    "skechers",
+    "new balance",
+    "clarks",
+    "aldo",
+    "flexi"
 ]
 
+
 PALABRAS_EXCLUIR = [
-    "makeup", "beauty", "cosmetics",
-    "maquillaje", "belleza",
-    "grocery", "supermarket",
-    "food", "comida", "ulta",
-    "dollar general", "beverage",
-    "skincare", "kroger",
-    "farmacia", "cvs", "walgreens"
+    "makeup",
+    "beauty",
+    "cosmetics",
+    "maquillaje",
+    "belleza",
+    "grocery",
+    "supermarket",
+    "food",
+    "comida",
+    "ulta",
+    "dollar general",
+    "beverage",
+    "skincare",
+    "kroger",
+    "farmacia",
+    "cvs",
+    "walgreens"
 ]
 
 
 # ============================================================
-# FUNCIONES
+# FUNCIONES DE TEXTO
 # ============================================================
 
 def limpiar_texto(texto):
@@ -140,10 +231,12 @@ def limpiar_texto(texto):
     if texto is None:
         return ""
 
+    texto = str(texto)
+
     texto = re.sub(
-        r"<[^>]+>",
+        r"<[^>]*>",
         " ",
-        str(texto)
+        texto
     )
 
     texto = re.sub(
@@ -155,26 +248,32 @@ def limpiar_texto(texto):
     return texto.lower().strip()
 
 
-def contiene(texto, lista):
+def contiene(texto, palabras):
+
+    texto = limpiar_texto(texto)
 
     return any(
         palabra.lower() in texto
-        for palabra in lista
+        for palabra in palabras
     )
 
 
 def generar_id(titulo, enlace):
 
-    base = (
-        str(titulo) +
-        "|" +
-        str(enlace)
-    ).lower()
+    contenido = (
+        str(titulo).strip().lower()
+        + "|"
+        + str(enlace).strip().lower()
+    )
 
     return hashlib.md5(
-        base.encode("utf-8")
+        contenido.encode("utf-8")
     ).hexdigest()
 
+
+# ============================================================
+# SCORE DE INTELIGENCIA
+# ============================================================
 
 def calcular_score(texto, tipo):
 
@@ -187,16 +286,16 @@ def calcular_score(texto, tipo):
         score += 20
 
     if contiene(texto, CLAVES_SUPPLY):
-        score += 10
-
-    if contiene(texto, CLAVES_MEXICO):
-        score += 20
+        score += 15
 
     if contiene(texto, CLAVES_MACRO):
         score += 15
 
-    if contiene(texto, CLAVES_COMPETENCIA):
+    if contiene(texto, CLAVES_MEXICO):
         score += 20
+
+    if contiene(texto, CLAVES_COMPETENCIA):
+        score += 15
 
     if tipo == "INEGI":
         score += 10
@@ -205,7 +304,7 @@ def calcular_score(texto, tipo):
         score += 5
 
     if contiene(texto, PALABRAS_EXCLUIR):
-        score -= 30
+        score -= 40
 
     return max(
         0,
@@ -213,7 +312,7 @@ def calcular_score(texto, tipo):
     )
 
 
-def relevancia(score):
+def determinar_relevancia(score):
 
     if score >= 80:
         return "CRÍTICA"
@@ -227,9 +326,13 @@ def relevancia(score):
     return "BAJA"
 
 
+# ============================================================
+# ANÁLISIS COMERCIAL
+# ============================================================
+
 def analizar_impacto(texto):
 
-    resultados = []
+    texto = limpiar_texto(texto)
 
     # --------------------------------------------
     # CONSUMO / INFLACIÓN
@@ -245,19 +348,23 @@ def analizar_impacto(texto):
             "consumo",
             "consumption",
             "consumidor",
-            "consumer"
+            "consumer",
+            "poder adquisitivo"
         ]
     ):
 
-        resultados.append({
-            "impacto": "Presión sobre el comportamiento de compra",
+        return {
+            "impacto": (
+                "Puede modificar la disposición de compra "
+                "y la sensibilidad al precio."
+            ),
             "kpi": "Ticket / Conversión",
             "nivel": "ALTO",
             "accion": (
-                "Reforzar venta de segundo par, "
-                "CREDICLUB y opciones de pago."
+                "Reforzar la venta de segundo par, "
+                "CREDICLUB y las diferentes opciones de pago."
             )
-        })
+        }
 
     # --------------------------------------------
     # EMPLEO
@@ -271,22 +378,27 @@ def analizar_impacto(texto):
             "desempleo",
             "unemployment",
             "ingreso",
-            "income"
+            "income",
+            "salario",
+            "salarios"
         ]
     ):
 
-        resultados.append({
-            "impacto": "Cambio en capacidad de compra",
+        return {
+            "impacto": (
+                "Puede modificar la capacidad de compra "
+                "del consumidor."
+            ),
             "kpi": "Conversión",
             "nivel": "MEDIO",
             "accion": (
-                "Fortalecer argumento de valor, "
-                "comodidad y alternativas de pago."
+                "Fortalecer el argumento de valor, "
+                "calidad, comodidad y alternativas de pago."
             )
-        })
+        }
 
     # --------------------------------------------
-    # CENTROS COMERCIALES
+    # CENTROS COMERCIALES / AFLUENCIA
     # --------------------------------------------
 
     if contiene(
@@ -294,26 +406,31 @@ def analizar_impacto(texto):
         [
             "mall",
             "shopping mall",
+            "shopping center",
             "centro comercial",
             "plaza",
             "traffic",
-            "afluencia",
-            "foot traffic"
+            "foot traffic",
+            "afluencia"
         ]
     ):
 
-        resultados.append({
-            "impacto": "Posible cambio en afluencia",
+        return {
+            "impacto": (
+                "Puede afectar la afluencia y el número "
+                "de oportunidades de venta."
+            ),
             "kpi": "Conversión",
             "nivel": "ALTO",
             "accion": (
-                "Asegurar abordaje efectivo y "
-                "ejecución de Ruta del Cliente."
+                "Maximizar cada oportunidad mediante "
+                "abordaje inmediato y ejecución de "
+                "Ruta del Cliente."
             )
-        })
+        }
 
     # --------------------------------------------
-    # INVENTARIO
+    # INVENTARIO / SUPPLY CHAIN
     # --------------------------------------------
 
     if contiene(
@@ -324,19 +441,24 @@ def analizar_impacto(texto):
             "inventory",
             "stock",
             "shortage",
-            "quiebre"
+            "quiebre",
+            "warehouse",
+            "distribution"
         ]
     ):
 
-        resultados.append({
-            "impacto": "Riesgo de disponibilidad de producto",
+        return {
+            "impacto": (
+                "Puede incrementar el riesgo de faltantes "
+                "o retrasos de producto."
+            ),
             "kpi": "Quiebres / Ticket",
             "nivel": "ALTO",
             "accion": (
-                "Revisar inventario, tallas críticas "
-                "y ejecutar nivelación."
+                "Revisar existencia, tallas críticas "
+                "y ejecutar nivelación de inventario."
             )
-        })
+        }
 
     # --------------------------------------------
     # COMPETENCIA
@@ -347,48 +469,79 @@ def analizar_impacto(texto):
         CLAVES_COMPETENCIA
     ):
 
-        resultados.append({
-            "impacto": "Movimiento competitivo",
+        return {
+            "impacto": (
+                "Movimiento competitivo que puede modificar "
+                "la decisión del consumidor."
+            ),
             "kpi": "Conversión / Ticket",
             "nivel": "MEDIO",
             "accion": (
-                "Analizar precio, producto, propuesta "
-                "de valor y experiencia de compra."
+                "Reforzar propuesta de valor, producto, "
+                "servicio y cierre de venta."
             )
-        })
+        }
 
     # --------------------------------------------
     # DEFAULT
     # --------------------------------------------
 
-    if not resultados:
+    return {
+        "impacto": (
+            "Señal de contexto que debe mantenerse "
+            "bajo seguimiento."
+        ),
+        "kpi": "Estratégico",
+        "nivel": "BAJO",
+        "accion": (
+            "Dar seguimiento y validar si la tendencia "
+            "se refleja en los indicadores comerciales."
+        )
+    }
 
-        resultados.append({
-            "impacto": "Información de contexto comercial",
-            "kpi": "Estratégico",
-            "nivel": "BAJO",
-            "accion": (
-                "Dar seguimiento y evaluar evolución."
-            )
-        })
 
-    return resultados[0]
-
+# ============================================================
+# FECHA
+# ============================================================
 
 def obtener_fecha(entry):
 
     try:
 
-        if (
-            hasattr(entry, "published_parsed")
-            and entry.published_parsed
-        ):
+        fecha = getattr(
+            entry,
+            "published_parsed",
+            None
+        )
 
-            fecha = datetime(
-                *entry.published_parsed[:6]
+        if fecha:
+
+            fecha_obj = datetime(
+                *fecha[:6]
             )
 
-            return fecha.strftime(
+            return fecha_obj.strftime(
+                "%Y-%m-%d"
+            )
+
+    except Exception:
+        pass
+
+    try:
+
+        fecha = getattr(
+            entry,
+            "updated_parsed",
+            None
+        )
+
+        if fecha:
+
+            fecha_obj = datetime(
+                *fecha[:6]
+            )
+
+            return fecha_obj.strftime(
                 "%Y-%m-%d"
             )
 
@@ -401,145 +554,199 @@ def obtener_fecha(entry):
 
 
 # ============================================================
-# RECOLECTAR NOTICIAS
+# LEER RSS DE FORMA SEGURA
+# ============================================================
+
+def leer_fuente(url):
+
+    try:
+
+        respuesta = requests.get(
+            url,
+            headers={
+                "User-Agent": USER_AGENT
+            },
+            timeout=15
+        )
+
+        if respuesta.status_code != 200:
+
+            return None
+
+        return feedparser.parse(
+            respuesta.content
+        )
+
+    except Exception:
+
+        return None
+
+
+# ============================================================
+# RECOLECTOR
 # ============================================================
 
 def recolectar_noticias():
 
     datos = []
 
-    for nombre, fuente in FUENTES.items():
+    errores = []
 
-        try:
+    for nombre, fuente in FUENTES_INTELIGENCIA.items():
 
-            feed = feedparser.parse(
-                fuente["url"],
-                agent=(
-                    "Mozilla/5.0 "
-                    "(Windows NT 10.0; Win64; x64)"
+        feed = leer_fuente(
+            fuente["url"]
+        )
+
+        if feed is None:
+
+            errores.append(
+                nombre
+            )
+
+            continue
+
+        contador = 0
+
+        for entry in feed.entries:
+
+            titulo = getattr(
+                entry,
+                "title",
+                ""
+            )
+
+            enlace = getattr(
+                entry,
+                "link",
+                ""
+            )
+
+            resumen = getattr(
+                entry,
+                "summary",
+                getattr(
+                    entry,
+                    "description",
+                    ""
                 )
             )
 
-            contador = 0
+            texto = limpiar_texto(
+                f"{titulo} {resumen}"
+            )
 
-            for entry in feed.entries:
+            # ------------------------------------
+            # EXCLUSIÓN
+            # ------------------------------------
 
-                titulo = getattr(
-                    entry,
-                    "title",
-                    "Sin título"
-                )
+            if contiene(
+                texto,
+                PALABRAS_EXCLUIR
+            ):
 
-                enlace = getattr(
-                    entry,
-                    "link",
-                    ""
-                )
+                continue
 
-                resumen = getattr(
-                    entry,
-                    "summary",
-                    getattr(
-                        entry,
-                        "description",
-                        ""
-                    )
-                )
+            # ------------------------------------
+            # SCORE
+            # ------------------------------------
 
-                texto = limpiar_texto(
-                    f"{titulo} {resumen}"
-                )
+            score = calcular_score(
+                texto,
+                fuente["tipo"]
+            )
 
-                # Excluir basura
-                if contiene(
-                    texto,
-                    PALABRAS_EXCLUIR
-                ):
-                    continue
+            if score < 30:
 
-                score = calcular_score(
-                    texto,
-                    fuente["tipo"]
-                )
+                continue
 
-                # No aceptar información
-                # demasiado irrelevante
-                if score < 30:
-                    continue
+            # ------------------------------------
+            # IMPACTO
+            # ------------------------------------
 
-                impacto = analizar_impacto(
-                    texto
-                )
+            impacto = analizar_impacto(
+                texto
+            )
 
-                datos.append({
+            # ------------------------------------
+            # REGISTRO
+            # ------------------------------------
 
-                    "ID": generar_id(
+            datos.append({
+
+                "ID":
+                    generar_id(
                         titulo,
                         enlace
                     ),
 
-                    "Categoría":
-                        nombre,
+                "Categoría":
+                    nombre,
 
-                    "Tipo Fuente":
-                        fuente["tipo"],
+                "Tipo Fuente":
+                    fuente["tipo"],
 
-                    "Título":
-                        titulo,
+                "Título":
+                    str(titulo).strip(),
 
-                    "Fecha":
-                        obtener_fecha(entry),
+                "Resumen":
+                    limpiar_texto(
+                        resumen
+                    ),
 
-                    "Relevancia":
-                        relevancia(score),
+                "Fecha":
+                    obtener_fecha(
+                        entry
+                    ),
 
-                    "Score":
-                        score,
+                "Relevancia":
+                    determinar_relevancia(
+                        score
+                    ),
 
-                    "Impacto Flexi":
-                        impacto["impacto"],
+                "Score":
+                    score,
 
-                    "KPI Afectado":
-                        impacto["kpi"],
+                "Impacto Flexi":
+                    impacto["impacto"],
 
-                    "Nivel Impacto":
-                        impacto["nivel"],
+                "KPI Afectado":
+                    impacto["kpi"],
 
-                    "Acción Sugerida":
-                        impacto["accion"],
+                "Nivel Impacto":
+                    impacto["nivel"],
 
-                    "Enlace":
-                        enlace,
+                "Acción Sugerida":
+                    impacto["accion"],
 
-                    "Última Actualización":
-                        datetime.now().strftime(
-                            "%Y-%m-%d %H:%M"
-                        )
-                })
+                "Enlace":
+                    enlace,
 
-                contador += 1
+                "Última Actualización":
+                    datetime.now().strftime(
+                        "%Y-%m-%d %H:%M"
+                    )
+            })
 
-                if contador >= 6:
-                    break
+            contador += 1
 
-        except Exception as e:
+            if contador >= fuente["max"]:
 
-            print(
-                f"Error en {nombre}: {e}"
-            )
+                break
+
+    # ========================================================
+    # DATAFRAME
+    # ========================================================
 
     if not datos:
 
-        return pd.DataFrame()
+        return pd.DataFrame(), errores
 
     df_nuevo = pd.DataFrame(
         datos
     )
 
-    # --------------------------------------------
-    # ELIMINAR DUPLICADOS
-    # --------------------------------------------
-
+    # Eliminar duplicados
     df_nuevo = (
         df_nuevo
         .drop_duplicates(
@@ -547,41 +754,31 @@ def recolectar_noticias():
         )
     )
 
-    # --------------------------------------------
-    # ORDENAR
-    # --------------------------------------------
-
+    # Ordenar
     df_nuevo = (
         df_nuevo
         .sort_values(
-            by="Score",
-            ascending=False
+            by=["Score", "Fecha"],
+            ascending=[False, False]
+        )
+        .reset_index(
+            drop=True
         )
     )
 
-    # --------------------------------------------
-    # GUARDAR
-    # --------------------------------------------
-
-    df_nuevo.to_csv(
-        ARCHIVO_INTELIGENCIA,
-        index=False,
-        encoding="utf-8-sig"
-    )
-
-    return df_nuevo
+    return df_nuevo, errores
 
 
 # ============================================================
-# CARGAR CSV
+# CARGAR DATOS EXISTENTES
 # ============================================================
 
-@st.cache_data(ttl=900)
-def cargar_noticias():
+def cargar_archivo_inteligencia():
 
     if not os.path.exists(
         ARCHIVO_INTELIGENCIA
     ):
+
         return pd.DataFrame()
 
     try:
@@ -592,25 +789,17 @@ def cargar_noticias():
         )
 
         if df.empty:
+
             return df
 
-        df["Score"] = pd.to_numeric(
-            df["Score"],
-            errors="coerce"
-        ).fillna(0)
+        if "Score" in df.columns:
 
-        df["_Fecha"] = pd.to_datetime(
-            df["Fecha"],
-            errors="coerce"
-        )
+            df["Score"] = pd.to_numeric(
+                df["Score"],
+                errors="coerce"
+            ).fillna(0)
 
-        return (
-            df
-            .sort_values(
-                ["Score", "_Fecha"],
-                ascending=[False, False]
-            )
-        )
+        return df
 
     except Exception:
 
@@ -618,7 +807,22 @@ def cargar_noticias():
 
 
 # ============================================================
-# ENCABEZADO
+# INICIALIZAR SESSION STATE
+#
+# IMPORTANTE:
+# SOLO usamos una variable exclusiva de esta pestaña.
+# No limpiamos ni modificamos ninguna otra.
+# ============================================================
+
+if "inteligencia_comercial_df" not in st.session_state:
+
+    st.session_state[
+        "inteligencia_comercial_df"
+    ] = cargar_archivo_inteligencia()
+
+
+# ============================================================
+# TÍTULO
 # ============================================================
 
 st.title(
@@ -632,64 +836,116 @@ st.caption(
 
 
 # ============================================================
-# BOTÓN ACTUALIZAR
+# PANEL SUPERIOR
 # ============================================================
 
-col1, col2 = st.columns(
+col_info, col_boton = st.columns(
     [4, 1]
 )
 
-with col1:
+
+with col_info:
 
     st.info(
-        "La inteligencia comercial analiza calzado, "
-        "retail, centros comerciales, supply chain, "
-        "macroeconomía e indicadores de México."
+        "Analiza calzado, retail, centros comerciales, "
+        "supply chain, macroeconomía e indicadores oficiales "
+        "de México."
     )
 
-with col2:
+
+with col_boton:
 
     actualizar = st.button(
         "🔄 Actualizar noticias",
-        use_container_width=True
+        use_container_width=True,
+        key="btn_actualizar_inteligencia"
     )
 
+
+# ============================================================
+# ACTUALIZAR
+#
+# NO HAY:
+# st.rerun()
+# st.cache_data.clear()
+# limpieza de session_state
+# eliminación de archivos
+#
+# SOLO actualiza inteligencia_comercial_df
+# ============================================================
 
 if actualizar:
 
     with st.spinner(
-        "Analizando fuentes de inteligencia..."
+        "Consultando fuentes de inteligencia..."
     ):
 
-        resultado = recolectar_noticias()
+        df_nuevo, errores = (
+            recolectar_noticias()
+        )
 
-    if resultado.empty:
+    if df_nuevo.empty:
 
         st.error(
-            "No se encontraron noticias relevantes."
+            "No fue posible obtener noticias relevantes "
+            "en este momento."
         )
+
+        if errores:
+
+            st.caption(
+                "Fuentes sin respuesta: "
+                + ", ".join(errores)
+            )
 
     else:
 
+        # Guardamos SOLO esta información
+        st.session_state[
+            "inteligencia_comercial_df"
+        ] = df_nuevo.copy()
+
+        # Guardamos SOLO el archivo de inteligencia
+        try:
+
+            df_nuevo.to_csv(
+                ARCHIVO_INTELIGENCIA,
+                index=False,
+                encoding="utf-8-sig"
+            )
+
+        except Exception as e:
+
+            st.warning(
+                "Las noticias se cargaron correctamente, "
+                "pero no fue posible guardar el archivo local: "
+                f"{e}"
+            )
+
         st.success(
-            f"Se analizaron "
-            f"{len(resultado)} noticias relevantes."
+            f"✅ Inteligencia actualizada: "
+            f"{len(df_nuevo)} noticias relevantes."
         )
 
-        st.cache_data.clear()
+        if errores:
 
-        st.rerun()
-
-
-# ============================================================
-# CARGAR INFORMACIÓN
-# ============================================================
-
-df = cargar_noticias()
+            st.caption(
+                "Algunas fuentes no respondieron: "
+                + ", ".join(errores)
+            )
 
 
 # ============================================================
-# SI TODAVÍA NO HAY DATOS
+# RECUPERAR DATOS
+# ============================================================
+
+df = st.session_state[
+    "inteligencia_comercial_df"
+].copy()
+
+
+# ============================================================
+# SIN INFORMACIÓN
 # ============================================================
 
 if df.empty:
@@ -704,8 +960,12 @@ if df.empty:
 
         Presiona **🔄 Actualizar noticias**.
 
-        El Monitor consultará automáticamente las fuentes
-        configuradas y construirá el análisis comercial.
+        La pestaña consultará las fuentes configuradas,
+        filtrará la información relevante y construirá
+        el análisis comercial.
+
+        **Esta acción no modifica tus archivos adjuntos
+        ni las demás pestañas del Monitor.**
         """
     )
 
@@ -713,7 +973,32 @@ if df.empty:
 
 
 # ============================================================
-# PANORAMA EJECUTIVO
+# NORMALIZAR COLUMNAS
+# ============================================================
+
+columnas_esperadas = [
+    "Categoría",
+    "Título",
+    "Fecha",
+    "Relevancia",
+    "Score",
+    "Impacto Flexi",
+    "KPI Afectado",
+    "Nivel Impacto",
+    "Acción Sugerida",
+    "Enlace"
+]
+
+
+for columna in columnas_esperadas:
+
+    if columna not in df.columns:
+
+        df[columna] = ""
+
+
+# ============================================================
+# PANORAMA
 # ============================================================
 
 st.divider()
@@ -725,23 +1010,35 @@ st.subheader(
 
 criticas = len(
     df[
-        df["Relevancia"] == "CRÍTICA"
+        df["Relevancia"]
+        .astype(str)
+        .str.upper()
+        == "CRÍTICA"
     ]
 )
+
 
 altas = len(
     df[
-        df["Relevancia"] == "ALTA"
+        df["Relevancia"]
+        .astype(str)
+        .str.upper()
+        == "ALTA"
     ]
 )
+
 
 impactos_altos = len(
     df[
-        df["Nivel Impacto"] == "ALTO"
+        df["Nivel Impacto"]
+        .astype(str)
+        .str.upper()
+        == "ALTO"
     ]
 )
 
-total = len(df)
+
+total_noticias = len(df)
 
 
 c1, c2, c3, c4 = st.columns(4)
@@ -767,7 +1064,7 @@ with c3:
 
     st.metric(
         "📰 Noticias",
-        total
+        total_noticias
     )
 
 
@@ -797,22 +1094,29 @@ with f1:
 
     categorias = [
         "Todas"
-    ] + sorted(
-        df["Categoría"]
-        .dropna()
-        .unique()
-        .tolist()
+    ]
+
+    categorias += sorted(
+        [
+            str(x)
+            for x in
+            df["Categoría"]
+            .dropna()
+            .unique()
+            if str(x).strip()
+        ]
     )
 
-    categoria = st.selectbox(
+    filtro_categoria = st.selectbox(
         "Categoría",
-        categorias
+        categorias,
+        key="intel_filtro_categoria"
     )
 
 
 with f2:
 
-    filtro_rel = st.selectbox(
+    filtro_relevancia = st.selectbox(
         "Relevancia",
         [
             "Todas",
@@ -820,52 +1124,58 @@ with f2:
             "ALTA",
             "MEDIA",
             "BAJA"
-        ]
+        ],
+        key="intel_filtro_relevancia"
     )
 
 
 with f3:
 
-    filtro_imp = st.selectbox(
+    filtro_impacto = st.selectbox(
         "Impacto",
         [
             "Todos",
             "ALTO",
             "MEDIO",
             "BAJO"
-        ]
+        ],
+        key="intel_filtro_impacto"
     )
 
 
 df_vista = df.copy()
 
 
-if categoria != "Todas":
+if filtro_categoria != "Todas":
 
     df_vista = df_vista[
         df_vista["Categoría"]
-        == categoria
+        == filtro_categoria
     ]
 
 
-if filtro_rel != "Todas":
+if filtro_relevancia != "Todas":
 
     df_vista = df_vista[
         df_vista["Relevancia"]
-        == filtro_rel
+        .astype(str)
+        .str.upper()
+        == filtro_relevancia
     ]
 
 
-if filtro_imp != "Todos":
+if filtro_impacto != "Todos":
 
     df_vista = df_vista[
         df_vista["Nivel Impacto"]
-        == filtro_imp
+        .astype(str)
+        .str.upper()
+        == filtro_impacto
     ]
 
 
 # ============================================================
-# 🎯 ¿QUÉ DEBO SABER HOY?
+# 🎯 QUÉ DEBO SABER HOY
 # ============================================================
 
 st.divider()
@@ -878,7 +1188,7 @@ st.subheader(
 top3 = (
     df_vista
     .sort_values(
-        "Score",
+        by="Score",
         ascending=False
     )
     .head(3)
@@ -888,28 +1198,34 @@ top3 = (
 if top3.empty:
 
     st.info(
-        "No hay señales con los filtros seleccionados."
+        "No existen señales para los filtros seleccionados."
     )
 
 else:
 
     for _, row in top3.iterrows():
 
-        relevancia_actual = row[
-            "Relevancia"
-        ]
+        relevancia = (
+            str(row["Relevancia"])
+            .upper()
+        )
 
-        if relevancia_actual == "CRÍTICA":
+        if relevancia == "CRÍTICA":
+
             icono = "🔴"
 
-        elif relevancia_actual == "ALTA":
+        elif relevancia == "ALTA":
+
             icono = "🟠"
 
-        elif relevancia_actual == "MEDIA":
+        elif relevancia == "MEDIA":
+
             icono = "🟡"
 
         else:
+
             icono = "🟢"
+
 
         with st.container(
             border=True
@@ -930,14 +1246,14 @@ else:
             with a:
 
                 st.markdown(
-                    f"**Impacto Flexi**  \n"
+                    f"**Impacto para Flexi**\n\n"
                     f"{row['Impacto Flexi']}"
                 )
 
             with b:
 
                 st.markdown(
-                    f"**KPI afectado**  \n"
+                    f"**KPI relacionado**\n\n"
                     f"🎯 {row['KPI Afectado']}"
                 )
 
@@ -945,6 +1261,13 @@ else:
                 f"🎯 **Acción recomendada:** "
                 f"{row['Acción Sugerida']}"
             )
+
+            if str(row["Enlace"]).strip():
+
+                st.link_button(
+                    "📰 Leer noticia",
+                    str(row["Enlace"])
+                )
 
 
 # ============================================================
@@ -961,10 +1284,12 @@ st.subheader(
 riesgos = (
     df_vista[
         df_vista["Nivel Impacto"]
+        .astype(str)
+        .str.upper()
         == "ALTO"
     ]
     .sort_values(
-        "Score",
+        by="Score",
         ascending=False
     )
     .head(5)
@@ -974,7 +1299,8 @@ riesgos = (
 if riesgos.empty:
 
     st.success(
-        "No se detectaron riesgos de impacto alto."
+        "No se detectaron riesgos de impacto alto "
+        "con los filtros actuales."
     )
 
 else:
@@ -986,7 +1312,7 @@ else:
         ):
 
             st.markdown(
-                f"**🔴 {row['Título']}**"
+                f"### 🔴 {row['Título']}"
             )
 
             st.caption(
@@ -995,22 +1321,33 @@ else:
                 f"Relevancia: {row['Relevancia']}"
             )
 
-            st.markdown(
-                f"""
-                **Impacto:** {row['Impacto Flexi']}
+            c1, c2, c3 = st.columns(3)
 
-                **KPI:** 🎯 {row['KPI Afectado']}
+            with c1:
 
-                **Acción:** {row['Acción Sugerida']}
-                """
-            )
-
-            if row["Enlace"]:
-
-                st.link_button(
-                    "📰 Leer noticia original",
-                    row["Enlace"]
+                st.markdown(
+                    f"**Impacto**\n\n"
+                    f"{row['Impacto Flexi']}"
                 )
+
+            with c2:
+
+                st.markdown(
+                    f"**KPI**\n\n"
+                    f"🎯 {row['KPI Afectado']}"
+                )
+
+            with c3:
+
+                st.markdown(
+                    f"**Nivel**\n\n"
+                    f"🔴 {row['Nivel Impacto']}"
+                )
+
+            st.warning(
+                f"🎯 **Acción:** "
+                f"{row['Acción Sugerida']}"
+            )
 
 
 # ============================================================
@@ -1027,12 +1364,17 @@ st.subheader(
 oportunidades = (
     df_vista[
         df_vista["Relevancia"]
+        .astype(str)
+        .str.upper()
         .isin(
-            ["CRÍTICA", "ALTA"]
+            [
+                "CRÍTICA",
+                "ALTA"
+            ]
         )
     ]
     .sort_values(
-        "Score",
+        by="Score",
         ascending=False
     )
     .head(5)
@@ -1055,7 +1397,7 @@ else:
         ):
 
             st.markdown(
-                f"**🟢 {row['Título']}**"
+                f"### 🟢 {row['Título']}"
             )
 
             st.caption(
@@ -1065,24 +1407,20 @@ else:
 
             st.markdown(
                 f"""
-                **Señal:** {row['Impacto Flexi']}
+                **Señal:**  
+                {row['Impacto Flexi']}
 
-                **KPI:** 🎯 {row['KPI Afectado']}
+                **KPI relacionado:**  
+                🎯 {row['KPI Afectado']}
 
-                **Qué hacer:** {row['Acción Sugerida']}
+                **Acción recomendada:**  
+                {row['Acción Sugerida']}
                 """
             )
 
-            if row["Enlace"]:
-
-                st.link_button(
-                    "📰 Leer noticia",
-                    row["Enlace"]
-                )
-
 
 # ============================================================
-# 📰 MONITOR DE NOTICIAS
+# 📰 MONITOR COMPLETO DE NOTICIAS
 # ============================================================
 
 st.divider()
@@ -1093,52 +1431,62 @@ st.subheader(
 
 
 st.caption(
-    f"{len(df_vista)} noticias encontradas."
+    f"Mostrando {len(df_vista)} noticias."
 )
 
 
 for _, row in df_vista.iterrows():
 
-    if row["Relevancia"] == "CRÍTICA":
+    relevancia = (
+        str(row["Relevancia"])
+        .upper()
+    )
+
+    if relevancia == "CRÍTICA":
+
         icono = "🔴"
 
-    elif row["Relevancia"] == "ALTA":
+    elif relevancia == "ALTA":
+
         icono = "🟠"
 
-    elif row["Relevancia"] == "MEDIA":
+    elif relevancia == "MEDIA":
+
         icono = "🟡"
 
     else:
+
         icono = "🟢"
+
 
     with st.expander(
         f"{icono} {row['Título']}"
     ):
 
-        a, b, c, d = st.columns(4)
+        c1, c2, c3, c4 = st.columns(4)
 
-        with a:
+        with c1:
 
             st.metric(
                 "Relevancia",
-                row["Relevancia"]
+                relevancia
             )
 
-        with b:
+        with c2:
 
             st.metric(
                 "Score",
-                f"{int(row['Score'])}/100"
+                int(row["Score"])
             )
 
-        with c:
+        with c3:
 
             st.metric(
                 "Impacto",
                 row["Nivel Impacto"]
             )
 
-        with d:
+        with c4:
 
             st.metric(
                 "KPI",
@@ -1160,21 +1508,39 @@ for _, row in df_vista.iterrows():
             f"{row['Impacto Flexi']}"
         )
 
+        # Mostrar resumen si existe
+        resumen = str(
+            row.get(
+                "Resumen",
+                ""
+            )
+        ).strip()
+
+        if resumen:
+
+            st.markdown(
+                f"**Resumen:**  \n{resumen}"
+            )
+
         st.info(
             f"🎯 **Acción recomendada:** "
             f"{row['Acción Sugerida']}"
         )
 
-        if row["Enlace"]:
+        enlace = str(
+            row["Enlace"]
+        ).strip()
+
+        if enlace:
 
             st.link_button(
                 "📰 Leer noticia original",
-                row["Enlace"]
+                enlace
             )
 
 
 # ============================================================
-# 📊 EXPOSICIÓN DE KPIs
+# 📊 EXPOSICIÓN POR KPI
 # ============================================================
 
 st.divider()
@@ -1187,7 +1553,9 @@ st.subheader(
 def contar_kpi(texto):
 
     return int(
-        df_vista["KPI Afectado"]
+        df_vista[
+            "KPI Afectado"
+        ]
         .astype(str)
         .str.contains(
             texto,
@@ -1198,73 +1566,73 @@ def contar_kpi(texto):
     )
 
 
-kpi_conversion = contar_kpi(
+conversion = contar_kpi(
     "Conversión"
 )
 
-kpi_ticket = contar_kpi(
+ticket = contar_kpi(
     "Ticket"
 )
 
-kpi_quiebres = contar_kpi(
+quiebres = contar_kpi(
     "Quiebres"
 )
 
-kpi_estrategico = contar_kpi(
+estrategico = contar_kpi(
     "Estratégico"
 )
 
 
-a, b, c, d = st.columns(4)
+c1, c2, c3, c4 = st.columns(4)
 
 
-with a:
+with c1:
 
     st.metric(
         "🎯 Conversión",
-        kpi_conversion
+        conversion
     )
 
 
-with b:
+with c2:
 
     st.metric(
         "👟 Ticket",
-        kpi_ticket
+        ticket
     )
 
 
-with c:
+with c3:
 
     st.metric(
         "📦 Quiebres",
-        kpi_quiebres
+        quiebres
     )
 
 
-with d:
+with c4:
 
     st.metric(
         "♟ Estratégico",
-        kpi_estrategico
+        estrategico
     )
 
 
 # ============================================================
-# 🎯 METAS FLEXI
+# 🎯 REFERENCIA COMERCIAL
 # ============================================================
 
 st.divider()
 
 st.subheader(
-    "🎯 Metas comerciales de referencia"
+    "🎯 Referencia comercial"
 )
 
 
-a, b = st.columns(2)
+c1, c2 = st.columns(2)
 
 
-with a:
+with c1:
 
     st.metric(
         "Conversión objetivo",
@@ -1272,7 +1640,7 @@ with a:
     )
 
 
-with b:
+with c2:
 
     st.metric(
         "Ticket objetivo",
@@ -1281,7 +1649,7 @@ with b:
 
 
 st.caption(
-    "Las señales externas son un insumo de inteligencia. "
-    "Su impacto debe contrastarse con los resultados reales "
-    "de Zona Occidente."
+    "La inteligencia comercial funciona como sistema "
+    "de alerta temprana. Las señales externas deben "
+    "contrastarse con los resultados reales de las tiendas."
 )
