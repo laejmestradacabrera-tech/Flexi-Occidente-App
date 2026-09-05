@@ -1,6 +1,7 @@
 import feedparser
 import pandas as pd
 from datetime import datetime
+
 try:
     from googletrans import Translator
 except ImportError:
@@ -8,76 +9,72 @@ except ImportError:
     Translator = None
 
 def recolectar_noticias():
-    print("Iniciando fase 3: Agente de Inteligencia (INEGI, Malls, Calzado y Traducción)...")
-    
+    print("Iniciando fase avanzada: Agente de Inteligencia (Calzado, Malls, INEGI y Macroeconomía)...")
+
     # 1. Configuración del Traductor
     traductor = Translator() if Translator else None
 
-    # 2. Fuentes estratégicas enriquecidas
-    fuentes = {
+    # 2. Fuentes estratégicas diferenciadas por naturaleza
+    fuentes_calzado_retail = {
         "Mercado de Calzado (Global)": "https://wwd.com/footwear-news/feed/",
         "Piso de Ventas y Retail": "https://www.retaildive.com/feeds/news/",
-        "Logística y Suministro": "https://www.supplychaindive.com/feeds/news/",
-        "Macroeconomía México": "https://www.eleconomista.com.mx/rss/empresas/",
-        "Indicadores Oficiales (INEGI)": "https://www.inegi.org.mx/rss/noticias.xml" # Fuente oficial añadida
+        "Logística y Suministro": "https://www.supplychaindive.com/feeds/news/"
     }
-    
-    # 3. Filtro Inteligente: Palabras en minúsculas (MÁS ESTRICTO Y ENFOCADO)
-    palabras_clave = [
+
+    fuentes_macro_mexico = {
+        "Macroeconomía y Consumo México": "https://www.eleconomista.com.mx/rss/empresas/",
+        "Indicadores Oficiales (INEGI)": "https://www.inegi.org.mx/rss/noticias.xml"
+    }
+
+    # 3. Filtros específicos y separados
+    palabras_clave_retail = [
         "shoe", "footwear", "calzado", "sneaker", "zapatos", "botas", "zapatería", "piel", "suela", 
-        "inflation", "inflación", "supply chain", "interest rates", "tasas de interés", "consumidor",
-        "consumo", "inegi", "pib", "retail", "ventas",
-        "mall", "centro comercial", "plaza", "desarrollo", "apertura", "expansion" # Rastreando nuevos malls
+        "supply chain", "retail", "ventas", "mall", "centro comercial", "plaza", "desarrollo", "apertura", "expansion"
     ]
-    
-    # 4. LISTA NEGRA: Basura, cosméticos, supermercados, comida (Sacamos a Lululemon de aquí)
+
+    palabras_clave_macro = [
+        "inflación", "inflation", "pib", "consumidor", "consumo", "tasas", "interés", 
+        "economía", "empleo", "ventas", "comercio", "inegi", "precio", "banco de méxico", "banxico"
+    ]
+
     palabras_basura = [
         "makeup", "beauty", "cosmetics", "maquillaje", "belleza", "grocery", 
         "supermarket", "food", "comida", "ulta", "dollar general", 
         "target", "walmart", "beverage", "skincare", "kroger", "farmacia", "cvs", "walgreens"
     ]
-    
+
     datos = []
-    
-    for categoria, url in fuentes.items():
+
+    # --- PROCESAMIENTO FUENTES DE CALZADO Y RETAIL ---
+    for categoria, url in fuentes_calzado_retail.items():
         try:
-            print(f"📡 Leyendo fuente: {categoria}...")
+            print(f"📡 Leyendo fuente especializada: {categoria}...")
             feed = feedparser.parse(url)
             articulos_agregados = 0
             
             for entry in feed.entries:
                 titulo_original = entry.title
-                
-                # Extracción robusta de texto de búsqueda
                 texto_busqueda = titulo_original.lower()
                 if hasattr(entry, 'summary'):
                     texto_busqueda += " " + entry.summary.lower()
                 elif hasattr(entry, 'description'):
                     texto_busqueda += " " + entry.description.lower()
                 
-                # LA PRUEBA DE FUEGO: Tiene palabras clave Y NO tiene palabras basura
-                tiene_clave = any(palabra in texto_busqueda for palabra in palabras_clave)
+                tiene_clave = any(palabra in texto_busqueda for palabra in palabras_clave_retail)
                 tiene_basura = any(basura in texto_busqueda for basura in palabras_basura)
                 
-                # Si es del INEGI, la pasamos directo asumiendo que es relevante (macroeconomía)
-                if (tiene_clave and not tiene_basura) or "INEGI" in categoria:
-                    
+                if tiene_clave and not tiene_basura:
                     titulo_final = titulo_original
-                    
-                    # 5. Módulo de Traducción Automática (Solo para fuentes en inglés)
-                    if traductor and ("Global" in categoria or "Retail" in categoria or "Logística" in categoria):
+                    if traductor:
                         try:
-                            # Detectamos el idioma, si es 'en', traducimos a 'es'
                             deteccion = traductor.detect(titulo_original)
                             if deteccion.lang == 'en':
                                 traduccion = traductor.translate(titulo_original, dest='es')
                                 titulo_final = f"{traduccion.text} (En)"
-                        except Exception as e:
-                            print(f"  - Error menor traduciendo: {titulo_original[:20]}... : {e}")
-                            titulo_final = titulo_original # Si falla la traducción, dejamos el original
+                        except:
+                            titulo_final = titulo_original
                     
                     fecha_pub = entry.published if hasattr(entry, 'published') else "Reciente"
-                    
                     datos.append({
                         "Categoría": categoria,
                         "Título": titulo_final,
@@ -86,24 +83,52 @@ def recolectar_noticias():
                         "Última Actualización": datetime.now().strftime("%Y-%m-%d %H:%M")
                     })
                     articulos_agregados += 1
-                    
-                # Límite para no saturar la tabla (traemos las 6 más frescas por fuente)
-                if articulos_agregados >= 6:
-                    break
-                    
+                if articulos_agregados >= 5: break
         except Exception as e:
-            print(f"❌ Error crítico leyendo la fuente {categoria}: {e}")
+            print(f"❌ Error leyendo fuente {categoria}: {e}")
+
+    # --- PROCESAMIENTO FUENTES MACRO Y OFICIALES (INEGI / MÉXICO) ---
+    for categoria, url in fuentes_macro_mexico.items():
+        try:
+            print(f"📡 Leyendo fuente oficial/macro: {categoria}...")
+            feed = feedparser.parse(url)
+            articulos_agregados = 0
             
-    # 6. Guardado y actualización forzada
+            for entry in feed.entries:
+                titulo_original = entry.title
+                texto_busqueda = titulo_original.lower()
+                if hasattr(entry, 'summary'):
+                    texto_busqueda += " " + entry.summary.lower()
+                elif hasattr(entry, 'description'):
+                    texto_busqueda += " " + entry.description.lower()
+                
+                es_del_inegi = "INEGI" in categoria
+                tiene_macro = any(m in texto_busqueda for m in palabras_clave_macro)
+                
+                # Para fuentes macro e INEGI permitimos el pase directo si tocan temas económicos oficiales
+                if es_del_inegi or tiene_macro:
+                    fecha_pub = entry.published if hasattr(entry, 'published') else "Reciente"
+                    datos.append({
+                        "Categoría": categoria,
+                        "Título": titulo_original,
+                        "Fecha": fecha_pub,
+                        "Enlace": entry.link,
+                        "Última Actualización": datetime.now().strftime("%Y-%m-%d %H:%M")
+                    })
+                    articulos_agregados += 1
+                if articulos_agregados >= 4: break
+        except Exception as e:
+            print(f"❌ Error leyendo fuente macro {categoria}: {e}")
+            
+    # 6. Guardado final de resultados
     if not datos:
         df = pd.DataFrame(columns=["Categoría", "Título", "Fecha", "Enlace", "Última Actualización"])
-        print("⚠️ No se encontraron artículos relevantes bajo el nuevo filtro. Tabla limpia.")
+        print("⚠️ No se encontraron artículos bajo los filtros actuales.")
     else:
         df = pd.DataFrame(datos)
-        print(f"✅ ¡Extracción e Inteligencia exitosa! {len(df)} artículos guardados (Macro + Malls + Calzado).")
+        print(f"✅ ¡Extracción exitosa! {len(df)} artículos recolectados.")
 
-    nombre_archivo = "datos_inteligencia.csv"
-    df.to_csv(nombre_archivo, index=False)
+    df.to_csv("datos_inteligencia.csv", index=False)
 
 if __name__ == "__main__":
     recolectar_noticias()
