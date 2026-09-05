@@ -1,11 +1,12 @@
 # ============================================================
-# 🧠 INTELIGENCIA COMERCIAL
+# 🧠 PESTAÑA: INTELIGENCIA COMERCIAL
 # ============================================================
 
-import streamlit as st
-import pandas as pd
-from datetime import datetime
+import os
 import html
+import textwrap
+import pandas as pd
+import streamlit as st
 
 
 # ============================================================
@@ -19,11 +20,14 @@ META_TICKET = 1.29
 
 
 # ============================================================
-# CARGA DE INFORMACIÓN
+# CARGAR DATOS
 # ============================================================
 
 @st.cache_data(ttl=900)
-def cargar_inteligencia():
+def cargar_datos_inteligencia():
+
+    if not os.path.exists(ARCHIVO_INTELIGENCIA):
+        return pd.DataFrame()
 
     try:
 
@@ -33,38 +37,170 @@ def cargar_inteligencia():
         )
 
         if df.empty:
-            return pd.DataFrame()
+            return df
 
-        # Convertir score a número
-        if "Score" in df.columns:
-            df["Score"] = pd.to_numeric(
-                df["Score"],
-                errors="coerce"
-            ).fillna(0)
+        # Asegurar columnas aunque el archivo
+        # provenga de una versión anterior
+        columnas = {
+            "ID": "",
+            "Categoría": "Sin categoría",
+            "Tipo Fuente": "",
+            "Título": "Sin título",
+            "Título Original": "",
+            "Fecha": "",
+            "Relevancia": "MEDIA",
+            "Score": 0,
+            "Impacto Flexi": "Información de contexto",
+            "KPI Afectado": "Estratégico",
+            "Nivel Impacto": "BAJO",
+            "Acción Sugerida": "Dar seguimiento.",
+            "Enlace": "",
+            "Última Actualización": ""
+        }
 
-        # Convertir fecha
-        if "Fecha" in df.columns:
-            df["Fecha_dt"] = pd.to_datetime(
-                df["Fecha"],
-                errors="coerce"
+        for columna, valor in columnas.items():
+
+            if columna not in df.columns:
+                df[columna] = valor
+
+        # Score numérico
+        df["Score"] = pd.to_numeric(
+            df["Score"],
+            errors="coerce"
+        ).fillna(0)
+
+        # Texto limpio
+        columnas_texto = [
+            "Categoría",
+            "Título",
+            "Relevancia",
+            "Impacto Flexi",
+            "KPI Afectado",
+            "Nivel Impacto",
+            "Acción Sugerida",
+            "Enlace",
+            "Fecha",
+            "Última Actualización"
+        ]
+
+        for columna in columnas_texto:
+
+            df[columna] = (
+                df[columna]
+                .fillna("")
+                .astype(str)
             )
 
+        # Fecha para ordenar
+        df["_Fecha"] = pd.to_datetime(
+            df["Fecha"],
+            errors="coerce"
+        )
+
+        # Ordenar por score
+        df = df.sort_values(
+            by=["Score", "_Fecha"],
+            ascending=[False, False]
+        )
+
         return df
-
-    except FileNotFoundError:
-
-        return pd.DataFrame()
 
     except Exception as e:
 
         st.error(
-            f"Error cargando inteligencia comercial: {e}"
+            f"Error al leer {ARCHIVO_INTELIGENCIA}: {e}"
         )
 
         return pd.DataFrame()
 
 
-df_intel = cargar_inteligencia()
+# ============================================================
+# ESTILOS
+# ============================================================
+
+st.markdown(
+    textwrap.dedent(
+        """
+        <style>
+
+        .intel-header {
+            background: linear-gradient(
+                135deg,
+                #E30613,
+                #B0000B
+            );
+            color: white;
+            padding: 24px 28px;
+            border-radius: 14px;
+            margin-bottom: 20px;
+        }
+
+        .intel-title {
+            font-size: 30px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .intel-subtitle {
+            font-size: 15px;
+            margin-top: 6px;
+            opacity: 0.92;
+        }
+
+        .news-card {
+            border: 1px solid #E2E2E2;
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 12px;
+            background: white;
+        }
+
+        .news-title {
+            font-size: 18px;
+            font-weight: 750;
+            line-height: 1.3;
+            margin-bottom: 8px;
+        }
+
+        .news-meta {
+            font-size: 12px;
+            color: #666666;
+        }
+
+        .impact-box {
+            background: #F7F7F7;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 12px;
+        }
+
+        .action-box {
+            background: #FFF7F7;
+            border-left: 4px solid #E30613;
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 10px;
+        }
+
+        .section-title {
+            font-size: 23px;
+            font-weight: 800;
+            margin-top: 10px;
+            margin-bottom: 12px;
+        }
+
+        </style>
+        """
+    ),
+    unsafe_allow_html=True
+)
+
+
+# ============================================================
+# CARGAR
+# ============================================================
+
+df = cargar_datos_inteligencia()
 
 
 # ============================================================
@@ -72,100 +208,116 @@ df_intel = cargar_inteligencia()
 # ============================================================
 
 st.markdown(
-    """
-    <div style="
-        background: linear-gradient(
-            90deg,
-            #E30613 0%,
-            #B0000B 100%
-        );
-        padding: 22px 28px;
-        border-radius: 12px;
-        margin-bottom: 20px;
-        color: white;
-    ">
+    textwrap.dedent(
+        """
+        <div class="intel-header">
 
-        <div style="
-            font-size: 30px;
-            font-weight: 800;
-        ">
-            🧠 INTELIGENCIA COMERCIAL
+            <div class="intel-title">
+                🧠 INTELIGENCIA COMERCIAL
+            </div>
+
+            <div class="intel-subtitle">
+                Señales externas que pueden impactar el desempeño
+                comercial de Flexi y las decisiones de Zona Occidente.
+            </div>
+
         </div>
-
-        <div style="
-            font-size: 15px;
-            margin-top: 6px;
-            opacity: 0.95;
-        ">
-            Señales externas que pueden impactar el desempeño
-            comercial de Flexi.
-        </div>
-
-    </div>
-    """,
+        """
+    ),
     unsafe_allow_html=True
 )
 
 
 # ============================================================
-# SIN INFORMACIÓN
+# SI NO EXISTE INFORMACIÓN
 # ============================================================
 
-if df_intel.empty:
+if df.empty:
 
     st.warning(
-        "No existen noticias disponibles. "
-        "Ejecuta primero el agente de recolección."
+        "No hay información disponible en datos_inteligencia.csv."
+    )
+
+    st.info(
+        "Ejecuta primero el proceso de recolección de noticias "
+        "para generar la información."
     )
 
     st.stop()
 
 
 # ============================================================
-# FECHA DE ACTUALIZACIÓN
+# ACTUALIZACIÓN
 # ============================================================
 
-ultima_actualizacion = "Sin información"
-
-if "Última Actualización" in df_intel.columns:
-
-    valores_fecha = (
-        df_intel["Última Actualización"]
-        .dropna()
-        .astype(str)
-    )
-
-    if len(valores_fecha) > 0:
-        ultima_actualizacion = valores_fecha.iloc[-1]
-
-
-st.caption(
-    f"Última actualización: {ultima_actualizacion}"
+col_actualizacion, col_refrescar = st.columns(
+    [5, 1]
 )
 
+with col_actualizacion:
+
+    ultima_actualizacion = (
+        df["Última Actualización"]
+        .replace("", pd.NA)
+        .dropna()
+    )
+
+    if not ultima_actualizacion.empty:
+
+        st.caption(
+            f"🕐 Última actualización: "
+            f"{ultima_actualizacion.iloc[0]}"
+        )
+
+    else:
+
+        st.caption(
+            "🕐 Fecha de actualización no disponible"
+        )
+
+
+with col_refrescar:
+
+    if st.button(
+        "🔄 Actualizar",
+        use_container_width=True
+    ):
+
+        st.cache_data.clear()
+        st.rerun()
+
 
 # ============================================================
-# KPIs EJECUTIVOS
+# INDICADORES EJECUTIVOS
 # ============================================================
+
+total_noticias = len(df)
 
 criticas = len(
-    df_intel[
-        df_intel["Relevancia"] == "CRÍTICA"
+    df[
+        df["Relevancia"].str.upper()
+        == "CRÍTICA"
     ]
 )
 
 altas = len(
-    df_intel[
-        df_intel["Relevancia"] == "ALTA"
+    df[
+        df["Relevancia"].str.upper()
+        == "ALTA"
     ]
 )
 
-senales = len(df_intel)
-
-impacto_alto = len(
-    df_intel[
-        df_intel["Nivel Impacto"] == "ALTO"
+impactos_altos = len(
+    df[
+        df["Nivel Impacto"].str.upper()
+        == "ALTO"
     ]
+)
+
+
+st.markdown(
+    '<div class="section-title">📊 Panorama de hoy</div>',
+    unsafe_allow_html=True
 )
 
 
@@ -183,7 +335,7 @@ with c1:
 with c2:
 
     st.metric(
-        "🟠 Señales de alta relevancia",
+        "🟠 Alta relevancia",
         altas
     )
 
@@ -191,8 +343,8 @@ with c2:
 with c3:
 
     st.metric(
-        "📰 Noticias analizadas",
-        senales
+        "📰 Noticias relevantes",
+        total_noticias
     )
 
 
@@ -200,74 +352,65 @@ with c4:
 
     st.metric(
         "⚠️ Impactos altos",
-        impacto_alto
+        impactos_altos
     )
-
-
-st.markdown("---")
 
 
 # ============================================================
 # FILTROS
 # ============================================================
 
-st.markdown(
-    "### 🔎 Explorar inteligencia"
-)
+with st.expander(
+    "🔎 Filtros de inteligencia",
+    expanded=False
+):
+
+    f1, f2, f3 = st.columns(3)
+
+    with f1:
+
+        categorias = [
+            "Todas"
+        ] + sorted(
+            [
+                x for x in
+                df["Categoría"].unique()
+                if x
+            ]
+        )
+
+        filtro_categoria = st.selectbox(
+            "Categoría",
+            categorias
+        )
+
+    with f2:
+
+        filtro_relevancia = st.selectbox(
+            "Relevancia",
+            [
+                "Todas",
+                "CRÍTICA",
+                "ALTA",
+                "MEDIA",
+                "BAJA"
+            ]
+        )
+
+    with f3:
+
+        filtro_impacto = st.selectbox(
+            "Impacto",
+            [
+                "Todos",
+                "ALTO",
+                "MEDIO",
+                "BAJO"
+            ]
+        )
 
 
-f1, f2, f3 = st.columns(3)
-
-
-with f1:
-
-    categorias = [
-        "Todas"
-    ] + sorted(
-        df_intel["Categoría"]
-        .dropna()
-        .unique()
-        .tolist()
-    )
-
-    filtro_categoria = st.selectbox(
-        "Categoría",
-        categorias
-    )
-
-
-with f2:
-
-    relevancias = [
-        "Todas",
-        "CRÍTICA",
-        "ALTA",
-        "MEDIA",
-        "BAJA"
-    ]
-
-    filtro_relevancia = st.selectbox(
-        "Relevancia",
-        relevancias
-    )
-
-
-with f3:
-
-    impactos = [
-        "Todos",
-        "ALTO",
-        "MEDIO",
-        "BAJO"
-    ]
-
-    filtro_impacto = st.selectbox(
-        "Nivel de impacto",
-        impactos
-    )
-
-
-df_filtrado = df_intel.copy()
+df_filtrado = df.copy()
 
 
 if filtro_categoria != "Todas":
@@ -281,7 +424,7 @@ if filtro_categoria != "Todas":
 if filtro_relevancia != "Todas":
 
     df_filtrado = df_filtrado[
-        df_filtrado["Relevancia"]
+        df_filtrado["Relevancia"].str.upper()
         == filtro_relevancia
     ]
 
@@ -289,7 +432,7 @@ if filtro_relevancia != "Todas":
 if filtro_impacto != "Todos":
 
     df_filtrado = df_filtrado[
-        df_filtrado["Nivel Impacto"]
+        df_filtrado["Nivel Impacto"].str.upper()
         == filtro_impacto
     ]
 
@@ -301,15 +444,7 @@ if filtro_impacto != "Todos":
 st.markdown("---")
 
 st.markdown(
-    """
-    <div style="
-        font-size: 24px;
-        font-weight: 800;
-        margin-bottom: 12px;
-    ">
-        🎯 ¿QUÉ DEBO SABER HOY?
-    </div>
-    """,
+    '<div class="section-title">🎯 ¿QUÉ DEBO SABER HOY?</div>',
     unsafe_allow_html=True
 )
 
@@ -317,7 +452,7 @@ st.markdown(
 top_hoy = (
     df_filtrado
     .sort_values(
-        "Score",
+        by="Score",
         ascending=False
     )
     .head(3)
@@ -327,88 +462,90 @@ top_hoy = (
 if top_hoy.empty:
 
     st.info(
-        "No hay señales que coincidan con los filtros seleccionados."
+        "No existen señales para los filtros seleccionados."
     )
 
 else:
 
-    for _, row in top_hoy.iterrows():
+    for numero, (_, row) in enumerate(
+        top_hoy.iterrows(),
+        start=1
+    ):
 
-        relevancia = row.get(
-            "Relevancia",
-            "MEDIA"
-        )
+        relevancia = row["Relevancia"].upper()
 
         if relevancia == "CRÍTICA":
-            color = "#E30613"
+
             icono = "🔴"
 
         elif relevancia == "ALTA":
-            color = "#F28C28"
+
             icono = "🟠"
 
         elif relevancia == "MEDIA":
-            color = "#D6A700"
+
             icono = "🟡"
 
         else:
-            color = "#4A9B68"
+
             icono = "🟢"
 
 
         st.markdown(
             f"""
-            <div style="
-                border-left: 6px solid {color};
-                padding: 15px 18px;
-                margin-bottom: 12px;
-                background: #F8F8F8;
-                border-radius: 8px;
-            ">
+            <div class="news-card">
 
-                <div style="
-                    font-size: 12px;
-                    color: {color};
-                    font-weight: 800;
-                ">
+                <div class="news-meta">
                     {icono} {relevancia}
                     &nbsp; | &nbsp;
-                    SCORE {int(row["Score"])}
+                    SCORE {int(row["Score"])}/100
                 </div>
 
-                <div style="
-                    font-size: 18px;
-                    font-weight: 800;
-                    margin-top: 5px;
-                ">
-                    {html.escape(str(row["Título"]))}
+                <div class="news-title">
+                    {html.escape(row["Título"])}
                 </div>
 
-                <div style="
-                    margin-top: 8px;
-                    font-size: 14px;
-                ">
-                    <b>Impacto Flexi:</b>
-                    {html.escape(str(row["Impacto Flexi"]))}
-                    <br>
-
-                    <b>KPI afectado:</b>
-                    {html.escape(str(row["KPI Afectado"]))}
-                    <br>
-
-                    <b>Nivel:</b>
-                    {html.escape(str(row["Nivel Impacto"]))}
+                <div class="news-meta">
+                    {html.escape(row["Categoría"])}
+                    &nbsp; · &nbsp;
+                    {html.escape(row["Fecha"])}
                 </div>
 
-                <div style="
-                    margin-top: 10px;
-                    padding: 10px;
-                    background: white;
-                    border-radius: 6px;
-                ">
-                    <b>🎯 Acción recomendada:</b><br>
-                    {html.escape(str(row["Acción Sugerida"]))}
-                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+
+        col_a, col_b = st.columns(2)
+
+        with col_a:
+
+            st.markdown(
+                f"""
+                **Impacto Flexi**
+
+                {row["Impacto Flexi"]}
+                """
+            )
+
+        with col_b:
+
+            st.markdown(
+                f"""
+                **KPI relacionado**
+
+                🎯 {row["KPI Afectado"]}
+                """
+            )
+
+        st.markdown(
+            f"""
+            <div class="action-box">
+
+            <b>🎯 Acción recomendada</b><br>
+
+            {html.escape(row["Acción Sugerida"])}
 
             </div>
             """,
@@ -423,16 +560,18 @@ else:
 st.markdown("---")
 
 st.markdown(
-    "### 🔴 Riesgos para la operación"
+    '<div class="section-title">🔴 RIESGOS PRIORITARIOS</div>',
+    unsafe_allow_html=True
 )
 
 
 riesgos = (
     df_filtrado[
-        df_filtrado["Nivel Impacto"] == "ALTO"
+        df_filtrado["Nivel Impacto"].str.upper()
+        == "ALTO"
     ]
     .sort_values(
-        "Score",
+        by="Score",
         ascending=False
     )
     .head(5)
@@ -454,40 +593,69 @@ else:
             border=True
         ):
 
+            if row["Relevancia"].upper() == "CRÍTICA":
+
+                icono = "🔴"
+
+            elif row["Relevancia"].upper() == "ALTA":
+
+                icono = "🟠"
+
+            else:
+
+                icono = "🟡"
+
+
             st.markdown(
-                f"**{row['Título']}**"
+                f"### {icono} {row['Título']}"
             )
 
             st.caption(
                 f"{row['Categoría']} · "
-                f"{row['Fecha']}"
+                f"{row['Fecha']} · "
+                f"Score {int(row['Score'])}/100"
             )
 
-            col1, col2, col3 = st.columns(3)
 
-            with col1:
+            a, b, c = st.columns(3)
 
-                st.markdown(
-                    f"**Impacto**  \n"
-                    f"🔴 {row['Impacto Flexi']}"
-                )
 
-            with col2:
+            with a:
 
                 st.markdown(
-                    f"**KPI**  \n"
-                    f"🎯 {row['KPI Afectado']}"
+                    f"""
+                    **Impacto**
+
+                    🔴 {row["Impacto Flexi"]}
+                    """
                 )
 
-            with col3:
+
+            with b:
 
                 st.markdown(
-                    f"**Relevancia**  \n"
-                    f"{row['Relevancia']} ({int(row['Score'])})"
+                    f"""
+                    **KPI**
+
+                    🎯 {row["KPI Afectado"]}
+                    """
                 )
 
-            st.markdown(
-                f"**Acción:** {row['Acción Sugerida']}"
+
+            with c:
+
+                st.markdown(
+                    f"""
+                    **Nivel**
+
+                    🔴 {row["Nivel Impacto"]}
+                    """
+                )
+
+
+            st.info(
+                f"🎯 **Acción recomendada:** "
+                f"{row['Acción Sugerida']}"
             )
 
 
@@ -498,22 +666,20 @@ else:
 st.markdown("---")
 
 st.markdown(
-    "### 🟢 Oportunidades"
+    '<div class="section-title">🟢 OPORTUNIDADES</div>',
+    unsafe_allow_html=True
 )
 
 
-oportunidades = df_filtrado[
-    (
-        df_filtrado["Relevancia"]
-        .isin(["CRÍTICA", "ALTA"])
-    )
-]
-
-
+# Las noticias de alta relevancia pueden representar
+# oportunidades o señales estratégicas.
 oportunidades = (
-    oportunidades
+    df_filtrado[
+        df_filtrado["Relevancia"].str.upper()
+        .isin(["CRÍTICA", "ALTA"])
+    ]
     .sort_values(
-        "Score",
+        by="Score",
         ascending=False
     )
     .head(5)
@@ -536,16 +702,24 @@ else:
         ):
 
             st.markdown(
-                f"**{row['Título']}**"
+                f"### 🟢 {row['Título']}"
+            )
+
+            st.caption(
+                f"{row['Categoría']} · "
+                f"{row['Fecha']}"
             )
 
             st.markdown(
                 f"""
-                🟢 **Oportunidad:** {row['Impacto Flexi']}
-                
-                **KPI:** {row['KPI Afectado']}
-                
-                **Acción recomendada:** {row['Acción Sugerida']}
+                **Señal detectada:**  
+                {row["Impacto Flexi"]}
+
+                **KPI relacionado:**  
+                🎯 {row["KPI Afectado"]}
+
+                **Acción recomendada:**  
+                {row["Acción Sugerida"]}
                 """
             )
 
@@ -557,55 +731,27 @@ else:
 st.markdown("---")
 
 st.markdown(
-    "### 📰 Noticias relevantes"
+    '<div class="section-title">📰 MONITOR DE NOTICIAS</div>',
+    unsafe_allow_html=True
+)
+
+
+st.caption(
+    f"Mostrando {len(df_filtrado)} noticias."
 )
 
 
 if df_filtrado.empty:
 
     st.info(
-        "No hay noticias para los filtros seleccionados."
+        "No existen noticias para los filtros seleccionados."
     )
 
 else:
 
-    for indice, row in df_filtrado.iterrows():
+    for _, row in df_filtrado.iterrows():
 
-        titulo = str(
-            row.get(
-                "Título",
-                "Sin título"
-            )
-        )
-
-        relevancia = str(
-            row.get(
-                "Relevancia",
-                "MEDIA"
-            )
-        )
-
-        score = int(
-            row.get(
-                "Score",
-                0
-            )
-        )
-
-        categoria = str(
-            row.get(
-                "Categoría",
-                ""
-            )
-        )
-
-        fecha = str(
-            row.get(
-                "Fecha",
-                ""
-            )
-        )
-
+        relevancia = row["Relevancia"].upper()
 
         if relevancia == "CRÍTICA":
 
@@ -624,14 +770,17 @@ else:
             icono = "🟢"
 
 
+        titulo_corto = row["Título"]
+
+        # Cada noticia queda compacta y desplegable
         with st.expander(
-            f"{icono} {titulo}"
+            f"{icono} {titulo_corto}"
         ):
 
-            col1, col2, col3 = st.columns(3)
+            a, b, c, d = st.columns(4)
 
 
-            with col1:
+            with a:
 
                 st.markdown(
                     f"**Relevancia**  \n"
@@ -639,19 +788,27 @@ else:
                 )
 
 
-            with col2:
+            with b:
 
                 st.markdown(
                     f"**Score**  \n"
-                    f"{score}/100"
+                    f"{int(row['Score'])}/100"
                 )
 
 
-            with col3:
+            with c:
 
                 st.markdown(
-                    f"**Fecha**  \n"
-                    f"{fecha}"
+                    f"**Impacto**  \n"
+                    f"{row['Nivel Impacto']}"
+                )
+
+
+            with d:
+
+                st.markdown(
+                    f"**KPI**  \n"
+                    f"{row['KPI Afectado']}"
                 )
 
 
@@ -660,30 +817,57 @@ else:
 
             st.markdown(
                 f"""
-                **Categoría:** {categoria}
+                **Categoría:**  
+                {row["Categoría"]}
 
-                **Impacto Flexi:**  
-                {row.get("Impacto Flexi", "Sin análisis")}
+                **Fecha:**  
+                {row["Fecha"]}
 
-                **KPI afectado:**  
-                🎯 {row.get("KPI Afectado", "No identificado")}
-
-                **Nivel de impacto:**  
-                {row.get("Nivel Impacto", "No identificado")}
-
-                **🎯 Acción recomendada:**  
-                {row.get("Acción Sugerida", "Sin recomendación")}
+                **Impacto para Flexi:**  
+                {row["Impacto Flexi"]}
                 """
             )
 
 
-            enlace = row.get(
-                "Enlace",
-                ""
+            # Si en una futura versión el CSV contiene
+            # una columna Resumen, la mostramos.
+            if "Resumen" in row.index:
+
+                resumen = str(
+                    row["Resumen"]
+                ).strip()
+
+                if resumen:
+
+                    st.markdown(
+                        f"""
+                        **¿Qué dice la noticia?**
+
+                        {resumen}
+                        """
+                    )
+
+
+            st.markdown(
+                f"""
+                <div class="action-box">
+
+                <b>🎯 ¿Qué deberíamos hacer?</b><br>
+
+                {html.escape(row["Acción Sugerida"])}
+
+                </div>
+                """,
+                unsafe_allow_html=True
             )
 
 
-            if pd.notna(enlace) and enlace:
+            enlace = str(
+                row["Enlace"]
+            ).strip()
+
+
+            if enlace and enlace != "nan":
 
                 st.link_button(
                     "📰 Leer noticia original",
@@ -692,102 +876,103 @@ else:
 
 
 # ============================================================
-# 📊 RELACIÓN CON KPIs FLEXI
+# 📊 MAPA DE KPIs
 # ============================================================
 
 st.markdown("---")
 
 st.markdown(
-    "### 📊 Señales externas y KPIs Flexi"
+    '<div class="section-title">📊 ¿Qué KPI está más expuesto?</div>',
+    unsafe_allow_html=True
 )
 
 
-kpis = {}
+def contar_kpi(df_data, texto):
 
-
-for kpi in [
-    "Conversión",
-    "Ticket",
-    "Conversión / Ticket",
-    "Quiebres / Ticket",
-    "Estratégico"
-]:
-
-    kpis[kpi] = len(
-        df_filtrado[
-            df_filtrado["KPI Afectado"]
-            .astype(str)
-            .str.contains(
-                kpi,
-                case=False,
-                na=False
-            )
-        ]
+    return int(
+        df_data["KPI Afectado"]
+        .astype(str)
+        .str.contains(
+            texto,
+            case=False,
+            na=False
+        )
+        .sum()
     )
 
 
-col1, col2, col3, col4 = st.columns(4)
+kpi_conversion = contar_kpi(
+    df_filtrado,
+    "Conversión"
+)
+
+kpi_ticket = contar_kpi(
+    df_filtrado,
+    "Ticket"
+)
+
+kpi_quiebres = contar_kpi(
+    df_filtrado,
+    "Quiebres"
+)
+
+kpi_estrategico = contar_kpi(
+    df_filtrado,
+    "Estratégico"
+)
 
 
-with col1:
+a, b, c, d = st.columns(4)
+
+
+with a:
 
     st.metric(
         "🎯 Conversión",
-        kpis.get(
-            "Conversión",
-            0
-        )
+        kpi_conversion
     )
 
 
-with col2:
+with b:
 
     st.metric(
         "👟 Ticket",
-        kpis.get(
-            "Ticket",
-            0
-        )
+        kpi_ticket
     )
 
 
-with col3:
+with c:
 
     st.metric(
         "📦 Quiebres",
-        kpis.get(
-            "Quiebres / Ticket",
-            0
-        )
+        kpi_quiebres
     )
 
 
-with col4:
+with d:
 
     st.metric(
-        "⚡ Estratégico",
-        kpis.get(
-            "Estratégico",
-            0
-        )
+        "♟ Estratégico",
+        kpi_estrategico
     )
 
 
 # ============================================================
-# 🎯 REFERENCIA DE METAS
+# 🎯 METAS FLEXI
 # ============================================================
 
 st.markdown("---")
 
 st.markdown(
-    "### 🎯 Metas comerciales de referencia"
+    '<div class="section-title">🎯 Referencia comercial Flexi</div>',
+    unsafe_allow_html=True
 )
 
 
-c1, c2 = st.columns(2)
+a, b = st.columns(2)
 
 
-with c1:
+with a:
 
     st.metric(
         "Conversión objetivo",
@@ -795,7 +980,7 @@ with c1:
     )
 
 
-with c2:
+with b:
 
     st.metric(
         "Ticket objetivo",
@@ -804,6 +989,12 @@ with c2:
 
 
 st.caption(
-    "Las señales externas representan contexto comercial. "
-    "No sustituyen el análisis de resultados internos de las tiendas."
+    "Las noticias representan señales externas y contexto "
+    "comercial. El impacto debe contrastarse con los resultados "
+    "reales de las tiendas."
 )
+
+
+# ============================================================
+# FIN
+# ============================================================
