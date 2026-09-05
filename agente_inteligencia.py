@@ -5,16 +5,14 @@ from datetime import datetime
 try:
     from googletrans import Translator
 except ImportError:
-    print("⚠️ Advertencia: Librería googletrans no instalada. La traducción automática estará desactivada.")
     Translator = None
 
 def recolectar_noticias():
-    print("Iniciando fase avanzada: Agente de Inteligencia (Calzado, Malls, INEGI y Macroeconomía)...")
+    print("Iniciando fase definitiva: Agente de Inteligencia (Calzado, Malls, INEGI y Macroeconomía)...")
 
-    # 1. Configuración del Traductor
     traductor = Translator() if Translator else None
 
-    # 2. Fuentes estratégicas diferenciadas por naturaleza
+    # Fuentes categorizadas por naturaleza analítica
     fuentes_calzado_retail = {
         "Mercado de Calzado (Global)": "https://wwd.com/footwear-news/feed/",
         "Piso de Ventas y Retail": "https://www.retaildive.com/feeds/news/",
@@ -26,7 +24,6 @@ def recolectar_noticias():
         "Indicadores Oficiales (INEGI)": "https://www.inegi.org.mx/rss/noticias.xml"
     }
 
-    # 3. Filtros específicos y separados
     palabras_clave_retail = [
         "shoe", "footwear", "calzado", "sneaker", "zapatos", "botas", "zapatería", "piel", "suela", 
         "supply chain", "retail", "ventas", "mall", "centro comercial", "plaza", "desarrollo", "apertura", "expansion"
@@ -45,11 +42,11 @@ def recolectar_noticias():
 
     datos = []
 
-    # --- PROCESAMIENTO FUENTES DE CALZADO Y RETAIL ---
+    # --- 1. PROCESAMIENTO FUENTES DE CALZADO Y RETAIL ---
     for categoria, url in fuentes_calzado_retail.items():
         try:
             print(f"📡 Leyendo fuente especializada: {categoria}...")
-            feed = feedparser.parse(url)
+            feed = feedparser.parse(url, agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64)')
             articulos_agregados = 0
             
             for entry in feed.entries:
@@ -87,11 +84,11 @@ def recolectar_noticias():
         except Exception as e:
             print(f"❌ Error leyendo fuente {categoria}: {e}")
 
-    # --- PROCESAMIENTO FUENTES MACRO Y OFICIALES (INEGI / MÉXICO) ---
+    # --- 2. PROCESAMIENTO FUENTES MACRO Y OFICIALES (INEGI / MÉXICO) ---
     for categoria, url in fuentes_macro_mexico.items():
         try:
             print(f"📡 Leyendo fuente oficial/macro: {categoria}...")
-            feed = feedparser.parse(url)
+            feed = feedparser.parse(url, agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64)')
             articulos_agregados = 0
             
             for entry in feed.entries:
@@ -120,7 +117,7 @@ def recolectar_noticias():
         except Exception as e:
             print(f"❌ Error leyendo fuente macro {categoria}: {e}")
             
-    # 6. Guardado final de resultados
+    # Guardado final de resultados
     if not datos:
         df = pd.DataFrame(columns=["Categoría", "Título", "Fecha", "Enlace", "Última Actualización"])
         print("⚠️ No se encontraron artículos bajo los filtros actuales.")
