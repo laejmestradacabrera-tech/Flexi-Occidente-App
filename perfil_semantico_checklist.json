@@ -1,0 +1,2879 @@
+{
+  "version": 1,
+  "nombre": "Checklist HOJA n/8 estructura revisada T157",
+  "vinculo": "Etiquetas únicas, marcador, offsets y merges; sin hash ni valores comerciales como identidad",
+  "reglas": [
+    {
+      "regla": "H1_FECHA",
+      "hoja_referencia": "Caja",
+      "hoja_logica": "Hoja 1",
+      "identidad": "Fecha de visita",
+      "marcador": {
+        "celda": "H3",
+        "texto": "HOJA1/8",
+        "formula": null,
+        "ocurrencias": [
+          "H3"
+        ]
+      },
+      "anclas": [
+        {
+          "celda": "E8",
+          "texto": "Fecha",
+          "formula": null,
+          "ocurrencias": [
+            "E8"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B8",
+          "texto": "Nombre de Tienda",
+          "formula": null,
+          "ocurrencias": [
+            "B8"
+          ],
+          "merges": []
+        }
+      ],
+      "campos": [
+        {
+          "destino": "G8",
+          "identidad": "Fecha de visita",
+          "offset": [
+            2,
+            0
+          ],
+          "merges": [
+            "G8:H8"
+          ],
+          "merges_admitidos": [
+            "G8:H8"
+          ],
+          "pendiente": null
+        }
+      ],
+      "formulas_contexto": []
+    },
+    {
+      "regla": "H1_FOLIO",
+      "hoja_referencia": "Caja",
+      "hoja_logica": "Hoja 1",
+      "identidad": "Etiqueta de folio DIVEC; no folio separable",
+      "marcador": {
+        "celda": "H3",
+        "texto": "HOJA1/8",
+        "formula": null,
+        "ocurrencias": [
+          "H3"
+        ]
+      },
+      "anclas": [
+        {
+          "celda": "B18",
+          "texto": "DIVEC Folio:",
+          "formula": null,
+          "ocurrencias": [
+            "B18",
+            "B19"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B19",
+          "texto": "DIVEC Folio:",
+          "formula": null,
+          "ocurrencias": [
+            "B18",
+            "B19"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "C13",
+          "texto": "DIVEC",
+          "formula": null,
+          "ocurrencias": [
+            "C13"
+          ],
+          "merges": []
+        }
+      ],
+      "campos": [
+        {
+          "destino": "B18",
+          "identidad": "Etiqueta de folio DIVEC; no folio separable",
+          "offset": [
+            0,
+            0
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": "CONCEPTO_NO_ES_FOLIO_SEPARABLE"
+        },
+        {
+          "destino": "B19",
+          "identidad": "Etiqueta de folio DIVEC; no folio separable",
+          "offset": [
+            0,
+            1
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": "CONCEPTO_NO_ES_FOLIO_SEPARABLE"
+        }
+      ],
+      "formulas_contexto": []
+    },
+    {
+      "regla": "H1_RESET",
+      "hoja_referencia": "Caja",
+      "hoja_logica": "Hoja 1",
+      "identidad": "Capturas de caja chica, ventas y depósitos",
+      "marcador": {
+        "celda": "H3",
+        "texto": "HOJA1/8",
+        "formula": null,
+        "ocurrencias": [
+          "H3"
+        ]
+      },
+      "anclas": [
+        {
+          "celda": "B13",
+          "texto": "        A) Caja chica",
+          "formula": null,
+          "ocurrencias": [
+            "B13"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "C13",
+          "texto": "DIVEC",
+          "formula": null,
+          "ocurrencias": [
+            "C13"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B14",
+          "texto": "Efectivo",
+          "formula": null,
+          "ocurrencias": [
+            "E13",
+            "B14"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B15",
+          "texto": "Comprob. Físcales",
+          "formula": null,
+          "ocurrencias": [
+            "B15"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B16",
+          "texto": " Comprob. No fiscales",
+          "formula": null,
+          "ocurrencias": [
+            "B16"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B18",
+          "texto": "DIVEC Folio:",
+          "formula": null,
+          "ocurrencias": [
+            "B18",
+            "B19"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B19",
+          "texto": "DIVEC Folio:",
+          "formula": null,
+          "ocurrencias": [
+            "B18",
+            "B19"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B20",
+          "texto": "COMISIÓN",
+          "formula": null,
+          "ocurrencias": [
+            "B20"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B21",
+          "texto": "Tarj Divec 3335",
+          "formula": null,
+          "ocurrencias": [
+            "B21"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "E27",
+          "texto": "Vta hoy Efectivo total  ",
+          "formula": null,
+          "ocurrencias": [
+            "E27"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "E28",
+          "texto": "Vta hoy Tarjetas total   ",
+          "formula": null,
+          "ocurrencias": [
+            "E28"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "H27",
+          "texto": "Vta. Total.",
+          "formula": null,
+          "ocurrencias": [
+            "H27"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B31",
+          "texto": "Depósitos",
+          "formula": null,
+          "ocurrencias": [
+            "B31"
+          ],
+          "merges": []
+        }
+      ],
+      "campos": [
+        {
+          "destino": "C14",
+          "identidad": "Capturas de caja chica, ventas y depósitos",
+          "offset": [
+            1,
+            1
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "C15",
+          "identidad": "Capturas de caja chica, ventas y depósitos",
+          "offset": [
+            1,
+            2
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "C16",
+          "identidad": "Capturas de caja chica, ventas y depósitos",
+          "offset": [
+            1,
+            3
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "C18",
+          "identidad": "Capturas de caja chica, ventas y depósitos",
+          "offset": [
+            1,
+            5
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "C19",
+          "identidad": "Capturas de caja chica, ventas y depósitos",
+          "offset": [
+            1,
+            6
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "C20",
+          "identidad": "Capturas de caja chica, ventas y depósitos",
+          "offset": [
+            1,
+            7
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "C21",
+          "identidad": "Capturas de caja chica, ventas y depósitos",
+          "offset": [
+            1,
+            8
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "G27",
+          "identidad": "Capturas de caja chica, ventas y depósitos",
+          "offset": [
+            5,
+            14
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "H28",
+          "identidad": "Capturas de caja chica, ventas y depósitos",
+          "offset": [
+            6,
+            15
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "I27",
+          "identidad": "Capturas de caja chica, ventas y depósitos",
+          "offset": [
+            7,
+            14
+          ],
+          "merges": [
+            "I27:J27"
+          ],
+          "merges_admitidos": [
+            "I27:J27"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "I28",
+          "identidad": "Capturas de caja chica, ventas y depósitos",
+          "offset": [
+            7,
+            15
+          ],
+          "merges": [
+            "I28:J28"
+          ],
+          "merges_admitidos": [
+            "I28:J28"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "C31",
+          "identidad": "Capturas de caja chica, ventas y depósitos",
+          "offset": [
+            1,
+            18
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "D31",
+          "identidad": "Capturas de caja chica, ventas y depósitos",
+          "offset": [
+            2,
+            18
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "E31",
+          "identidad": "Capturas de caja chica, ventas y depósitos",
+          "offset": [
+            3,
+            18
+          ],
+          "merges": [
+            "E31:F31"
+          ],
+          "merges_admitidos": [
+            "E31:F31"
+          ],
+          "pendiente": null
+        }
+      ],
+      "formulas_contexto": []
+    },
+    {
+      "regla": "H1_CAJA",
+      "hoja_referencia": "Caja",
+      "hoja_logica": "Hoja 1",
+      "identidad": "Conteos de depósitos",
+      "marcador": {
+        "celda": "H3",
+        "texto": "HOJA1/8",
+        "formula": null,
+        "ocurrencias": [
+          "H3"
+        ]
+      },
+      "anclas": [
+        {
+          "celda": "H30",
+          "texto": "Conteos",
+          "formula": null,
+          "ocurrencias": [
+            "H30"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B31",
+          "texto": "Depósitos",
+          "formula": null,
+          "ocurrencias": [
+            "B31"
+          ],
+          "merges": []
+        }
+      ],
+      "campos": [
+        {
+          "destino": "H31",
+          "identidad": "Conteos de depósitos",
+          "offset": [
+            0,
+            1
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "I31",
+          "identidad": "Conteos de depósitos",
+          "offset": [
+            1,
+            1
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "J31",
+          "identidad": "Conteos de depósitos",
+          "offset": [
+            2,
+            1
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        }
+      ],
+      "formulas_contexto": []
+    },
+    {
+      "regla": "H2_ANALISIS",
+      "hoja_referencia": "Analisis",
+      "hoja_logica": "Hoja 2",
+      "identidad": "Respuestas de causas y acciones de cuota/comparativo",
+      "marcador": {
+        "celda": "H1",
+        "texto": "hoja 2/8",
+        "formula": null,
+        "ocurrencias": [
+          "H1"
+        ]
+      },
+      "anclas": [
+        {
+          "celda": "B4",
+          "texto": "1.- ¿Cúales son las 3 principales causas de que tú tienda tenga este porcentaje de venta contra tu cuota hasta este día?",
+          "formula": null,
+          "ocurrencias": [
+            "B4"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B19",
+          "texto": "2.- Menciona las 2 principales causas de que tu venta tenga esa diferencia (+/-) contra el año pasado",
+          "formula": null,
+          "ocurrencias": [
+            "B19"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B34",
+          "texto": "3.- En base a este análisis, ¿qué sugieres que se debe de hacer inmediatamente para mejorar estos resultados?",
+          "formula": null,
+          "ocurrencias": [
+            "B34"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B35",
+          "texto": "Cuota:",
+          "formula": null,
+          "ocurrencias": [
+            "B35"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B37",
+          "texto": "Comparativo:",
+          "formula": null,
+          "ocurrencias": [
+            "B37"
+          ],
+          "merges": []
+        }
+      ],
+      "campos": [
+        {
+          "destino": "B5",
+          "identidad": "Respuestas de causas y acciones de cuota/comparativo",
+          "offset": [
+            0,
+            1
+          ],
+          "merges": [
+            "B5:I5"
+          ],
+          "merges_admitidos": [
+            "B5:I5"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "B6",
+          "identidad": "Respuestas de causas y acciones de cuota/comparativo",
+          "offset": [
+            0,
+            2
+          ],
+          "merges": [
+            "B6:I6"
+          ],
+          "merges_admitidos": [
+            "B6:I6"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "B7",
+          "identidad": "Respuestas de causas y acciones de cuota/comparativo",
+          "offset": [
+            0,
+            3
+          ],
+          "merges": [
+            "B7:I7"
+          ],
+          "merges_admitidos": [
+            "B7:I7"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "B20",
+          "identidad": "Respuestas de causas y acciones de cuota/comparativo",
+          "offset": [
+            0,
+            16
+          ],
+          "merges": [
+            "B20:I20"
+          ],
+          "merges_admitidos": [
+            "B20:I20"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "B21",
+          "identidad": "Respuestas de causas y acciones de cuota/comparativo",
+          "offset": [
+            0,
+            17
+          ],
+          "merges": [
+            "B21:I21"
+          ],
+          "merges_admitidos": [
+            "B21:I21"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "C35",
+          "identidad": "Respuestas de causas y acciones de cuota/comparativo",
+          "offset": [
+            1,
+            31
+          ],
+          "merges": [
+            "C35:I35"
+          ],
+          "merges_admitidos": [
+            "C35:I35"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "C37",
+          "identidad": "Respuestas de causas y acciones de cuota/comparativo",
+          "offset": [
+            1,
+            33
+          ],
+          "merges": [
+            "C37:K37"
+          ],
+          "merges_admitidos": [
+            "C37:K37"
+          ],
+          "pendiente": null
+        }
+      ],
+      "formulas_contexto": []
+    },
+    {
+      "regla": "H2_CUOTA",
+      "hoja_referencia": "Analisis",
+      "hoja_logica": "Hoja 2",
+      "identidad": "Cuotas y ventas en pesos de calzado y accesorios",
+      "marcador": {
+        "celda": "H1",
+        "texto": "hoja 2/8",
+        "formula": null,
+        "ocurrencias": [
+          "H1"
+        ]
+      },
+      "anclas": [
+        {
+          "celda": "B9",
+          "texto": "Cuota $",
+          "formula": null,
+          "ocurrencias": [
+            "B9"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "C9",
+          "texto": "Vta Real $",
+          "formula": null,
+          "ocurrencias": [
+            "C9"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "E9",
+          "texto": "Cuota Acces $",
+          "formula": null,
+          "ocurrencias": [
+            "E9"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "F9",
+          "texto": "Vta Real Acces $",
+          "formula": null,
+          "ocurrencias": [
+            "F9"
+          ],
+          "merges": []
+        }
+      ],
+      "campos": [
+        {
+          "destino": "B10",
+          "identidad": "CALZADO META / Cuota $",
+          "offset": [
+            0,
+            1
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "C10",
+          "identidad": "VENTA/CALZADO / Vta Real $",
+          "offset": [
+            1,
+            1
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "E10",
+          "identidad": "ACC META / Cuota Acces $",
+          "offset": [
+            3,
+            1
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "F10",
+          "identidad": "VENTA/ACC / Vta Real Acces $",
+          "offset": [
+            4,
+            1
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        }
+      ],
+      "formulas_contexto": [
+        {
+          "celda": "D10",
+          "formula": {
+            "texto": "C10/B10",
+            "atributos": {}
+          }
+        },
+        {
+          "celda": "G10",
+          "formula": {
+            "texto": "F10/E10",
+            "atributos": {}
+          }
+        }
+      ]
+    },
+    {
+      "regla": "H2_COMPARATIVO",
+      "hoja_referencia": "Analisis",
+      "hoja_logica": "Hoja 2",
+      "identidad": "Comparativo y venta real en pesos por categoría",
+      "marcador": {
+        "celda": "H1",
+        "texto": "hoja 2/8",
+        "formula": null,
+        "ocurrencias": [
+          "H1"
+        ]
+      },
+      "anclas": [
+        {
+          "celda": "B24",
+          "texto": "Pares $",
+          "formula": null,
+          "ocurrencias": [
+            "B24"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "E24",
+          "texto": "Accesorios $",
+          "formula": null,
+          "ocurrencias": [
+            "E24"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B25",
+          "texto": "Compar 2025",
+          "formula": null,
+          "ocurrencias": [
+            "B25",
+            "E25"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "C25",
+          "texto": "vta real 2026",
+          "formula": null,
+          "ocurrencias": [
+            "C25",
+            "F25"
+          ],
+          "merges": []
+        }
+      ],
+      "campos": [
+        {
+          "destino": "B26",
+          "identidad": "Pares $ / Compar 2025",
+          "offset": [
+            0,
+            2
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "C26",
+          "identidad": "Pares $ / vta real 2026",
+          "offset": [
+            1,
+            2
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "E26",
+          "identidad": "Accesorios $ / Compar 2025 (encabezado enlazado B25)",
+          "offset": [
+            3,
+            2
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "F26",
+          "identidad": "Accesorios $ / vta real 2026 (encabezado enlazado C25)",
+          "offset": [
+            4,
+            2
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        }
+      ],
+      "formulas_contexto": [
+        {
+          "celda": "E25",
+          "formula": {
+            "texto": "B25",
+            "atributos": {}
+          }
+        },
+        {
+          "celda": "F25",
+          "formula": {
+            "texto": "C25",
+            "atributos": {}
+          }
+        },
+        {
+          "celda": "D26",
+          "formula": {
+            "texto": "C26/B26",
+            "atributos": {}
+          }
+        },
+        {
+          "celda": "G26",
+          "formula": {
+            "texto": "F26/E26",
+            "atributos": {}
+          }
+        }
+      ]
+    },
+    {
+      "regla": "H2_EXISTENCIA",
+      "hoja_referencia": "Analisis",
+      "hoja_logica": "Hoja 2",
+      "identidad": "Modelos con existencia de 1 a 3 pares",
+      "marcador": {
+        "celda": "H1",
+        "texto": "hoja 2/8",
+        "formula": null,
+        "ocurrencias": [
+          "H1"
+        ]
+      },
+      "anclas": [
+        {
+          "celda": "D45",
+          "texto": "ANALISIS DE EXISTENCIAS",
+          "formula": null,
+          "ocurrencias": [
+            "D45"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B73",
+          "texto": "8.- Si es tienda de Línea cuántos modelos tienen existencia de 1 a 3 pares",
+          "formula": null,
+          "ocurrencias": [
+            "B73"
+          ],
+          "merges": []
+        }
+      ],
+      "campos": [
+        {
+          "destino": "G73",
+          "identidad": "Modelos con existencia de 1 a 3 pares",
+          "offset": [
+            3,
+            28
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        }
+      ],
+      "formulas_contexto": []
+    },
+    {
+      "regla": "H3_PREVIA",
+      "hoja_referencia": "Aprov y bodega",
+      "hoja_logica": "Hoja 3",
+      "identidad": "Fecha última revisión",
+      "marcador": {
+        "celda": "I1",
+        "texto": "HOJA 3/8",
+        "formula": null,
+        "ocurrencias": [
+          "I1"
+        ]
+      },
+      "anclas": [
+        {
+          "celda": "F4",
+          "texto": "Fecha última revision:",
+          "formula": null,
+          "ocurrencias": [
+            "F4"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "D2",
+          "texto": "ANALISIS DE EXISTENCIAS",
+          "formula": null,
+          "ocurrencias": [
+            "D2"
+          ],
+          "merges": []
+        }
+      ],
+      "campos": [
+        {
+          "destino": "I4",
+          "identidad": "Fecha última revisión",
+          "offset": [
+            3,
+            0
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        }
+      ],
+      "formulas_contexto": []
+    },
+    {
+      "regla": "H3_DIAS",
+      "hoja_referencia": "Aprov y bodega",
+      "hoja_logica": "Hoja 3",
+      "identidad": "Días desde revisión: significado insuficiente en I5",
+      "marcador": {
+        "celda": "I1",
+        "texto": "HOJA 3/8",
+        "formula": null,
+        "ocurrencias": [
+          "I1"
+        ]
+      },
+      "anclas": [
+        {
+          "celda": "F4",
+          "texto": "Fecha última revision:",
+          "formula": null,
+          "ocurrencias": [
+            "F4"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B5",
+          "texto": "Llevan su revisón diaria de líneas (de acuerdo al tiempo de la última visita)",
+          "formula": null,
+          "ocurrencias": [
+            "B5"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "G7",
+          "texto": "días sin líneas",
+          "formula": null,
+          "ocurrencias": [
+            "G7"
+          ],
+          "merges": []
+        }
+      ],
+      "campos": [
+        {
+          "destino": "I5",
+          "identidad": "Días desde revisión: significado insuficiente en I5",
+          "offset": [
+            3,
+            1
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": "DIAS_NO_ETIQUETADOS_INEQUIVOCAMENTE"
+        }
+      ],
+      "formulas_contexto": []
+    },
+    {
+      "regla": "H3_TICKET",
+      "hoja_referencia": "Aprov y bodega",
+      "hoja_logica": "Hoja 3",
+      "identidad": "Ticket previo / actual",
+      "marcador": {
+        "celda": "I1",
+        "texto": "HOJA 3/8",
+        "formula": null,
+        "ocurrencias": [
+          "I1"
+        ]
+      },
+      "anclas": [
+        {
+          "celda": "B12",
+          "texto": "En 2025 esta tienda quedó con un ticket promedio de:",
+          "formula": null,
+          "ocurrencias": [
+            "B12"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "H12",
+          "texto": "Objetivo",
+          "formula": null,
+          "ocurrencias": [
+            "H12",
+            "G19"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B13",
+          "texto": "1 enero al ",
+          "formula": null,
+          "ocurrencias": [
+            "B13"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "D13",
+          "texto": "va al",
+          "formula": null,
+          "ocurrencias": [
+            "D13"
+          ],
+          "merges": []
+        }
+      ],
+      "campos": [
+        {
+          "destino": "G12",
+          "identidad": "Ticket previo (En 2025)",
+          "offset": [
+            5,
+            0
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "E13",
+          "identidad": "Ticket actual (1 enero al / va al)",
+          "offset": [
+            3,
+            1
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        }
+      ],
+      "formulas_contexto": [
+        {
+          "celda": "C13",
+          "formula": {
+            "texto": "Caja!G8",
+            "atributos": {}
+          }
+        }
+      ]
+    },
+    {
+      "regla": "H3_CONVERSION",
+      "hoja_referencia": "Aprov y bodega",
+      "hoja_logica": "Hoja 3",
+      "identidad": "Conversión previa / actual",
+      "marcador": {
+        "celda": "I1",
+        "texto": "HOJA 3/8",
+        "formula": null,
+        "ocurrencias": [
+          "I1"
+        ]
+      },
+      "anclas": [
+        {
+          "celda": "B19",
+          "texto": "En 2025 esta tienda quedó en conversión en",
+          "formula": null,
+          "ocurrencias": [
+            "B19"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "G19",
+          "texto": "Objetivo",
+          "formula": null,
+          "ocurrencias": [
+            "H12",
+            "G19"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B20",
+          "texto": "Al mes de",
+          "formula": null,
+          "ocurrencias": [
+            "B20"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "D20",
+          "texto": "vamos al ",
+          "formula": null,
+          "ocurrencias": [
+            "D20"
+          ],
+          "merges": []
+        }
+      ],
+      "campos": [
+        {
+          "destino": "F19",
+          "identidad": "Conversión previa (En 2025)",
+          "offset": [
+            4,
+            0
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "E20",
+          "identidad": "Conversión actual (Al mes de / vamos al)",
+          "offset": [
+            3,
+            1
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        }
+      ],
+      "formulas_contexto": [
+        {
+          "celda": "C20",
+          "formula": {
+            "texto": "Caja!G8",
+            "atributos": {}
+          }
+        }
+      ]
+    },
+    {
+      "regla": "H3_ANALISIS",
+      "hoja_referencia": "Aprov y bodega",
+      "hoja_logica": "Hoja 3",
+      "identidad": "Causas del resultado de Ticket",
+      "marcador": {
+        "celda": "I1",
+        "texto": "HOJA 3/8",
+        "formula": null,
+        "ocurrencias": [
+          "I1"
+        ]
+      },
+      "anclas": [
+        {
+          "celda": "B12",
+          "texto": "En 2025 esta tienda quedó con un ticket promedio de:",
+          "formula": null,
+          "ocurrencias": [
+            "B12"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B16",
+          "texto": "Causas tanto del porqué SI /NO se está logrando",
+          "formula": null,
+          "ocurrencias": [
+            "B16"
+          ],
+          "merges": []
+        }
+      ],
+      "campos": [
+        {
+          "destino": "B17",
+          "identidad": "Causas del resultado de Ticket",
+          "offset": [
+            0,
+            5
+          ],
+          "merges": [
+            "B17:M17"
+          ],
+          "merges_admitidos": [
+            "B17:M17"
+          ],
+          "pendiente": null
+        }
+      ],
+      "formulas_contexto": []
+    },
+    {
+      "regla": "H3_RESET",
+      "hoja_referencia": "Aprov y bodega",
+      "hoja_logica": "Hoja 3",
+      "identidad": "Captura de días sin líneas; L7 sin encabezado inequívoco",
+      "marcador": {
+        "celda": "I1",
+        "texto": "HOJA 3/8",
+        "formula": null,
+        "ocurrencias": [
+          "I1"
+        ]
+      },
+      "anclas": [
+        {
+          "celda": "B5",
+          "texto": "Llevan su revisón diaria de líneas (de acuerdo al tiempo de la última visita)",
+          "formula": null,
+          "ocurrencias": [
+            "B5"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B7",
+          "texto": "Ponderación",
+          "formula": null,
+          "ocurrencias": [
+            "B7"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "G7",
+          "texto": "días sin líneas",
+          "formula": null,
+          "ocurrencias": [
+            "G7"
+          ],
+          "merges": []
+        }
+      ],
+      "campos": [
+        {
+          "destino": "I7",
+          "identidad": "Captura de días sin líneas; L7 sin encabezado inequívoco",
+          "offset": [
+            7,
+            2
+          ],
+          "merges": [
+            "I7:I8"
+          ],
+          "merges_admitidos": [
+            "I7:I8"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "L7",
+          "identidad": "Captura de días sin líneas; L7 sin encabezado inequívoco",
+          "offset": [
+            10,
+            2
+          ],
+          "merges": [
+            "L7:L8"
+          ],
+          "merges_admitidos": [
+            "L7:L8"
+          ],
+          "pendiente": "DESTINO_SIN_ETIQUETA_INEQUIVOCA"
+        }
+      ],
+      "formulas_contexto": []
+    },
+    {
+      "regla": "H4_CATALOGO",
+      "hoja_referencia": "Aparador-imag",
+      "hoja_logica": "Hoja 4",
+      "identidad": "Cantidad de pies exhibidos",
+      "marcador": {
+        "celda": "N2",
+        "texto": "HOJA 4/8",
+        "formula": null,
+        "ocurrencias": [
+          "N2"
+        ]
+      },
+      "anclas": [
+        {
+          "celda": "E2",
+          "texto": "APARADORES",
+          "formula": null,
+          "ocurrencias": [
+            "E2"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "C5",
+          "texto": "¿Cuántos pies tiene exhibidos?",
+          "formula": null,
+          "ocurrencias": [
+            "C5"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "J5",
+          "texto": "calzado en general",
+          "formula": null,
+          "ocurrencias": [
+            "J5"
+          ],
+          "merges": []
+        }
+      ],
+      "campos": [
+        {
+          "destino": "F5",
+          "identidad": "Cantidad de pies exhibidos",
+          "offset": [
+            1,
+            3
+          ],
+          "merges": [
+            "F5:H5"
+          ],
+          "merges_admitidos": [
+            "F5:H5"
+          ],
+          "pendiente": null
+        }
+      ],
+      "formulas_contexto": []
+    },
+    {
+      "regla": "H4_CALIFICACION",
+      "hoja_referencia": "Aparador-imag",
+      "hoja_logica": "Hoja 4",
+      "identidad": "Fecha última revisión, conflicto con calificación",
+      "marcador": {
+        "celda": "N2",
+        "texto": "HOJA 4/8",
+        "formula": null,
+        "ocurrencias": [
+          "N2"
+        ]
+      },
+      "anclas": [
+        {
+          "celda": "E2",
+          "texto": "APARADORES",
+          "formula": null,
+          "ocurrencias": [
+            "E2"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "M4",
+          "texto": "Fecha ult revisón",
+          "formula": null,
+          "ocurrencias": [
+            "M4"
+          ],
+          "merges": []
+        }
+      ],
+      "campos": [
+        {
+          "destino": "M5",
+          "identidad": "Fecha última revisión, conflicto con calificación",
+          "offset": [
+            8,
+            3
+          ],
+          "merges": [
+            "M5:N5"
+          ],
+          "merges_admitidos": [],
+          "pendiente": "CONFLICTO_FECHA_CALIFICACION_Y_FORMULA"
+        }
+      ],
+      "formulas_contexto": []
+    },
+    {
+      "regla": "H4_RESET",
+      "hoja_referencia": "Aparador-imag",
+      "hoja_logica": "Hoja 4",
+      "identidad": "Capturas de proveedor, modelo y precios",
+      "marcador": {
+        "celda": "N2",
+        "texto": "HOJA 4/8",
+        "formula": null,
+        "ocurrencias": [
+          "N2"
+        ]
+      },
+      "anclas": [
+        {
+          "celda": "E2",
+          "texto": "APARADORES",
+          "formula": null,
+          "ocurrencias": [
+            "E2"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B7",
+          "texto": "Anotar las diferencias en el siguiente cuadro:",
+          "formula": null,
+          "ocurrencias": [
+            "B7"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B9",
+          "texto": "PROV",
+          "formula": null,
+          "ocurrencias": [
+            "B9",
+            "B18"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "C9",
+          "texto": "MODELO",
+          "formula": null,
+          "ocurrencias": [
+            "C9",
+            "C18"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "D9",
+          "texto": "LISTA",
+          "formula": null,
+          "ocurrencias": [
+            "D9",
+            "D18"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "F9",
+          "texto": "APARADOR",
+          "formula": null,
+          "ocurrencias": [
+            "F9",
+            "F18"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B18",
+          "texto": "PROV",
+          "formula": null,
+          "ocurrencias": [
+            "B9",
+            "B18"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "C18",
+          "texto": "MODELO",
+          "formula": null,
+          "ocurrencias": [
+            "C9",
+            "C18"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "D18",
+          "texto": "LISTA",
+          "formula": null,
+          "ocurrencias": [
+            "D9",
+            "D18"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "F18",
+          "texto": "APARADOR",
+          "formula": null,
+          "ocurrencias": [
+            "F9",
+            "F18"
+          ],
+          "merges": []
+        }
+      ],
+      "campos": [
+        {
+          "destino": "B10",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -3,
+            8
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "B11",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -3,
+            9
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "B12",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -3,
+            10
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "B13",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -3,
+            11
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "B14",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -3,
+            12
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "B15",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -3,
+            13
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "C10",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -2,
+            8
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "C11",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -2,
+            9
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "C12",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -2,
+            10
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "C13",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -2,
+            11
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "C14",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -2,
+            12
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "C15",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -2,
+            13
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "D10",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -1,
+            8
+          ],
+          "merges": [
+            "D10:E10"
+          ],
+          "merges_admitidos": [
+            "D10:E10"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "D11",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -1,
+            9
+          ],
+          "merges": [
+            "D11:E11"
+          ],
+          "merges_admitidos": [
+            "D11:E11"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "D12",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -1,
+            10
+          ],
+          "merges": [
+            "D12:E12"
+          ],
+          "merges_admitidos": [
+            "D12:E12"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "D13",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -1,
+            11
+          ],
+          "merges": [
+            "D13:E13"
+          ],
+          "merges_admitidos": [
+            "D13:E13"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "D14",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -1,
+            12
+          ],
+          "merges": [
+            "D14:E14"
+          ],
+          "merges_admitidos": [
+            "D14:E14"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "D15",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -1,
+            13
+          ],
+          "merges": [
+            "D15:E15"
+          ],
+          "merges_admitidos": [
+            "D15:E15"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "E10",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            0,
+            8
+          ],
+          "merges": [
+            "D10:E10"
+          ],
+          "merges_admitidos": [
+            "D10:E10"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "E11",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            0,
+            9
+          ],
+          "merges": [
+            "D11:E11"
+          ],
+          "merges_admitidos": [
+            "D11:E11"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "E12",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            0,
+            10
+          ],
+          "merges": [
+            "D12:E12"
+          ],
+          "merges_admitidos": [
+            "D12:E12"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "E13",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            0,
+            11
+          ],
+          "merges": [
+            "D13:E13"
+          ],
+          "merges_admitidos": [
+            "D13:E13"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "E14",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            0,
+            12
+          ],
+          "merges": [
+            "D14:E14"
+          ],
+          "merges_admitidos": [
+            "D14:E14"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "E15",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            0,
+            13
+          ],
+          "merges": [
+            "D15:E15"
+          ],
+          "merges_admitidos": [
+            "D15:E15"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "F10",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            1,
+            8
+          ],
+          "merges": [
+            "F10:G10"
+          ],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "F11",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            1,
+            9
+          ],
+          "merges": [
+            "F11:G11"
+          ],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "F12",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            1,
+            10
+          ],
+          "merges": [
+            "F12:G12"
+          ],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "F13",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            1,
+            11
+          ],
+          "merges": [
+            "F13:G13"
+          ],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "F14",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            1,
+            12
+          ],
+          "merges": [
+            "F14:G14"
+          ],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "F15",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            1,
+            13
+          ],
+          "merges": [
+            "F15:G15"
+          ],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "B19",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -3,
+            17
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "B20",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -3,
+            18
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "B21",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -3,
+            19
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "B22",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -3,
+            20
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "B23",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -3,
+            21
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "C19",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -2,
+            17
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "C20",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -2,
+            18
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "C21",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -2,
+            19
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "C22",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -2,
+            20
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "C23",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -2,
+            21
+          ],
+          "merges": [],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "D19",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -1,
+            17
+          ],
+          "merges": [
+            "D19:E19"
+          ],
+          "merges_admitidos": [
+            "D19:E19"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "D20",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -1,
+            18
+          ],
+          "merges": [
+            "D20:E20"
+          ],
+          "merges_admitidos": [
+            "D20:E20"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "D21",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -1,
+            19
+          ],
+          "merges": [
+            "D21:E21"
+          ],
+          "merges_admitidos": [
+            "D21:E21"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "D22",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -1,
+            20
+          ],
+          "merges": [
+            "D22:E22"
+          ],
+          "merges_admitidos": [
+            "D22:E22"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "D23",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            -1,
+            21
+          ],
+          "merges": [
+            "D23:E23"
+          ],
+          "merges_admitidos": [
+            "D23:E23"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "E19",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            0,
+            17
+          ],
+          "merges": [
+            "D19:E19"
+          ],
+          "merges_admitidos": [
+            "D19:E19"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "E20",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            0,
+            18
+          ],
+          "merges": [
+            "D20:E20"
+          ],
+          "merges_admitidos": [
+            "D20:E20"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "E21",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            0,
+            19
+          ],
+          "merges": [
+            "D21:E21"
+          ],
+          "merges_admitidos": [
+            "D21:E21"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "E22",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            0,
+            20
+          ],
+          "merges": [
+            "D22:E22"
+          ],
+          "merges_admitidos": [
+            "D22:E22"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "E23",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            0,
+            21
+          ],
+          "merges": [
+            "D23:E23"
+          ],
+          "merges_admitidos": [
+            "D23:E23"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "F19",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            1,
+            17
+          ],
+          "merges": [
+            "F19:G19"
+          ],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "F20",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            1,
+            18
+          ],
+          "merges": [
+            "F20:G20"
+          ],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "F21",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            1,
+            19
+          ],
+          "merges": [
+            "F21:G21"
+          ],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "F22",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            1,
+            20
+          ],
+          "merges": [
+            "F22:G22"
+          ],
+          "merges_admitidos": [],
+          "pendiente": null
+        },
+        {
+          "destino": "F23",
+          "identidad": "Capturas de proveedor, modelo y precios",
+          "offset": [
+            1,
+            21
+          ],
+          "merges": [
+            "F23:G23"
+          ],
+          "merges_admitidos": [],
+          "pendiente": null
+        }
+      ],
+      "formulas_contexto": []
+    },
+    {
+      "regla": "H5_CONTENIDO",
+      "hoja_referencia": "Admin,serv,capac",
+      "hoja_logica": "Hoja 5",
+      "identidad": "Bloques de comentarios diferenciados",
+      "marcador": {
+        "celda": "M2",
+        "texto": "HOJA 5/8",
+        "formula": null,
+        "ocurrencias": [
+          "M2"
+        ]
+      },
+      "anclas": [
+        {
+          "celda": "E3",
+          "texto": " ADMINISTRATIVO",
+          "formula": null,
+          "ocurrencias": [
+            "E3"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B44",
+          "texto": "CAPACITACION",
+          "formula": null,
+          "ocurrencias": [
+            "B44"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B49",
+          "texto": "Que comentan de los modelos de la competencia:",
+          "formula": null,
+          "ocurrencias": [
+            "B49"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B52",
+          "texto": "Comentarios de modelos por calidad, precio, construcción, color: ",
+          "formula": null,
+          "ocurrencias": [
+            "B52"
+          ],
+          "merges": []
+        }
+      ],
+      "campos": [
+        {
+          "destino": "B50",
+          "identidad": "Bloques de comentarios diferenciados",
+          "offset": [
+            -3,
+            47
+          ],
+          "merges": [
+            "B50:P51"
+          ],
+          "merges_admitidos": [
+            "B50:P51"
+          ],
+          "pendiente": null
+        },
+        {
+          "destino": "B53",
+          "identidad": "Bloques de comentarios diferenciados",
+          "offset": [
+            -3,
+            50
+          ],
+          "merges": [
+            "B53:P57"
+          ],
+          "merges_admitidos": [
+            "B53:P57"
+          ],
+          "pendiente": null
+        }
+      ],
+      "formulas_contexto": []
+    },
+    {
+      "regla": "H5_ENCARGADA",
+      "hoja_referencia": "Admin,serv,capac",
+      "hoja_logica": "Hoja 5",
+      "identidad": "Lectura competitiva / mercado, fuente Encargada prevista",
+      "marcador": {
+        "celda": "M2",
+        "texto": "HOJA 5/8",
+        "formula": null,
+        "ocurrencias": [
+          "M2"
+        ]
+      },
+      "anclas": [
+        {
+          "celda": "E3",
+          "texto": " ADMINISTRATIVO",
+          "formula": null,
+          "ocurrencias": [
+            "E3"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B44",
+          "texto": "CAPACITACION",
+          "formula": null,
+          "ocurrencias": [
+            "B44"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B49",
+          "texto": "Que comentan de los modelos de la competencia:",
+          "formula": null,
+          "ocurrencias": [
+            "B49"
+          ],
+          "merges": []
+        }
+      ],
+      "campos": [
+        {
+          "destino": "B50",
+          "identidad": "Lectura competitiva / mercado, fuente Encargada prevista",
+          "offset": [
+            -3,
+            47
+          ],
+          "merges": [
+            "B50:P51"
+          ],
+          "merges_admitidos": [
+            "B50:P51"
+          ],
+          "pendiente": null
+        }
+      ],
+      "formulas_contexto": []
+    },
+    {
+      "regla": "H5_CLIENTE",
+      "hoja_referencia": "Admin,serv,capac",
+      "hoja_logica": "Hoja 5",
+      "identidad": "Comentarios de producto, fuente Cliente prevista",
+      "marcador": {
+        "celda": "M2",
+        "texto": "HOJA 5/8",
+        "formula": null,
+        "ocurrencias": [
+          "M2"
+        ]
+      },
+      "anclas": [
+        {
+          "celda": "E3",
+          "texto": " ADMINISTRATIVO",
+          "formula": null,
+          "ocurrencias": [
+            "E3"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B44",
+          "texto": "CAPACITACION",
+          "formula": null,
+          "ocurrencias": [
+            "B44"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "B52",
+          "texto": "Comentarios de modelos por calidad, precio, construcción, color: ",
+          "formula": null,
+          "ocurrencias": [
+            "B52"
+          ],
+          "merges": []
+        }
+      ],
+      "campos": [
+        {
+          "destino": "B53",
+          "identidad": "Comentarios de producto, fuente Cliente prevista",
+          "offset": [
+            -3,
+            50
+          ],
+          "merges": [
+            "B53:P57"
+          ],
+          "merges_admitidos": [
+            "B53:P57"
+          ],
+          "pendiente": null
+        }
+      ],
+      "formulas_contexto": []
+    },
+    {
+      "regla": "ASISTENCIA",
+      "hoja_referencia": "Admin,serv,capac",
+      "hoja_logica": "Asistencia",
+      "identidad": "Puntualidad del encargado; no registros de asistencia",
+      "marcador": {
+        "celda": "M2",
+        "texto": "HOJA 5/8",
+        "formula": null,
+        "ocurrencias": [
+          "M2"
+        ]
+      },
+      "anclas": [
+        {
+          "celda": "D19",
+          "texto": "PERSONAL",
+          "formula": null,
+          "ocurrencias": [
+            "D19"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "D27",
+          "texto": "El encargado cumple con la política de puntualidad",
+          "formula": null,
+          "ocurrencias": [
+            "D27"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "J26",
+          "texto": "Retardos",
+          "formula": null,
+          "ocurrencias": [
+            "J26"
+          ],
+          "merges": []
+        },
+        {
+          "celda": "M26",
+          "texto": "Dias con retardo",
+          "formula": null,
+          "ocurrencias": [
+            "M26"
+          ],
+          "merges": []
+        }
+      ],
+      "campos": [],
+      "formulas_contexto": []
+    }
+  ],
+  "calificacion": {
+    "hoja": "Calif",
+    "evidencia": {
+      "B19": {
+        "valor": "RESULTADOS  DE  LA REVISIÓN:",
+        "tipo": "s",
+        "estilo": "4",
+        "formula": null,
+        "pregunta": false
+      },
+      "E21": {
+        "valor": "Calif Anterior:",
+        "tipo": "s",
+        "estilo": "292",
+        "formula": null,
+        "pregunta": false
+      },
+      "D22": {
+        "valor": "Actual",
+        "tipo": "s",
+        "estilo": "293",
+        "formula": null,
+        "pregunta": false
+      },
+      "E22": {
+        "valor": "46273",
+        "tipo": null,
+        "estilo": "294",
+        "formula": null,
+        "pregunta": false
+      },
+      "D29": {
+        "valor": "82",
+        "tipo": null,
+        "estilo": "296",
+        "formula": {
+          "texto": "SUM(D23:D28)",
+          "atributos": {}
+        },
+        "pregunta": false
+      },
+      "E29": {
+        "valor": "75",
+        "tipo": null,
+        "estilo": "295",
+        "formula": {
+          "texto": "SUM(E23:E28)",
+          "atributos": {}
+        },
+        "pregunta": false
+      }
+    },
+    "conclusion": "E22 bajo Calif Anterior; valor OOXML no interpretado. No certifica puntuación. M5 tiene fórmula y encabezado Fecha ult revisión. PRESERVAR."
+  },
+  "restricciones": [
+    "Sin escritura ni conexiones",
+    "Preservar preguntas, etiquetas, fórmulas, formatos, impresión y merges",
+    "Acción del catálogo es prevista, no permiso de ejecución",
+    "Encargada y Cliente requieren evidencia oficial/humana; no inferir autor de texto existente"
+  ],
+  "hojas": [
+    {
+      "logica": "Hoja 1",
+      "anclas": [
+        {
+          "celda": "H3",
+          "texto": "HOJA1/8",
+          "formula": null,
+          "ocurrencias": [
+            "H3"
+          ]
+        },
+        {
+          "celda": "B11",
+          "texto": "I. RESULTADOS",
+          "formula": null,
+          "ocurrencias": [
+            "B11"
+          ]
+        },
+        {
+          "celda": "B13",
+          "texto": "        A) Caja chica",
+          "formula": null,
+          "ocurrencias": [
+            "B13"
+          ]
+        }
+      ]
+    },
+    {
+      "logica": "Hoja 2",
+      "anclas": [
+        {
+          "celda": "H1",
+          "texto": "hoja 2/8",
+          "formula": null,
+          "ocurrencias": [
+            "H1"
+          ]
+        },
+        {
+          "celda": "D2",
+          "texto": "Análisis de Resultados de Ventas",
+          "formula": null,
+          "ocurrencias": [
+            "D2"
+          ]
+        },
+        {
+          "celda": "D45",
+          "texto": "ANALISIS DE EXISTENCIAS",
+          "formula": null,
+          "ocurrencias": [
+            "D45"
+          ]
+        }
+      ]
+    },
+    {
+      "logica": "Hoja 3",
+      "anclas": [
+        {
+          "celda": "I1",
+          "texto": "HOJA 3/8",
+          "formula": null,
+          "ocurrencias": [
+            "I1"
+          ]
+        },
+        {
+          "celda": "D2",
+          "texto": "ANALISIS DE EXISTENCIAS",
+          "formula": null,
+          "ocurrencias": [
+            "D2"
+          ]
+        },
+        {
+          "celda": "D23",
+          "texto": " BODEGA y 5 ESES",
+          "formula": null,
+          "ocurrencias": [
+            "D23"
+          ]
+        }
+      ]
+    },
+    {
+      "logica": "Hoja 4",
+      "anclas": [
+        {
+          "celda": "N2",
+          "texto": "HOJA 4/8",
+          "formula": null,
+          "ocurrencias": [
+            "N2"
+          ]
+        },
+        {
+          "celda": "E2",
+          "texto": "APARADORES",
+          "formula": null,
+          "ocurrencias": [
+            "E2"
+          ]
+        },
+        {
+          "celda": "C34",
+          "texto": "IMAGEN",
+          "formula": null,
+          "ocurrencias": [
+            "C34"
+          ]
+        }
+      ]
+    },
+    {
+      "logica": "Hoja 5",
+      "anclas": [
+        {
+          "celda": "M2",
+          "texto": "HOJA 5/8",
+          "formula": null,
+          "ocurrencias": [
+            "M2"
+          ]
+        },
+        {
+          "celda": "E3",
+          "texto": " ADMINISTRATIVO",
+          "formula": null,
+          "ocurrencias": [
+            "E3"
+          ]
+        },
+        {
+          "celda": "D19",
+          "texto": "PERSONAL",
+          "formula": null,
+          "ocurrencias": [
+            "D19"
+          ]
+        },
+        {
+          "celda": "B31",
+          "texto": "SERVICIO",
+          "formula": null,
+          "ocurrencias": [
+            "B31"
+          ]
+        },
+        {
+          "celda": "B44",
+          "texto": "CAPACITACION",
+          "formula": null,
+          "ocurrencias": [
+            "B44"
+          ]
+        }
+      ]
+    },
+    {
+      "logica": "Compromisos (Hoja 7/8)",
+      "anclas": [
+        {
+          "celda": "E1",
+          "texto": "Hoja 7/8",
+          "formula": null,
+          "ocurrencias": [
+            "E1"
+          ]
+        },
+        {
+          "celda": "A1",
+          "texto": "INFORME DE COMPROMISOS Y SUGERENCIAS",
+          "formula": null,
+          "ocurrencias": [
+            "A1"
+          ]
+        },
+        {
+          "celda": "A2",
+          "texto": "DETECTADOS EN LA REVISION",
+          "formula": null,
+          "ocurrencias": [
+            "A2"
+          ]
+        }
+      ]
+    },
+    {
+      "logica": "Calificación (Hoja 8/8)",
+      "anclas": [
+        {
+          "celda": "I2",
+          "texto": "HOJA 8/8",
+          "formula": null,
+          "ocurrencias": [
+            "I2"
+          ]
+        },
+        {
+          "celda": "B19",
+          "texto": "RESULTADOS  DE  LA REVISIÓN:",
+          "formula": null,
+          "ocurrencias": [
+            "B19"
+          ]
+        },
+        {
+          "celda": "B21",
+          "texto": "Sección",
+          "formula": null,
+          "ocurrencias": [
+            "B21"
+          ]
+        },
+        {
+          "celda": "C21",
+          "texto": "Puntuación",
+          "formula": null,
+          "ocurrencias": [
+            "C21"
+          ]
+        },
+        {
+          "celda": "D21",
+          "texto": "Calificación",
+          "formula": null,
+          "ocurrencias": [
+            "D21"
+          ]
+        },
+        {
+          "celda": "E21",
+          "texto": "Calif Anterior:",
+          "formula": null,
+          "ocurrencias": [
+            "E21"
+          ]
+        }
+      ]
+    }
+  ]
+}
