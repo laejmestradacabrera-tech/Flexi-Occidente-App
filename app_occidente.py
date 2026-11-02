@@ -1484,7 +1484,7 @@ elif st.session_state.vista_actual == 'Estrategico':
             
     st.write("---")
 
-    tab_monitor, tab_impacto, tab_comparativo, tab_visita, tab_nivelacion_intel, tab_mapa, tab_demanda, tab_macro, tab_inteligencia = st.tabs([
+    tab_monitor, tab_impacto, tab_comparativo, tab_visita, tab_nivelacion_intel, tab_mapa, tab_demanda, tab_macro, tab_inteligencia, tab_checklist = st.tabs([
         "📡 Monitor Estratégico", 
         "💰 Impacto Financiero",
         "📈 Comparativo Mensual",
@@ -1493,7 +1493,8 @@ elif st.session_state.vista_actual == 'Estrategico':
         "📍 Radar Geográfico",
         "📊 Diagnóstico Demanda", 
         "🌍 Correlación Macro",
-        "🧠 Centro Inteligencia"
+        "🧠 Centro Inteligencia",
+        "Agente Check List"
     ])
     
     with tab_monitor:
@@ -2317,51 +2318,46 @@ elif st.session_state.vista_actual == 'Estrategico':
         st.subheader("🌍 Correlación Macroeconómica (INPC)")
         st.info("Módulo en fase de diseño. Próximamente: Cruce de inflación vs ticket promedio.")
 
-    with tab_inteligencia:
-        modo_checklist = st.radio(
-            "Vista del Centro de Inteligencia",
-            ["Radar actual", "Agente Check List"],
-            key="centro_inteligencia_checklist", horizontal=True,
-        )
-        if modo_checklist == "Agente Check List":
-            from agente_checklist_etapa8 import mostrar_panel as mostrar_checklist
-            mostrar_checklist()
-        else:
-            st.subheader("Radar de Factores Externos y Logística")
-            st.write("Monitoreo de factores que impactan la afluencia y el suministro de calzado.")
-            
-            try:
-                # Aquí el monitor lee el archivo que creó tu agente en silencio
-                df_inteligencia = pd.read_csv("datos_inteligencia.csv")
-                
-                # Mostramos los datos con un diseño limpio
-                st.dataframe(
-                    df_inteligencia[['Categoría', 'Título', 'Fecha', 'Enlace']], 
-                    use_container_width=True,
-                    hide_index=True
-                )
-                st.caption(f"Última actualización de datos: {df_inteligencia['Última Actualización'].iloc[0]}")
-                
-                # Botón opcional para forzar la actualización manual desde la interfaz
-                if st.button("Actualizar datos del mercado ahora", type="secondary"):
-                    with st.spinner("Buscando nueva información..."):
-                        try:
-                            import agente_inteligencia
-                            agente_inteligencia.recolectar_noticias()
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"No se pudo ejecutar el agente: {e}")
+    with tab_checklist:
+        from agente_checklist_etapa8 import mostrar_panel as mostrar_checklist
+        mostrar_checklist()
 
-            except FileNotFoundError:
-                st.info("Buscando nueva información del mercado. El agente aún no ha generado el archivo de hoy.")
-                # Si no existe, damos la opción de generarlo la primera vez
-                if st.button("Generar archivo inicial de datos"):
-                    with st.spinner("Ejecutando agente por primera vez..."):
-                        try:
-                            import agente_inteligencia
-                            agente_inteligencia.recolectar_noticias()
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Error de conexión con el agente. Detalle: {e}")
+    with tab_inteligencia:
+        st.subheader("Radar de Factores Externos y Logística")
+        st.write("Monitoreo de factores que impactan la afluencia y el suministro de calzado.")
+
+        try:
+            # Aquí el monitor lee el archivo que creó tu agente en silencio
+            df_inteligencia = pd.read_csv("datos_inteligencia.csv")
+
+            # Mostramos los datos con un diseño limpio
+            st.dataframe(
+                df_inteligencia[['Categoría', 'Título', 'Fecha', 'Enlace']],
+                use_container_width=True,
+                hide_index=True
+            )
+            st.caption(f"Última actualización de datos: {df_inteligencia['Última Actualización'].iloc[0]}")
+
+            # Botón opcional para forzar la actualización manual desde la interfaz
+            if st.button("Actualizar datos del mercado ahora", type="secondary"):
+                with st.spinner("Buscando nueva información..."):
+                    try:
+                        import agente_inteligencia
+                        agente_inteligencia.recolectar_noticias()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"No se pudo ejecutar el agente: {e}")
+
+        except FileNotFoundError:
+            st.info("Buscando nueva información del mercado. El agente aún no ha generado el archivo de hoy.")
+            # Si no existe, damos la opción de generarlo la primera vez
+            if st.button("Generar archivo inicial de datos"):
+                with st.spinner("Ejecutando agente por primera vez..."):
+                    try:
+                        import agente_inteligencia
+                        agente_inteligencia.recolectar_noticias()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error de conexión con el agente. Detalle: {e}")
 
 st.markdown("""<div class="footer">KPI's desarrollados por el LAE. José Martín Estrada Cabrera | © 2026 Todos los Derechos Reservados</div>""", unsafe_allow_html=True)
